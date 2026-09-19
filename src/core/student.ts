@@ -23,6 +23,13 @@ export interface StudentTraits {
   mealMinutes: number;
   /** How many hours before a deadline the student starts an assignment, on average. */
   assignmentLeadHours: number;
+  /**
+   * How that lead changes by kind of work. Below 1 means they leave it later,
+   * which is what people do with the work they dread: the big assignments get
+   * started closest to the wire even though they need the most time. That
+   * collision is the thing worth catching.
+   */
+  leadFactor: Partial<Record<TaskKind, number>>;
   /** Share of exam studying that happens in the last 24 hours. */
   examCramShare: number;
 }
@@ -34,6 +41,7 @@ export const TRAITS: StudentTraits = {
   settleMinutes: 8,
   mealMinutes: 42,
   assignmentLeadHours: 9,
+  leadFactor: { big_assignment: 0.45, assignment: 1.4, lab: 0.8 },
   examCramShare: 0.55,
 };
 
@@ -49,6 +57,7 @@ export const TRAITS_B: StudentTraits = {
   settleMinutes: 6,
   mealMinutes: 38,
   assignmentLeadHours: 4,
+  leadFactor: { big_assignment: 0.55, assignment: 1.6, lab: 1.1 },
   examCramShare: 0.8,
 };
 export const studentB = (weeks = 8) => syntheticStudent(weeks, TRAITS_B, 777, "Jordan (synthetic, held out)");
@@ -117,7 +126,9 @@ export function syntheticStudent(weeks = 8, traits: StudentTraits = TRAITS, seed
     const day = new Date(Date.UTC(START.y, START.m - 1, START.d + (w - 1) * 7 + dayOffset));
     const startAt = wall(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate(), startMin);
     const completedAt = new Date(startAt.getTime() + actual * 60000);
-    const lead = opts.lead === undefined ? undefined : Math.max(actual / 60 + 0.5, opts.lead);
+    // No floor here on purpose. If they start later than the work needs, they
+    // finish after the deadline, and that is exactly the failure to predict.
+    const lead = opts.lead === undefined ? undefined : Math.max(0.25, opts.lead);
     sessions.push({
       taskId: `stu-${++n}`,
       title,
@@ -137,7 +148,8 @@ export function syntheticStudent(weeks = 8, traits: StudentTraits = TRAITS, seed
   for (let w = 1; w <= weeks; w++) {
     for (const s of WEEK) {
       if (s.onlyWeeks && !s.onlyWeeks(w)) continue;
-      add(w, s.day, s.start, s.title(w), s.course, s.estimate, s.due ? { lead: traits.assignmentLeadHours * jitter(0.45) } : {});
+      const kind = taskKind(s.title(w), s.estimate);
+      add(w, s.day, s.start, s.title(w), s.course, s.estimate, s.due ? { lead: traits.assignmentLeadHours * (traits.leadFactor[kind] ?? 1) * jitter(0.35) } : {});
     }
     if (EXAM_WEEKS.includes(w)) {
       // Cramming: most of the studying lands in the last day before the exam.

@@ -29,9 +29,11 @@ export interface Observation {
   label: string;
   /** What the multiplier is learned per: a kind of work, a walking leg. */
   category: string;
-  /** The minutes the app would allow before any learning. */
+  /** What the app would assume before any learning. */
   estimate: number;
   actual: number;
+  /** Anything the scoring needs that the model is not shown. */
+  meta?: Record<string, number>;
 }
 
 export interface AspectSpec {
@@ -44,6 +46,8 @@ export interface AspectSpec {
   brief: string;
   categories: string[];
   categoryLabel: Record<string, string>;
+  /** Overrides the default safety rail, for aspects whose true values sit far from 1. */
+  clamp?: { min: number; max: number };
   /**
    * Some aspects are one trait plus exceptions rather than a number per
    * category. Walking is: a person has a pace, and it applies to every walk
@@ -220,7 +224,7 @@ function rulesUpdate(seen: SeenItem[], memory: WeekMemory, aspect: AspectSpec, e
   return { changes, globalChange };
 }
 
-const clamp = (n: number) => round2(Math.min(CLAMP_MAX, Math.max(CLAMP_MIN, n)));
+const clampTo = (n: number, a: AspectSpec) => round2(Math.min(a.clamp?.max ?? CLAMP_MAX, Math.max(a.clamp?.min ?? CLAMP_MIN, n)));
 
 /**
  * True when a proposed number is closer to the reciprocal of the evidence than
@@ -321,7 +325,7 @@ export async function learnFromWeek(
 
   const overall = ratioOf(sessions);
   if (g && Number.isFinite(Number(r.data.pace)) && Number(r.data.pace) > 0) {
-    const to = clamp(Number(r.data.pace));
+    const to = clampTo(Number(r.data.pace), aspect);
     const from = memory.global ?? 1;
     if (isInverted(to, overall)) refused.push({ category: g.noun, reason: `answered ${to} when the week ran ${overall}x, which is the ratio upside down` });
     else if (to !== from) globalChange = { from, to, reason: "overall pace" };
@@ -338,7 +342,7 @@ export async function learnFromWeek(
       refused.push({ category, reason: `has only disagreed with the overall pace in ${evidence[category] ?? 0} week(s), needs ${g.exceptionMinWeeks}` });
       continue;
     }
-    const to = clamp(raw);
+    const to = clampTo(raw, aspect);
     const from = multiplierFor(memory, category);
     const own = ratioOf(sessions.filter((x) => x.category === category));
     if (isInverted(to, own)) { refused.push({ category, reason: `answered ${to} when it ran ${own}x, which is the ratio upside down` }); continue; }

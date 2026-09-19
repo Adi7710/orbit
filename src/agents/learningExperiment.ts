@@ -22,7 +22,10 @@ const CUMULATIVE: Arm[] = ["rules", "nemotron"];
 /** How much headroom the buffered baseline adds over the observed median. */
 export const BUFFER = 1.15;
 
-export type Aspect = "assignments" | "walking";
+export type Aspect = "assignments" | "walking" | "procrastination";
+
+/** What the app assumes today: that work gets started the evening before it is due. */
+export const DEFAULT_LEAD_HOURS = 12;
 
 const ASSIGNMENT_KINDS: TaskKind[] = ["big_assignment", "assignment", "lab"];
 
@@ -49,11 +52,29 @@ export const ASPECTS: Record<Aspect, AspectSpec & { label: string; unit: string 
     categoryLabel: Object.fromEntries(LEGS.map((l) => [legId(l.from, l.to), `${l.from} to ${l.to}`])),
     global: { noun: "walking pace", warmupWeeks: 2, exceptionMinWeeks: 2, exceptionThreshold: 0.1 },
   },
+  procrastination: {
+    id: "procrastination",
+    label: "Procrastination: how long before a deadline this student actually starts",
+    unit: "h",
+    categoryNoun: "kind of work",
+    baselineNoun: `the ${DEFAULT_LEAD_HOURS} hours before a deadline that the app currently assumes work gets started`,
+    brief:
+      "You decide how many hours before a deadline Orbit should expect this student to actually begin each kind of work. This is not about how long the work takes, it is about when they start it. Predict it too early and Orbit schedules into gaps they will ignore; predict it too late and it never warns them in time to finish.",
+    categories: ASSIGNMENT_KINDS,
+    categoryLabel: Object.fromEntries(ASSIGNMENT_KINDS.map((k) => [k, KIND_LABEL[k]])),
+    // A student who starts a big assignment two hours before it is due sits at
+    // 0.15 of the app's assumption, far below the usual rail.
+    clamp: { min: 0.05, max: 4 },
+  },
 };
 
 /** The answer key the learner never sees: what the multiplier for a category truly is. */
 function trueMultiplier(aspect: Aspect, category: string, student: SyntheticStudent): number {
   if (aspect === "assignments") return student.traits.factor[category as TaskKind];
+  if (aspect === "procrastination") {
+    const lead = student.traits.assignmentLeadHours * (student.traits.leadFactor[category as TaskKind] ?? 1);
+    return Math.round((lead / DEFAULT_LEAD_HOURS) * 1000) / 1000;
+  }
   const leg = LEGS.find((l) => legId(l.from, l.to) === category);
   return leg ? Math.round(student.traits.walkSpeed * leg.difficulty * 1000) / 1000 : 1;
 }
@@ -67,8 +88,19 @@ function observationsByWeek(aspect: Aspect, student: SyntheticStudent): Map<numb
       const kind = kindOf(r);
       if (ASSIGNMENT_KINDS.includes(kind)) push(r.week ?? 0, { label: r.title, category: kind, estimate: r.plannedMinutes, actual: r.actualMinutes });
     }
-  } else {
+  } else if (aspect === "walking") {
     for (const w of student.walks) push(w.week, { label: `${w.from} to ${w.to}`, category: w.leg, estimate: w.plannedMinutes, actual: w.actualMinutes });
+  } else {
+    for (const r of student.sessions) {
+      const kind = kindOf(r);
+      if (!ASSIGNMENT_KINDS.includes(kind) || r.startedHoursBeforeDue === undefined) continue;
+      push(r.week ?? 0, {
+        label: r.title, category: kind,
+        estimate: DEFAULT_LEAD_HOURS, actual: r.startedHoursBeforeDue,
+        // Scoring needs the work itself; the model is only ever shown the lead.
+        meta: { workEstimate: r.plannedMinutes, workActual: r.actualMinutes },
+      });
+    }
   }
   return out;
 }
@@ -89,6 +121,20 @@ export interface ArmResult {
   globalLearned?: number;
   /** Error on a category the learner had never seen before, in its first two weeks: the transfer test. */
   transfer?: Score & { category: string };
+  /**
+   * For procrastination the number is only a means: the point is whether Orbit
+   * can see a deadline coming that this student will not make. A deadline is
+   * really blown when they start later than the work needs; it is predicted
+   * when the expected start leaves less time than the work is expected to take.
+   */
+  risk?: { deadlines: number; blown: number; caught: number; missed: number; falseAlarms: number };
+  /**
+   * The same question asked with the student's own estimate of the work instead
+   * of what aspect 1 learned it really takes. The gap between the two is the
+   * point: knowing when someone starts is useless unless you also know how long
+   * the work will actually hold them.
+   */
+  riskNaive?: { deadlines: number; blown: number; caught: number; missed: number; falseAlarms: number };
   story?: { title: string; estimate: number; plan: number; actual: number };
 }
 
@@ -141,6 +187,14 @@ export async function runExperiment(aspect: Aspect, arms: Arm[], opts: { weeks?:
     const pooled: { plan: number; actual: number }[] = [];
     let story: ArmResult["story"];
     const transferPairs: { category: string; week: number; plan: number; actual: number }[] = [];
+    const risk = { deadlines: 0, blown: 0, caught: 0, missed: 0, falseAlarms: 0 };
+    const riskNaive = { deadlines: 0, blown: 0, caught: 0, missed: 0, falseAlarms: 0 };
+    /** What aspect 1 would have learned about work length from the weeks before this one. */
+    const workFactor = (w: number, category: string) => {
+      const past = student.sessions.filter((r) => (r.week ?? 0) < w && kindOf(r) === category);
+      if (past.length < 2) return 1;
+      return past.reduce((a, r) => a + r.actualMinutes / r.plannedMinutes, 0) / past.length;
+    };
 
     for (let w = 1; w <= student.weeks; w++) {
       const week = byWeek.get(w) ?? [];
@@ -156,10 +210,26 @@ export async function runExperiment(aspect: Aspect, arms: Arm[], opts: { weeks?:
         : o.estimate;
       const pairs = week.map((o) => ({ plan: planOf(o), actual: o.actual }));
       for (const o of week) transferPairs.push({ category: o.category, week: w, plan: planOf(o), actual: o.actual });
+      if (aspect === "procrastination" && w >= 2) {
+        for (const o of week) {
+          const m = o.meta;
+          if (!m) continue;
+          const reallyBlown = o.actual * 60 < m.workActual;
+          const leadMinutes = planOf(o) * 60;
+          const tally = (t: typeof risk, needs: number) => {
+            t.deadlines++;
+            const predicted = leadMinutes < needs;
+            if (reallyBlown) { t.blown++; if (predicted) t.caught++; else t.missed++; }
+            else if (predicted) t.falseAlarms++;
+          };
+          tally(risk, m.workEstimate * workFactor(w, o.category));
+          tally(riskNaive, m.workEstimate);
+        }
+      }
       perWeek.push({ week: w, ...scorePlans(pairs) });
       if (w >= 2) pooled.push(...pairs);
       if (w === 2 && !story && week.length) {
-        const o = week.find((x) => x.category === (aspect === "assignments" ? "big_assignment" : legId(LEGS[2].from, LEGS[2].to))) ?? week[0];
+        const o = week.find((x) => x.category === (aspect === "walking" ? legId(LEGS[2].from, LEGS[2].to) : "big_assignment")) ?? week[0];
         story = { title: o.label, estimate: o.estimate, plan: planOf(o), actual: o.actual };
       }
       // The week is scored with the plan the learner was working from, and only
@@ -188,6 +258,7 @@ export async function runExperiment(aspect: Aspect, arms: Arm[], opts: { weeks?:
       shortShare: scored.length ? Math.round((scored.filter((p) => p.plan < p.actual).length / scored.length) * 100) / 100 : 0,
       story,
     };
+    if (aspect === "procrastination") { res.risk = risk; res.riskNaive = riskNaive; }
     if (late) {
       const [cat, from] = late;
       const pairs = transferPairs.filter((p) => p.category === cat && p.week < from + 2);

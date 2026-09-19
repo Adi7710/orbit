@@ -278,3 +278,23 @@ Affects: docs/learning/02-walking.md. Nothing is wired into the live TravelGraph
 Decision: Added `isInverted` to the weekly learner. In week 6 of a live run Nemotron answered a pace of 0.84 for a week that ran 1.18x while its own memo said "walks 16% slower"; 0.84 is 1/1.18, so it had flipped the ratio, and every displayed walking time would have collapsed at once. Code now refuses such a value for both the pace and any exception.
 Why: The guard took mean error from 1.7 to 1.2 and removed the failure from the re-run. The general lesson for the remaining aspects: the model is reliable about direction and reason and unreliable about arithmetic, so every number it returns is checked against the evidence it was handed.
 Affects: weeklyLearner.ts, weeklyLearner.test.ts.
+
+## 2026-09-20 00:20 ET · Jatin · Aspect 3 (procrastination): predict when work gets started, and score it on blown deadlines
+Decision: Added the procrastination aspect. The learner predicts, per kind of work, how many hours before a deadline the student actually begins, against the app's current assumption of 12 hours. It is scored on the prediction error and, more importantly, on how many genuinely blown deadlines it sees coming. The synthetic student now leaves the work it dreads until last (big assignments started closest to the wire despite needing the most time) and its deadlines can really be missed; the floor that used to guarantee every task finished in time was removed. AspectSpec gained an optional `clamp`, because a student who starts two hours before a deadline sits at 0.15 of the app's assumption, far below the usual 0.4 rail.
+Why: This is the third item on the owner's list and the first where the answer is not a duration. The interesting output is not the number but the warning it enables, so the metric had to be blown deadlines caught, not mean error.
+Affects: student.ts (leadFactor, missable deadlines), weeklyLearner.ts (clamp, Observation.meta), learningExperiment.ts, docs/learning/03-procrastination.md.
+
+## 2026-09-20 00:20 ET · Jatin · Aspects 1 and 3 only pay off together
+Decision: Deadline risk is computed with the work length aspect 1 learned, not the student's own estimate. Measured on the held-out student, who blows 8 of 24 deadlines: no learning catches 0, the running average 2, Nemotron 7 with the learned work length and only 4 with the student's own estimate.
+Why: A deadline is blown when the student starts later than the work needs, so predicting it requires both halves. Knowing someone procrastinates is not actionable until you also know their work runs 1.6x what they think. This is the first evidence that the aspects compound rather than being independent features.
+Affects: the case for finishing the remaining aspect, and how the warning should be built if it ships.
+
+## 2026-09-20 00:20 ET · Jatin · Open failure: Nemotron describes its own procrastination numbers backwards
+Decision: Recorded, not yet fixed. Nemotron's memo for Maya says she "completes big assignments and labs quickly but procrastinates on regular assignments" while the multipliers it just chose say the opposite; Jordan's says he "finishes work well ahead of schedule" while the number it chose means he starts fifty minutes before a deadline. The arithmetic is right and the meaning is inverted, which is a different failure from the reciprocal bug in aspect 2 and is not caught by `isInverted`.
+Why: The memo is the model's memory, so a wrong belief is carried into every later week, and the same sentence would tell a student the reassuring opposite of the truth if it ever reached the voice agent. No text from this aspect should be shown to anyone until there is a check that a sentence agrees in direction with the number it accompanies.
+Affects: weeklyLearner.ts, and any plan to surface learning through the voice agent.
+
+## 2026-09-20 00:20 ET · Jatin · Nemotron catches deadline risk by being pessimistic, not by being accurate
+Decision: Noted as a limitation of the current design. Nemotron put the held-out student's big assignments at 0.07 against a truth of 0.183, and that bias is why it catches 7 of 8 blown deadlines while also raising 2 false alarms. On the other student it wandered (0.55, 0.44, 0.75, 0.50, 0.35, 0.25, 0.35, 0.30) rather than settling, where the running average was steadier.
+Why: Catching risk through a uniformly gloomy average is not the same as predicting well. The honest version predicts the spread ("usually 2.2 hours, sometimes 1.4") and warns on the bad tail, instead of moving the mean.
+Affects: a future revision of the procrastination aspect; nothing ships from it yet.
