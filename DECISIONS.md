@@ -94,21 +94,6 @@ Decision: ElevenLabs server tools call our webhook from their cloud, so localhos
 Why: This is the step teams discover three hours in.
 Affects: issue #7, deployment, .env.local.
 
-## 2026-09-19 15:10 ET · Adi + lead Claude · Anchor Nemotron to the heuristic instead of trusting it
-Decision: estimateTask gains two variants. "zeroshot" keeps the original prompt unchanged so the failure Jatin measured stays reproducible. "anchored" passes the heuristic estimate as a baseline, tells the model to adjust only where the title is informative, and clamps the result in code to [0.5x, 2x] of that baseline. /api/eval now runs heuristic, zeroshot and anchored in parallel and reports MAE, within-25%, worst miss, latency, clamp-fired count and which provider answered. Written up in docs/eval.md.
-Why: The 240-vs-50 miss on "Quiz 3 prep" was our prompt, not the model: the bands named exam prep and never mentioned quizzes. Anchoring makes a 5x miss structurally impossible instead of merely discouraged, and keeps the model useful for the cold start before per-course calibration has five real sessions.
-Affects: src/agents/estimate.ts, src/app/api/eval/route.ts, docs/eval.md, issue #5 (the fine-tune now has a baseline to beat).
-
-## 2026-09-19 15:10 ET · Adi + lead Claude · A timeout is not a schema rejection
-Decision: nemotronJson retries without the JSON schema only when the endpoint rejected the schema. On an abort or timeout it falls back immediately.
-Why: Both attempts had their own 15 s budget, so a slow endpoint cost 30 s for the same answer. That is the worst case Jatin saw.
-Affects: src/agents/models.ts.
-
-## 2026-09-19 15:10 ET · Adi + lead Claude · Parse boxes are normalized 0..1 and the payload is an array of arrays
-Decision: normalize() in parse.ts flattens one level and drops empty-text elements; ParsedElement.bbox stays [xmin, ymin, xmax, ymax] normalized 0..1, documented in the type. Clients multiply by the rendered image size. Tests in src/core/__tests__/parse.test.ts pin the recorded shape, including the malformed and markdown-only paths.
-Why: Reading the outer array as the element list yielded one empty element and lost every box (#6). Keeping 0..1 means the same numbers work for the web panel, the iOS overlay and any render resolution.
-Affects: src/agents/parse.ts, src/agents/syllabus.ts, web syllabus panel (#9), iOS overlay.
-
 ## 2026-09-19 15:05 ET · Jatin · ICS import route, sample calendars, zone-aware day matching
 Decision: Added POST /api/import taking `{ timetableUrl?, canvasUrl?, ics?, canvasIcs?, sample?, day?, horizonDays? }` and answering `{ ok, day, timetable?, canvas?, warnings, errors }`. The timetable replaces today's fixed blocks; Canvas items become tasks upserted by ICS uid (importing twice changes nothing, completedAt is kept) and replace a seeded placeholder with the same course and title. Only Canvas items due from today through `horizonDays` (default 14) are imported. "Today" is the planning clock's day (DEMO_CLOCK when pinned), `day` overrides it. A pasted or fetched text without BEGIN:VCALENDAR is rejected and changes nothing. New data/pitt-tuesday.ics and data/canvas-sample.ics are synthetic; the timetable reproduces the fixture Tuesday exactly (usable 589 min, gaps 11:05-14:21 and 15:50-23:44) and a test pins it. Today panel gets two URL fields, an Import button and "Use sample data".
 Why: Students paste two links and the demo must also work with no network. Importing twice must be safe because judges will click twice.
@@ -128,3 +113,48 @@ Affects: src/services/ics.ts, /api/import.
 Decision: The import does not yet set commute mode or home. TravelGraph's mode does not change any leg arithmetic today and transit is keyed on the place "Home", so accepting the fields would be decoration. Unknown buildings use the graph's 10-minute fallback.
 Why: The lead's note asked for it; doing it properly means a core change that needs the lead's call.
 Affects: src/core/travel.ts, src/lib/transit.ts. Raised on issue #2.
+
+## 2026-09-19 15:10 ET · Adi + lead Claude · Anchor Nemotron to the heuristic instead of trusting it
+Decision: estimateTask gains two variants. "zeroshot" keeps the original prompt unchanged so the failure Jatin measured stays reproducible. "anchored" passes the heuristic estimate as a baseline, tells the model to adjust only where the title is informative, and clamps the result in code to [0.5x, 2x] of that baseline. /api/eval now runs heuristic, zeroshot and anchored in parallel and reports MAE, within-25%, worst miss, latency, clamp-fired count and which provider answered. Written up in docs/eval.md.
+Why: The 240-vs-50 miss on "Quiz 3 prep" was our prompt, not the model: the bands named exam prep and never mentioned quizzes. Anchoring makes a 5x miss structurally impossible instead of merely discouraged, and keeps the model useful for the cold start before per-course calibration has five real sessions.
+Affects: src/agents/estimate.ts, src/app/api/eval/route.ts, docs/eval.md, issue #5 (the fine-tune now has a baseline to beat).
+
+## 2026-09-19 15:10 ET · Adi + lead Claude · A timeout is not a schema rejection
+Decision: nemotronJson retries without the JSON schema only when the endpoint rejected the schema. On an abort or timeout it falls back immediately.
+Why: Both attempts had their own 15 s budget, so a slow endpoint cost 30 s for the same answer. That is the worst case Jatin saw.
+Affects: src/agents/models.ts.
+
+## 2026-09-19 15:10 ET · Adi + lead Claude · Parse boxes are normalized 0..1 and the payload is an array of arrays
+Decision: normalize() in parse.ts flattens one level and drops empty-text elements; ParsedElement.bbox stays [xmin, ymin, xmax, ymax] normalized 0..1, documented in the type. Clients multiply by the rendered image size. Tests in src/core/__tests__/parse.test.ts pin the recorded shape, including the malformed and markdown-only paths.
+Why: Reading the outer array as the element list yielded one empty element and lost every box (#6). Keeping 0..1 means the same numbers work for the web panel, the iOS overlay and any render resolution.
+Affects: src/agents/parse.ts, src/agents/syllabus.ts, web syllabus panel (#9), iOS overlay.
+
+## 2026-09-19 15:40 ET · lead Claude · Public URL without waiting on anyone
+Decision: Installed cloudflared and ran a quick tunnel to the dev server, which needs no account and no signup. Public URL is in .tunnel-url.txt (gitignored) and posted in issue #23. This unblocks ElevenLabs webhooks, Anmol's simulator (ORBIT_API_BASE) and anyone who wants to see the app. Vercel is still the Sunday-morning answer because a tunnel dies when the laptop sleeps.
+Why: The webhook URL was blocking the entire voice build and was waiting on a human to log into Vercel. A leader should not park the critical path behind someone else's browser session.
+Affects: issue #7, #21, #23, .gitignore.
+
+## 2026-09-19 15:45 ET · lead Claude · DEMO_CLOCK is off by default; it disables live buses by design
+Decision: DEMO_CLOCK is now commented out in .env.example and .env.local, with a warning that setting it pins a simulated weekday and DISABLES the realtime overlay, because a simulated time cannot be matched against a live feed. It stays only as an escape hatch if PRT's feed is down at demo time.
+Why: I shipped it ON in the template. Copying the template froze the app to Tuesday 13:10 and silently turned off live buses, which is the single best moment in the demo. Caught by noticing the app reported "live feed down" while a direct fetch showed 225 trip updates and 30 live 61x buses. Sunday service on the 61s is frequent enough that the live feed is the right default for judging.
+Affects: .env.example, .env.local, docs/bus-map.md, demo rehearsals.
+
+## 2026-09-19 15:50 ET · lead Claude · Voice tools compose finished sentences, including how numbers are said
+Decision: src/agents/voiceTools.ts holds the four tier-1 tools and composes every reply as a finished spoken sentence: spoken() for integers, spokenDuration() for "nine hours forty-nine", spokenClock() for "eleven oh five", speakReason() for XP reasons written for the eye, and asSentence() to capitalize every sentence. resolveTask() maps "the problem set" to the right task by exact, substring then token overlap, and asks rather than guessing when two match equally. /api/reset restores the opening state so the demo can be rehearsed repeatedly.
+Why: TTS mangles bare digits, and a voice agent that invents a number is worse than a wrong pixel. Composing server-side keeps the model to intent recognition only.
+Affects: src/agents/voiceTools.ts, src/app/api/voice/tool/route.ts, src/app/api/reset/route.ts, issue #7.
+
+## 2026-09-19 15:55 ET · lead Claude · The ledger is a reveal, not a statistic
+Decision: LedgerReveal animates the calendar's number down to the real one while each deduction lands underneath, with a replay button, honoring prefers-reduced-motion. It only reveals numbers already computed and tested in src/core/ledger.ts, so a broken animation can never change a number.
+Why: Beat one of the demo has to be felt, not read. The 226 missing minutes are the one thing in this product nobody has seen about their own life.
+Affects: src/app/LedgerReveal.tsx, src/app/TodayClient.tsx, docs/pitch.md (Akshat).
+
+## 2026-09-19 16:05 ET · lead Claude · One bus engine for both screens; the card deep-links into the map
+Decision: Deleted src/lib/transit.ts (planLeg, PLACES). buildToday() now calls the same buildJourney() the map uses, picks the leg that matters right now (to the next class, else home after the last one), and returns verdict, live status, vehicle distance, walk and ride legs, plus a mapHref. /map reads from, to and arriveBy from the query string and keeps them in the URL, so the Today card opens the map on the exact journey it was showing. Verified: both report leave-by 15:48 for the same leg.
+Why: Two code paths computing the same time is how a demo shows 14:02 on one screen and 14:07 on the next. One engine, two renderings.
+Affects: src/lib/today.ts, src/lib/journey.ts, src/app/TodayClient.tsx, src/app/map/*, iOS `bus` model (new fields: status, verdict, classAtText, vehicleKm, walkToDest, mapHref).
+
+## 2026-09-19 16:05 ET · lead Claude · Tunnel is supervised, and its URL is not stable
+Decision: scripts/tunnel.mjs supervises cloudflared, writes the live URL to .tunnel-url.txt and restarts on death. Current URL: https://drama-times-screens-valley.trycloudflare.com
+Why: The first quick tunnel was revoked by Cloudflare after about an hour ("Tunnel not found") and the team's URL went dead silently. Quick tunnels are fine for browsing and for the iOS simulator, but the ElevenLabs webhook must be re-pasted whenever the URL changes, so Vercel is still required before the voice agent is wired for real.
+Affects: scripts/tunnel.mjs, issue #7, #21, #23.
