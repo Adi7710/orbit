@@ -98,3 +98,29 @@ export async function habitInsights(p: HabitProfile, opts: { useModel?: boolean 
   const insights = drafts.map((d) => said.get(d.kind) ?? { ...d, source: "rules" as const });
   return { insights, provider: "nemotron-hosted", model: r.model, latencyMs: r.latencyMs, rejected: rejections.length, rejections };
 }
+
+/**
+ * A voice turn has about a second to spend, and hosted Nemotron takes 8-14 s, so
+ * nothing on the voice path waits for the model. Wording is cached per profile
+ * (a new completion changes the key and re-words); peekInsights answers from the
+ * cache and habitInsightsCached fills it.
+ */
+const g = globalThis as unknown as { __habitCache?: Map<string, HabitInsightsResult> };
+const cache = () => (g.__habitCache ??= new Map());
+const cacheKey = (p: HabitProfile, useModel: boolean) => JSON.stringify([flattenStats(p), useModel]);
+
+export function peekInsights(p: HabitProfile): HabitInsightsResult | undefined {
+  return cache().get(cacheKey(p, true));
+}
+
+export async function habitInsightsCached(p: HabitProfile, opts: { useModel?: boolean } = {}): Promise<HabitInsightsResult & { cached: boolean }> {
+  const useModel = opts.useModel !== false;
+  const key = cacheKey(p, useModel);
+  const hit = cache().get(key);
+  if (hit) return { ...hit, cached: true };
+  const result = await habitInsights(p, { useModel });
+  // A model failure is not cached, so the next call tries again instead of serving the fallback for good.
+  if (result.provider !== "heuristic" || !useModel) cache().set(key, result);
+  if (cache().size > 20) cache().delete(cache().keys().next().value!);
+  return { ...result, cached: false };
+}

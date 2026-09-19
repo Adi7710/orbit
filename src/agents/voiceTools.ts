@@ -5,6 +5,9 @@ import { xpFor } from "@/core/game";
 import { findGaps } from "@/core/gaps";
 import { fromDate, fmt } from "@/core/time";
 import type { Mode, Task } from "@/core/types";
+import { buildHabitProfile, type TimeBucket } from "@/core/habits";
+import { habitInsightsCached, peekInsights } from "./habitAgent";
+import { recordHabit } from "@/lib/habitLog";
 
 /**
  * The voice tool surface.
@@ -104,6 +107,24 @@ export function speakReason(reason: string): string {
     .replace(/\b(\d+)-week\b/g, (_, n) => `${spoken(Number(n))}-week`);
 }
 
+/**
+ * Insight sentences are written for the eye ("21% faster", "1.53x", "5.88 hours").
+ * Read aloud, bare digits get mangled, so speak every number the way a person would.
+ */
+export function speakNumbers(text: string): string {
+  const say = (raw: string) => {
+    const [whole, frac] = raw.split(".");
+    return frac ? `${spoken(Number(whole))} point ${frac.split("").map((d) => spoken(Number(d))).join(" ")}` : spoken(Number(whole));
+  };
+  return text
+    .replace(/(\d+(?:\.\d+)?)%/g, (_, n) => `${say(n)} percent`)
+    .replace(/(\d+(?:\.\d+)?)x\b/g, (_, n) => `${say(n)} times`)
+    .replace(/\d+(?:\.\d+)?/g, (n) => say(n));
+}
+
+/** The written labels say "between 5 and 10 PM"; speech wants words. */
+const BUCKET_SPOKEN: Record<TimeBucket, string> = { morning: "before noon", midday: "between noon and five", evening: "between five and ten at night", late: "after ten at night" };
+
 /** Capitalize the start of every sentence, since these are composed by joining fragments. */
 export function asSentence(text: string): string {
   return text.trim().replace(/(^|[.!?]\s+)([a-z])/g, (_, lead, ch) => lead + ch.toUpperCase());
@@ -111,7 +132,7 @@ export function asSentence(text: string): string {
 
 // MARK: - The tools
 
-export type VoiceTool = "get_today" | "log_actual" | "set_mode" | "get_bus";
+export type VoiceTool = "get_today" | "log_actual" | "set_mode" | "get_bus" | "get_estimate" | "get_coach";
 
 export interface VoiceRequest { tool: VoiceTool | string; task?: string; minutes?: number; mode?: string; destination?: string }
 
@@ -153,6 +174,7 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
       const gap = findGaps(s.blocks, s.profile, s.travel).find((g) => { const n = fromDate(now, "America/New_York"); return n >= g.start && n <= g.end; });
       task.completedAt = now;
       s.estimator.record(task.courseCode, task.domain, task.estimateMinutes, minutes);
+      recordHabit(task, minutes, now, !!gap);
       const { xp, reasons } = xpFor({ task, actualMinutes: minutes, plannedMinutes: planned, completedInGap: gap, completedAt: now }, s.mode, s.user.streakWeeks);
       s.user.xpWeek += xp;
       const row = s.board.find((r) => r.userId === s.user.id);
@@ -208,6 +230,43 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
       if (!j.realtime.tripsOk) said.push("The live feed is down, so that is the timetable, not a prediction.");
       log("voice", "voice_get_bus", { route: o.route, status: o.status });
       return { ok: true, text: said.join(" "), data: { route: o.route } };
+    }
+
+    case "get_estimate": {
+      const { task, ambiguous } = resolveTask(req.task ?? "", s.tasks);
+      if (ambiguous?.length) return { ok: false, text: `Which one: ${listNames(ambiguous)}?` };
+      if (!task) return { ok: false, text: `I cannot find that on your list. You have ${listNames(s.tasks.filter((t) => !t.completedAt).slice(0, 3))}.` };
+
+      const own = task.estimateMinutes;
+      const planned = s.estimator.planningMinutes(task);
+      const said: string[] = [];
+      if (planned !== own) said.push(`You would say ${spokenDuration(own)} for ${task.title}, but your history says ${spokenDuration(planned)}, so that is what I plan.`);
+      else said.push(`${task.title} is ${spokenDuration(planned)}, and your history has no reason to change that yet.`);
+
+      const profile = buildHabitProfile(s.habits);
+      if (profile.best && task.domain !== "body") said.push(`You work fastest ${BUCKET_SPOKEN[profile.best.bucket]}.`);
+      const fit = findGaps(s.blocks, s.profile, s.travel).find((g) => g.usable >= planned);
+      if (fit) said.push(`It fits your ${spokenClock(fit.start)} to ${spokenClock(fit.end)} window.`);
+      else said.push("It does not fit any single gap today, so it would need to be split.");
+      log("voice", "voice_get_estimate", { taskId: task.id, own, planned });
+      return { ok: true, text: said.join(" "), data: { taskId: task.id, own, planned } };
+    }
+
+    case "get_coach": {
+      const profile = buildHabitProfile(s.habits);
+      if (profile.sessions < 6) {
+        return { ok: true, text: `I only have ${spoken(profile.sessions)} finished sessions so far, which is not enough to say anything real. Tell me when you finish things and how long they took.` };
+      }
+      // Never wait on the model here: answer from the cache, and warm it for next time.
+      const cached = peekInsights(profile);
+      const result = cached ?? (await habitInsightsCached(profile, { useModel: false }));
+      if (!cached) void habitInsightsCached(profile).catch(() => {});
+      if (result.insights.length === 0) return { ok: true, text: "Nothing stands out in your history yet." };
+      const [first, second] = result.insights;
+      const said = ["Here is what your history says.", speakNumbers(first.text), speakNumbers(first.suggestion)];
+      if (second) said.push(speakNumbers(second.text));
+      log("voice", "voice_get_coach", { source: result.provider, insights: result.insights.length });
+      return { ok: true, text: said.join(" "), data: { provider: result.provider, kinds: result.insights.map((i) => i.kind) } };
     }
 
     default:

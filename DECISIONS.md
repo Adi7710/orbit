@@ -94,6 +94,26 @@ Decision: ElevenLabs server tools call our webhook from their cloud, so localhos
 Why: This is the step teams discover three hours in.
 Affects: issue #7, deployment, .env.local.
 
+## 2026-09-19 15:05 ET · Jatin · ICS import route, sample calendars, zone-aware day matching
+Decision: Added POST /api/import taking `{ timetableUrl?, canvasUrl?, ics?, canvasIcs?, sample?, day?, horizonDays? }` and answering `{ ok, day, timetable?, canvas?, warnings, errors }`. The timetable replaces today's fixed blocks; Canvas items become tasks upserted by ICS uid (importing twice changes nothing, completedAt is kept) and replace a seeded placeholder with the same course and title. Only Canvas items due from today through `horizonDays` (default 14) are imported. "Today" is the planning clock's day (DEMO_CLOCK when pinned), `day` overrides it. A pasted or fetched text without BEGIN:VCALENDAR is rejected and changes nothing. New data/pitt-tuesday.ics and data/canvas-sample.ics are synthetic; the timetable reproduces the fixture Tuesday exactly (usable 589 min, gaps 11:05-14:21 and 15:50-23:44) and a test pins it. Today panel gets two URL fields, an Import button and "Use sample data".
+Why: Students paste two links and the demo must also work with no network. Importing twice must be safe because judges will click twice.
+Affects: src/app/api/import/route.ts, src/app/TodayClient.tsx, data/*.ics, next.config.ts (outputFileTracingIncludes so the .ics files ship to Vercel). No existing response shape changed; iOS needs nothing.
+
+## 2026-09-19 15:05 ET · Jatin · occursOn, blocksOn and taskFromEvent take an optional zone
+Decision: src/core/ics.ts compares calendar days in an optional IANA zone (default: server-local, so old callers behave as before). The import passes America/New_York. Date-only Canvas items are due 23:59 in that zone. EXDATE now keeps its TZID.
+Why: Vercel runs in UTC. A 20:00 New York class is already tomorrow in UTC, so the old server-local comparison would put evening classes and date-only due dates on the wrong day in production. The arithmetic for existing callers is unchanged; a test covers the evening case.
+Affects: src/core/ics.ts, src/core/__tests__/import.test.ts. Lead's tests unchanged and green.
+
+## 2026-09-19 15:05 ET · Jatin · Server-side fetch of pasted calendar links is restricted
+Decision: fetchIcs (src/services/ics.ts) accepts public https links only (webcal is rewritten to https), refuses localhost, .local, .internal, private/loopback/link-local ranges, credentials in the URL, more than 3 redirects (each re-checked), bodies over 3 MB and requests over 10 s. Known gap: DNS is resolved once for the check and again by fetch, so a hostile DNS server could rebind in between; fine for synthetic demo data, pin the resolved address before any real deployment.
+Why: The URL is user input fetched from our own network, so without this the endpoint is a server-side request forgery hole on a public deployment.
+Affects: src/services/ics.ts, /api/import.
+
+## 2026-09-19 15:05 ET · Jatin · Deferred: commute mode and home from the setup form
+Decision: The import does not yet set commute mode or home. TravelGraph's mode does not change any leg arithmetic today and transit is keyed on the place "Home", so accepting the fields would be decoration. Unknown buildings use the graph's 10-minute fallback.
+Why: The lead's note asked for it; doing it properly means a core change that needs the lead's call.
+Affects: src/core/travel.ts, src/lib/transit.ts. Raised on issue #2.
+
 ## 2026-09-19 15:10 ET · Adi + lead Claude · Anchor Nemotron to the heuristic instead of trusting it
 Decision: estimateTask gains two variants. "zeroshot" keeps the original prompt unchanged so the failure Jatin measured stays reproducible. "anchored" passes the heuristic estimate as a baseline, tells the model to adjust only where the title is informative, and clamps the result in code to [0.5x, 2x] of that baseline. /api/eval now runs heuristic, zeroshot and anchored in parallel and reports MAE, within-25%, worst miss, latency, clamp-fired count and which provider answered. Written up in docs/eval.md.
 Why: The 240-vs-50 miss on "Quiz 3 prep" was our prompt, not the model: the bands named exam prep and never mentioned quizzes. Anchoring makes a 5x miss structurally impossible instead of merely discouraged, and keeps the model useful for the cold start before per-course calibration has five real sessions.
@@ -158,3 +178,48 @@ Affects: src/agents/habitAgent.ts prompt, /api/habits cache (per profile, so a n
 Decision: Removed HabitsCard and its line in TodayClient. The pure habit math (src/core/habits.ts), the seeded synthetic history, the verifier and /api/habits stay as the foundation for a weekly learning agent that adjusts the app's estimates from a student's history; nothing about habits is shown as a card.
 Why: The owner wants the learning to happen inside the app's planning and voice agent, not as a report the student reads.
 Affects: src/app/TodayClient.tsx (back to main's version), issue/PR #25.
+
+## 2026-09-19 16:45 ET · lead Claude · The Watcher: the day re-plans itself when reality changes
+Decision: New agent in src/agents/watcher.ts. It snapshots the day every tick, diffs against the last snapshot, and reacts to what actually changed: a class removed, a window opening / growing / shrinking / closing, the live bus slipping, the day stopping or starting to fit, a deadline inside 24 hours with nowhere to happen. Two tiers, enforced in code. Tier A acts alone (re-pick what goes in a window, move the leave-by, suggest a cut) because it is reversible and touches only your own screen. Tier B only ever queues a proposal (hold a room, message a friend, draft an extension) because it reaches outside the app. It never completes work, never awards XP, never sends anything. Every decision appends to a trace with the evidence that triggered it, the action and the reasoning, and it can be paused or killed in one click. /api/watcher ticks and controls it; /api/demo changes the world (cancel a class, overload the day) so it has something real to react to, and never fakes the reaction.
+Why: Everything else in Orbit answered a question when asked, which is a button, not an agent. The projects that won this year (LEGR, Citadail, AgentZero) all ran over time, kept a reasoning trace and had a kill switch. This also creates the demo moment: a judge cancels a class and watches the afternoon reorganise itself, with a reason for every move.
+Affects: src/agents/watcher.ts, src/app/api/watcher, src/app/api/demo, src/app/WatcherPanel.tsx, TodayClient, docs/pitch.md (Akshat), iOS (a later screen could show the same trace).
+
+## 2026-09-19 16:45 ET · lead Claude · Windows are identified by when they start, not by their position
+Decision: findGaps now ids a window as `g<startMinute>` instead of `gap-<index>`. Tests pin it.
+Why: Positional ids silently re-label a different window whenever a class is added or cancelled, so the Watcher's first run reported "your window lost 111 minutes" when in truth an earlier window had appeared and everything shifted down one. A diff between two versions of the day is meaningless unless identity is stable. Found by running the cancel-a-class scenario and reading the output rather than trusting it.
+Affects: src/core/gaps.ts, src/agents/watcher.ts, quest ids.
+
+## 2026-09-19 17:15 ET · Adi + lead Claude · The voice agent is created from a script, not from clicks
+Decision: scripts/setup-voice-agent.mjs creates the four tools and the agent through the ElevenLabs API and writes ELEVENLABS_AGENT_ID back into .env.local. Re-running replaces rather than duplicating. Each tool has its own URL carrying its name (/api/voice/tool?tool=log_actual) so the model supplies arguments only and cannot select the wrong tool. Agent runs claude-sonnet-4-5 with eleven_flash_v2; English agents are restricted to the turbo/flash v2 families, which is what the first three attempts were actually failing on.
+Why: The webhook URL changes whenever the tunnel rotates, so pointing the tools at a new URL has to be one command, not a dozen clicks someone has to remember at 3 a.m.
+Affects: scripts/setup-voice-agent.mjs, src/app/api/voice/tool/route.ts, .env.local.
+
+## 2026-09-19 17:15 ET · lead Claude · Rotated the webhook secret after it appeared in an API error
+Decision: VOICE_TOOL_SECRET regenerated and the tools recreated with the new value.
+Why: ElevenLabs echoed the request headers back in a 422 validation error, so the old secret was printed to the terminal. It only guards our own webhook and never left this machine, but rotating costs one command.
+Affects: .env.local, the four registered tools.
+
+## 2026-09-19 17:35 ET · lead Claude · Pin the app to a light surface; never let a failed fetch hang the screen
+Decision: globals.css no longer flips the background to near-black under prefers-color-scheme: dark, and sets color-scheme: light. TodayClient fetches the day and the leaderboard independently, each with a 20 s timeout, and renders a visible error with a Try again button instead of sitting on "Loading your day…".
+Why: Every card is dark text on paper, so the starter template's dark background rendered the entire app invisible on a machine set to dark mode, which looks exactly like a hang. Separately, the original single Promise.all had no catch, so any one failing request left the screen loading forever with nothing on screen and nothing in the console for a judge to see. A real dark theme belongs in docs/theme.md, not in a panic at 5 p.m.
+Affects: src/app/globals.css, src/app/TodayClient.tsx.
+
+## 2026-09-19 17:35 ET · lead Claude · Browse on localhost; the tunnel is for ElevenLabs
+Decision: Use http://localhost:3123 for looking at the app and for the demo. The public tunnel exists so ElevenLabs' cloud can reach our webhook, and so teammates and the iOS simulator have an address.
+Why: Next.js in dev ships large uncompiled chunks and an HMR websocket; pushing all of that through a quick tunnel is slow and flaky, while the same page is instant locally. Measured: /api/today is 25 ms locally and 1.1 s through the tunnel.
+Affects: how we demo, issue #23.
+
+## 2026-09-19 18:05 ET · Adi + lead Claude · The Critic: a second model grades every agent decision before anyone sees it
+Decision: src/agents/critic.ts scores each Watcher decision on four dimensions (grounded, tierCorrect, useful, voice) with a JSON-schema call to Nemotron, and a deterministic rubric when no model is reachable. Weighted overall score decides a verdict: keep, demote (a proposal becomes a silent note) or suppress (never reaches the student, but stays in the trace so the failure is visible). Scores accumulate per decision kind into a reward ledger at /api/critic; a kind averaging below 2.5 over at least 3 samples is muted and stops being allowed to interrupt. Shown in the Watcher panel as a score badge per entry plus an expandable table of how each behaviour is scoring.
+Why: An agent that watches your day and acts on its own needs something between it and the user. Two properties make this real rather than decorative. First, the Critic can only ever lower trust: it can suppress or demote, never approve, never promote a Tier B proposal into a Tier A action, so a broken judge makes Orbit quieter rather than bolder. Second, it runs on Nemotron, so grading every decision costs nothing from the $25 Claude budget and is a third non-chat job for the NVIDIA track. The reward ledger is the part with teeth: a behaviour that keeps scoring badly loses the right to interrupt.
+Affects: src/agents/critic.ts, src/agents/watcher.ts, src/app/api/critic, src/app/WatcherPanel.tsx, docs/eval.md.
+
+## 2026-09-19 18:05 ET · lead Claude · Two bugs the Critic work surfaced
+Decision: The deterministic rubric no longer treats clock times as unsupported quantity claims (11:05 was being read as an invented "11"), and /api/demo restore is idempotent so putting a class back after a reset cannot add a second copy.
+Why: Both were found by running the loop and reading the output rather than trusting the tests.
+Affects: src/agents/critic.ts, src/app/api/demo/route.ts.
+
+## 2026-09-19 18:30 ET · Jatin · Nemotron connects to the voice agent as the brain behind two tools, not as the voice model
+Decision: Added voice tools `get_estimate` ("how long will the problem set take me") and `get_coach` ("how am I doing", "when do I work best"), and made `log_actual` by voice append to the same learning log as a tap (shared `recordHabit`). Sentences are still written by the server; insight text is Nemotron-worded and code-verified, and every number is converted to words for speech (`speakNumbers`). The voice path never waits for the model: `get_coach` answers from the cache (or code-written sentences on a cold cache) and warms the model in the background, so the next ask speaks Nemotron's wording. Nemotron is NOT set as the ElevenLabs agent's LLM.
+Why: The voice loop budget is 1-2 s a turn and hosted Nemotron measured 1-18 s per call, so as the conversation model it would make the agent feel broken; as a background analyst behind server tools it costs the voice turn nothing. Voice is also the best source of actual minutes, so routing it into the learning log is what the learning needs.
+Affects: src/agents/voiceTools.ts, src/agents/habitAgent.ts (shared cache), src/lib/habitLog.ts, /api/complete, /api/habits, scripts/setup-voice-agent.mjs (two tools and two prompt lines). The ElevenLabs agent must be re-created by re-running the setup script (Adi's key and tunnel URL) before it can call the new tools.

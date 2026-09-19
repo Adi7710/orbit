@@ -4,13 +4,15 @@ import { handleVoiceTool, type VoiceRequest } from "@/agents/voiceTools";
 export const dynamic = "force-dynamic";
 
 /**
- * The single webhook every ElevenLabs server tool points at. Configure four
+ * The single webhook every ElevenLabs server tool points at. Configure the
  * tools in the agent dashboard, all POSTing here with a `tool` field:
  *
  *   get_today                                 -> the ledger, the best gap
  *   log_actual  { task, minutes }             -> completes it, awards XP
  *   set_mode    { mode }                      -> normal | crisis | chill
  *   get_bus     { destination? }              -> leave-by, live status, verdict
+ *   get_estimate { task }                     -> how long this will take this student, and where it fits
+ *   get_coach                                 -> what the student's own history says (Nemotron-worded, code-verified)
  *
  * Header `x-orbit-secret` must equal VOICE_TOOL_SECRET. The response is always
  * `{ text }`, a finished sentence the agent reads aloud; it never returns raw
@@ -21,14 +23,13 @@ export async function POST(req: Request) {
   if (secret && req.headers.get("x-orbit-secret") !== secret) {
     return NextResponse.json({ text: "I am not allowed to reach your schedule." }, { status: 401 });
   }
-  let body: VoiceRequest;
+  // The tool name lives in the URL, not the body. Each registered tool has its
+  // own fixed URL and supplies only arguments, so the model cannot pick the
+  // wrong tool by mis-filling a field.
+  const tool = new URL(req.url).searchParams.get("tool");
+  const body = (await req.json().catch(() => ({}))) as VoiceRequest;
   try {
-    body = (await req.json()) as VoiceRequest;
-  } catch {
-    return NextResponse.json({ text: "I did not catch that." }, { status: 400 });
-  }
-  try {
-    const r = await handleVoiceTool(body);
+    const r = await handleVoiceTool({ ...body, tool: tool ?? body.tool });
     return NextResponse.json({ text: r.text, ok: r.ok, ...(r.data ? { data: r.data } : {}) });
   } catch (e) {
     return NextResponse.json({ text: "I cannot reach your schedule right now.", ok: false, error: (e as Error).message }, { status: 500 });
