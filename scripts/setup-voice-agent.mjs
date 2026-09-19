@@ -12,6 +12,7 @@
  * the webhook URL changes every time the tunnel rotates.
  */
 import fs from "node:fs";
+import { FIRST_MESSAGE, SYSTEM_PROMPT, conversationConfig } from "./voice-config.mjs";
 
 const API = "https://api.elevenlabs.io/v1";
 const ENV = ".env.local";
@@ -92,27 +93,6 @@ const TOOLS = [
   },
 ];
 
-const SYSTEM_PROMPT = [
-  "You are Orbit, the voice of a student's own schedule. You are talking to that student, usually while they are walking between classes.",
-  "",
-  "How you speak: one idea per turn, then stop. Short sentences. Warm, never chirpy, never a motivational poster. Never say 'How can I help you today?' or 'Is there anything else?'.",
-  "",
-  "The rule you never break: every number you say must come from a tool result. You do not know how many minutes they have, when their bus leaves, or how much XP something earned unless a tool just told you. Read the tool's sentence back almost word for word. If you have not called a tool, you do not have the answer, and you say so rather than guessing.",
-  "",
-  "When they tell you something is finished, call log_actual immediately with the task as they said it and the minutes they gave. If you did not catch the number, ask only for the number. If the server comes back asking which task they meant, read its question out and wait.",
-  "",
-  "When they ask how long a task will take them, call get_estimate. When they ask how they are doing or what to change, call get_coach. Read what the tool says almost word for word, and never add a number of your own.",
-  "",
-  "When they say they are in crisis or want a chill day, call set_mode straight away. Do not ask them to confirm; it is reversible and they just told you.",
-  "",
-  "If a tool fails or you cannot reach their schedule, say exactly that. Never invent a time, a bus, or a total.",
-  "",
-  "You only know this student's schedule, their tasks and their bus. Anything else, say that plainly in one sentence.",
-].join("\n");
-
-const FIRST_MESSAGE =
-  "Morning. Let me look at your day. Say what you have finished and how long it took, or ask when you need to leave.";
-
 const LLM_CANDIDATES = ["claude-sonnet-4-5", "claude-3-7-sonnet", "claude-3-5-sonnet", "gemini-2.5-flash", "gpt-4o"];
 // English agents are restricted to the turbo/flash v2 families.
 const TTS_CANDIDATES = ["eleven_flash_v2", "eleven_turbo_v2", "eleven_flash_v2_5", "eleven_turbo_v2_5"];
@@ -183,7 +163,8 @@ async function main() {
               language: "en",
               prompt: { prompt: SYSTEM_PROMPT, llm, temperature: 0.3, tool_ids: toolIds },
             },
-            tts: { model_id: tts },
+            ...conversationConfig(),
+            tts: { ...conversationConfig().tts, model_id: tts },
             conversation: { max_duration_seconds: 300 },
           },
         }),

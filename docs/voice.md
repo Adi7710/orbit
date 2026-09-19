@@ -58,6 +58,22 @@ Browser mic  ──WebRTC──▶  ElevenLabs Agent  ──HTTPS webhook──�
 
 The agent lives in ElevenLabs' cloud, so **its webhooks must reach a public URL**. Localhost does not work. That makes the deploy or a tunnel the first blocking step, not an afterthought.
 
+### How it takes turns
+
+The default agent felt like a kiosk: it answered the instant you stopped making noise, and it kept listening for ever afterwards. Three changes, all in `scripts/voice-config.mjs` and applied with `node scripts/tune-voice.mjs`:
+
+| Setting | Was | Now | Why |
+|---|---|---|---|
+| `turn.turn_eagerness` | `normal` | **`patient`** | On `normal` the first gap in your speech is its cue, so thinking mid-sentence gets you interrupted. Patient waits until you are actually done. The beat of latency this costs is the beat that makes it feel considered. |
+| `turn.turn_timeout` | `7` | **`-1`** | Disables "are you still there?". With push-to-talk the mic is muted between turns, so the agent would be talking into a silence it created and cannot hear out of. |
+| `turn.soft_timeout_config` | off | **1.0 s, varied fillers** | When a tool genuinely takes a second, a friend says "let me look" rather than going quiet. |
+| `tts.optimize_streaming_latency` | `3` | **`1`** | 3 is aggressive chunking: it starts fast and sounds clipped because it commits to the start of a sentence before knowing the end. |
+| `tts.speed` | `1` | **`0.95`** | Stops it sounding rushed. |
+
+`reasoning_effort` is **not available** to us: the API rejects it for `claude-sonnet-4-5` with "Reasoning effort is not supported for this LLM", so there is no literal model-thinking pause to buy. The patience and the fillers are what produce the conversational beat instead.
+
+The microphone is muted between turns (`setMicMuted`), so Orbit no longer answers other people's conversations. Holding the button while it is still speaking is how you interrupt it, which is the one always-listening behaviour worth keeping. `tune-voice.mjs` sends only turn-taking, pacing and the prompt; `tool_ids` and the LLM are left untouched, so tuning the personality can never detach the tools.
+
 ### When the tunnel rotates, the tools follow it
 
 A Cloudflare quick tunnel is ephemeral; ours was revoked about an hour after it started. When the URL changes, the four registered tools keep pointing at a host that no longer resolves, and **this failure is silent in the worst possible way**: the agent calls a dead webhook, gets nothing back, and improvises around the missing numbers. Inventing a number is the single thing the whole server-composes-the-sentence design exists to prevent, so a rotated tunnel does not merely break voice, it turns voice into the failure mode we promised judges we had engineered away.
