@@ -105,7 +105,7 @@ struct ClassCardView: View {
                 .foregroundStyle(Color.orbitInk)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
-                .matchedGeometryEffect(id: "title-\(block.id)", in: namespace)
+                .matchedGeometryEffect(id: "title-\(block.id)", in: namespace, isSource: isSource)
         }
     }
 
@@ -156,7 +156,7 @@ struct ClassCardView: View {
                 lineWidth: 1
             )
         }
-        .matchedGeometryEffect(id: "card-\(block.id)", in: namespace)
+        .matchedGeometryEffect(id: "card-\(block.id)", in: namespace, isSource: isSource)
     }
 
     private var accessibilityText: String {

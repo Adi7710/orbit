@@ -12,6 +12,7 @@ import { randomUUID } from "node:crypto";
 import { findContact, mergeRoster, resolveCourse, SAMPLE_ROSTER } from "@/core/contacts";
 import { draftEmail } from "./emailAgent";
 import { ask } from "./ask";
+import { countThings, greetingWord, naturalClock, naturalDue, naturalDuration, partOfDay } from "@/core/say";
 
 /**
  * The voice tool surface.
@@ -152,15 +153,33 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
     case "get_today": {
       const t = await buildToday();
       const lost = t.ledger.naiveFree - t.ledger.usable;
-      const parts = [
-        `You have ${spokenDuration(t.ledger.usable)}, not the ${spokenDuration(t.ledger.naiveFree)} your calendar claims.`,
-        `The missing ${spoken(lost)} minutes are walking, eating and getting settled.`,
-      ];
       const g = t.gaps[0];
-      if (g) parts.push(`Your best window is ${spokenClock(g.start)} to ${spokenClock(g.end)}, ${spokenDuration(g.usable)}${g.pick ? `, and ${g.pick.title} fits it` : ""}.`);
-      else parts.push("You have no usable gap between classes today, so tonight is the plan.");
-      if (t.ledger.overCommitted) parts.push(`You are over-committed by ${spoken(Math.abs(t.ledger.slack))} minutes. I can suggest what to drop.`);
-      log("voice", "voice_get_today", { usable: t.ledger.usable });
+      const windDown = s.profile.sleepStart - s.profile.windDownMinutes;
+
+      // Said the way someone who knew your schedule would say it: what you
+      // have, when you stop, what to start. The ledger arithmetic is the
+      // reason behind the answer, not the answer itself -- it is still one
+      // question away, in `why`, and it is still on the screen.
+      const parts: string[] = [];
+      if (g) {
+        parts.push(`You have ${partOfDay(g.start)}, ${naturalDuration(g.usable)} of it, and you are winding down around ${naturalClock(windDown)}.`);
+      } else {
+        parts.push("You have nothing clear left today, so tonight is the plan.");
+      }
+      parts.push(`${countThings(t.tasks.length)} still on your list.`);
+      if (g?.pick) {
+        const pickTask = t.tasks.find((x) => x.id === g.pick!.id);
+        const due = naturalDue(pickTask?.dueAt);
+        // "the way you actually work" has to be the calibrated figure. Problem
+        // Set 4 is ninety minutes raw and a hundred and forty-four once the
+        // 1.6x multiplier is in; saying the raw number while claiming it is
+        // personalised is worse than not personalising it at all.
+        parts.push(`I would start with ${g.pick.title}${due ? `, it is ${due}` : ""}, and it runs ${naturalDuration(pickTask?.planningMinutes ?? g.pick.estimateMinutes)} the way you actually work.`);
+      }
+      if (t.ledger.overCommitted) {
+        parts.push(`Worth knowing: your calendar says ${spokenDuration(t.ledger.naiveFree)} free today and only ${spokenDuration(t.ledger.usable)} of that is real, the ${spoken(lost)} minutes in between being walking, eating and settling in. Say the word and I will tell you what to drop.`);
+      }
+      log("voice", "voice_get_today", { usable: t.ledger.usable, overCommitted: t.ledger.overCommitted });
       return { ok: true, text: parts.join(" ") };
     }
 
@@ -363,20 +382,40 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
  * other number is.
  */
 export async function openingGreeting(): Promise<string> {
+  return asSentence(await composeGreeting());
+}
+
+async function composeGreeting(): Promise<string> {
   const t = await buildToday();
+  const s = store();
   const name = t.user.name;
-  const h = new Date().getHours();
-  const part = h < 12 ? "Morning" : h < 17 ? "Afternoon" : "Evening";
+  const g = t.gaps[0];
+  const nowMin = g ? g.start : fromDate(new Date());
+  const hello = `${greetingWord(nowMin)}, ${name}.`;
 
   if (t.mode === "crisis") {
-    return `${part}, ${name}. Welcome back. You are in crisis mode, so it is coursework only and nothing is counting against you. What do you want to get through?`;
+    return `${hello} You are in crisis mode, so it is coursework only and nothing is counting against you. What do you want to get through?`;
   }
-  const open = `Hey ${name}, welcome to your Orbit.`;
-  const g = t.gaps[0];
-  if (g) {
-    return `${open} Good news, you have ${spokenDuration(g.usable)} clear from ${spokenClock(g.start)}, which is more than it looks like from your calendar. What do you want to do with it?`;
-  }
-  return `${open} Your day is tight today, so tonight is where the room is. Tell me what you have finished, or ask when you need to leave.`;
+
+  // What a person who knew your schedule would actually lead with: what is
+  // left, when you are stopping, and the one thing they would start. Not a
+  // measurement of the evening.
+  const open = g ? `${hello} You have ${partOfDay(g.start, true)}` : hello;
+  const windDown = s.profile.sleepStart - s.profile.windDownMinutes;
+  const until = g ? `, and you are winding down around ${naturalClock(windDown)}.` : "";
+
+  const pick = g?.pick;
+  const openCount = t.tasks.length;
+  if (!openCount) return `${open}${until} Nothing on your list, which is allowed. Tell me if something comes up.`;
+
+  const left = `${countThings(openCount)} still on your list.`;
+  if (!pick) return `${open}${until} ${left} Ask me what to start and I will tell you.`;
+
+  const pickTask = t.tasks.find((x) => x.id === pick.id);
+  const due = naturalDue(pickTask?.dueAt);
+  // The calibrated figure, not the raw estimate -- see get_today.
+  const size = naturalDuration(pickTask?.planningMinutes ?? pick.estimateMinutes);
+  return `${open}${until} ${left} I would start with ${pick.title}${due ? `, it is ${due}` : ""}, and it runs ${size} the way you actually work. Shall I set you up with that?`;
 }
 
 /** The opening line, spoken before the student says anything. */

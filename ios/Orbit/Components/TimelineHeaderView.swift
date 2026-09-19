@@ -2,9 +2,12 @@ import SwiftUI
 
 /// The honest ledger, at the top of the day.
 ///
-/// This is a fixed overlay, not scrolling content, which is why it is allowed
-/// the expensive material: it is composited once and then left alone while the
-/// list moves underneath it.
+/// It reads as glass but it is not a material: this view scrolls with the list,
+/// and a blur that has to re-sample its backdrop on every frame of a scroll is
+/// the single most expensive thing you can put in a scroll view. The glass here
+/// is an opaque fill, a tinted gradient and a one-point lit edge, which is a
+/// flat composite. Materials on this screen are reserved for things that do not
+/// move: the docked action bar, the toast, and the expanded class.
 struct TimelineHeaderView: View {
     let user: Today.User
     let ledger: Today.Ledger
@@ -12,8 +15,6 @@ struct TimelineHeaderView: View {
     let simulatedClock: Bool
     let mode: Today.Mode
     let onModeChange: (Today.Mode) -> Void
-
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     /// Mirrors `hm()` in `src/app/TodayClient.tsx` so the two clients word a
     /// duration identically. This formats a number the server sent; it does not
@@ -41,11 +42,10 @@ struct TimelineHeaderView: View {
         .background {
             let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
             ZStack {
-                if reduceTransparency {
-                    shape.fill(Color.orbitSurface)
-                } else {
-                    shape.fill(.ultraThinMaterial)
-                }
+                shape.fill(
+                    Color.orbitSurface
+                        .shadow(.drop(color: .black.opacity(0.20), radius: 14, y: 8))
+                )
                 shape.fill(
                     LinearGradient(
                         colors: [Color.orbitAccent.opacity(0.16), Color.orbitLive.opacity(0.06)],
