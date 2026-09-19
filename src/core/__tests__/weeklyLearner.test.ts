@@ -4,7 +4,7 @@ import { runExperiment } from "../../agents/learningExperiment";
 
 const nemotron = vi.fn();
 vi.mock("../../agents/models", () => ({ nemotronJson: (...a: unknown[]) => nemotron(...a) }));
-const { CLAMP_MAX, emptyMemory, learnFromWeek, seenItems } = await import("../../agents/weeklyLearner");
+const { CLAMP_MAX, emptyMemory, isInverted, learnFromWeek, seenItems } = await import("../../agents/weeklyLearner");
 const { ASPECTS } = await import("../../agents/learningExperiment");
 const ASPECT = ASPECTS.assignments;
 
@@ -19,7 +19,7 @@ beforeEach(() => nemotron.mockReset());
 
 describe("what the learner is shown", () => {
   it("sees one week only, and the plan it was working from", () => {
-    const memory = { week: 1, multipliers: { big_assignment: 1.3 }, memos: [] };
+    const memory = { week: 1, multipliers: { big_assignment: 1.3 }, evidence: {}, memos: [] };
     const seen = seenItems(week1, memory, ASPECT);
     expect(seen).toHaveLength(3);
     // The consequence of its own last decision: it planned 117 for a 90 minute estimate, and the work took 120.
@@ -53,7 +53,7 @@ describe("the learner learns from one week", () => {
     const w2 = await learnFromWeek([obs("Problem Set 2", "big_assignment", 90, 122)], w1.memory, 2, ASPECT);
     const sent = JSON.parse(nemotron.mock.calls.at(-1)![1] as string); // the week 2 call
     expect(sent.yourMemory).toEqual(["week 1: Runs long on big work."]);
-    expect(sent.yourCurrentMultipliers).toEqual({ big_assignment: 1.28 });
+    expect(sent.yourCurrentExceptions).toEqual({ big_assignment: 1.28 });
     expect(sent.thisWeek).toHaveLength(1); // only week 2, never the history
     expect(w2.memory.multipliers.big_assignment).toBe(1.33);
     expect(w2.memory.memos.map((m) => m.week)).toEqual([1, 2]);
@@ -119,5 +119,27 @@ describe("experiment: one week at a time actually improves the next week", () =>
     // The learner's week-1 plan is the raw estimate, proving nothing leaked backwards.
     const firstLesson = x.arms[1].lessons![0];
     expect(firstLesson.sessions.every((sn) => sn.planned === sn.estimate)).toBe(true);
+  });
+});
+
+describe("a ratio answered upside down is refused", () => {
+  it("spots the reciprocal", () => {
+    expect(isInverted(0.84, 1.18)).toBe(true);   // the week 6 live failure
+    expect(isInverted(1.18, 1.18)).toBe(false);
+    expect(isInverted(1.15, 1.18)).toBe(false);
+    expect(isInverted(1.2, 0.85)).toBe(true);
+    expect(isInverted(0.98, 1.01)).toBe(false);  // too close to 1 to tell
+  });
+
+  it("refuses an inverted pace instead of collapsing the plan", async () => {
+    const { ASPECTS } = await import("../../agents/learningExperiment");
+    const walking = ASPECTS.walking;
+    const leg = walking.categories[0];
+    const week = [1, 2, 3].map((i) => ({ label: `walk ${i}`, category: leg, estimate: 10, actual: 12 }));
+    reply([], "");
+    nemotron.mockResolvedValue({ data: { multipliers: [], pace: 0.83, memo: "walks slower" }, provider: "nemotron-hosted", model: "m", latencyMs: 5 });
+    const { memory, lesson } = await learnFromWeek(week, { ...emptyMemory(), week: 3 }, 3, walking);
+    expect(memory.global).toBeUndefined();
+    expect(lesson.refused.some((r) => /upside down/.test(r.reason))).toBe(true);
   });
 });

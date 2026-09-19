@@ -3,7 +3,7 @@ import { KIND_LABEL, emptyProfile, kindOf, planMinutes, scorePlans, taskKind, ty
 import { LEGS, legId, syntheticStudent, type SyntheticStudent } from "@/core/student";
 import type { HabitRecord } from "@/core/habits";
 import { reviewWeek, type WeeklyReview } from "./learner";
-import { emptyMemory, learnFromWeek, type AspectSpec, type Observation, type WeekLesson, type WeekMemory } from "./weeklyLearner";
+import { emptyMemory, learnFromWeek, multiplierFor, type AspectSpec, type Observation, type WeekLesson, type WeekMemory } from "./weeklyLearner";
 
 /**
  * Walk-forward test of one aspect at a time. The student's weeks are replayed in
@@ -47,6 +47,7 @@ export const ASPECTS: Record<Aspect, AspectSpec & { label: string; unit: string 
       "You decide how many minutes Orbit should allow for each walk between two campus buildings next week. This is not a guess about effort: allow too few minutes and the student is physically late to class, and every gap in their day is overstated.",
     categories: LEGS.map((l) => legId(l.from, l.to)),
     categoryLabel: Object.fromEntries(LEGS.map((l) => [legId(l.from, l.to), `${l.from} to ${l.to}`])),
+    global: { noun: "walking pace", warmupWeeks: 2, exceptionMinWeeks: 2, exceptionThreshold: 0.1 },
   },
 };
 
@@ -84,6 +85,10 @@ export interface ArmResult {
   /** For the incremental arms: what the learner saw and changed, week by week. */
   lessons?: WeekLesson[];
   finalProfile?: LearnedProfile;
+  /** The one pace learned for the person, where the aspect has one. */
+  globalLearned?: number;
+  /** Error on a category the learner had never seen before, in its first two weeks: the transfer test. */
+  transfer?: Score & { category: string };
   story?: { title: string; estimate: number; plan: number; actual: number };
 }
 
@@ -135,6 +140,7 @@ export async function runExperiment(aspect: Aspect, arms: Arm[], opts: { weeks?:
     const perWeek: ArmResult["perWeek"] = [];
     const pooled: { plan: number; actual: number }[] = [];
     let story: ArmResult["story"];
+    const transferPairs: { category: string; week: number; plan: number; actual: number }[] = [];
 
     for (let w = 1; w <= student.weeks; w++) {
       const week = byWeek.get(w) ?? [];
@@ -145,10 +151,11 @@ export async function runExperiment(aspect: Aspect, arms: Arm[], opts: { weeks?:
       const planOf = (o: Observation) =>
         arm === "raw" ? o.estimate
         : existing ? Math.round(existing(o) * buffer * 10) / 10
-        : incremental ? Math.max(1, Math.round(o.estimate * (memory.multipliers[o.category] ?? 1) * 10) / 10)
+        : incremental ? Math.max(1, Math.round(o.estimate * multiplierFor(memory, o.category) * 10) / 10)
         : cumulative ? planMinutes(o.estimate, taskKind(o.label, o.estimate), learned)
         : o.estimate;
       const pairs = week.map((o) => ({ plan: planOf(o), actual: o.actual }));
+      for (const o of week) transferPairs.push({ category: o.category, week: w, plan: planOf(o), actual: o.actual });
       perWeek.push({ week: w, ...scorePlans(pairs) });
       if (w >= 2) pooled.push(...pairs);
       if (w === 2 && !story && week.length) {
@@ -169,6 +176,11 @@ export async function runExperiment(aspect: Aspect, arms: Arm[], opts: { weeks?:
     }
 
     const scored = pooled.length ? pooled : [];
+    // The transfer test: a category that first appears partway through. How well
+    // is it planned in its first two weeks, before it has any history of its own?
+    const firstSeen = new Map<string, number>();
+    for (const [w, os] of [...byWeek.entries()].sort((a, b) => a[0] - b[0])) for (const o of os) if (!firstSeen.has(o.category)) firstSeen.set(o.category, w);
+    const late = [...firstSeen.entries()].find(([, w]) => w > 1);
     const res: ArmResult = {
       arm,
       total: scorePlans(scored),
@@ -176,6 +188,11 @@ export async function runExperiment(aspect: Aspect, arms: Arm[], opts: { weeks?:
       shortShare: scored.length ? Math.round((scored.filter((p) => p.plan < p.actual).length / scored.length) * 100) / 100 : 0,
       story,
     };
+    if (late) {
+      const [cat, from] = late;
+      const pairs = transferPairs.filter((p) => p.category === cat && p.week < from + 2);
+      if (pairs.length) res.transfer = { category: cat, ...scorePlans(pairs) };
+    }
     const truthTable = (get: (c: string) => number) =>
       spec.categories.map((c) => {
         const v = Math.round(get(c) * 1000) / 1000;
@@ -184,7 +201,8 @@ export async function runExperiment(aspect: Aspect, arms: Arm[], opts: { weeks?:
       });
     if (incremental) {
       res.lessons = lessons;
-      res.learned = truthTable((c) => memory.multipliers[c] ?? 1);
+      res.learned = truthTable((c) => multiplierFor(memory, c));
+      res.globalLearned = memory.global;
     } else if (cumulative) {
       res.reviews = reviews;
       res.finalProfile = learned;

@@ -94,7 +94,9 @@ describe("the synthetic student", () => {
     expect(s.sessions).toHaveLength(56);
     expect(s.sessions.every((r) => r.synthetic)).toBe(true);
     expect(Math.max(...s.sessions.map((r) => r.week ?? 0))).toBe(8);
-    expect(s.walks).toHaveLength(96); // 12 a week, three on each of four legs
+    // Three a week on each live leg: four legs for weeks 1-4, five from week 5.
+    expect(s.walks).toHaveLength(4 * 12 + 4 * 15);
+    expect(s.walks.filter((w) => w.leg === "Sennott->Posvar").every((w) => w.week >= 5)).toBe(true);
   });
 
   it("starts with the story from the brief: a 90 minute problem set that takes about two hours", () => {

@@ -62,10 +62,14 @@ export interface WalkRecord { week: number; from: string; to: string; leg: strin
  * fit all four legs. The learner has to find the legs, not just the student.
  */
 export const LEGS = [
-  { from: "Home", to: "Sennott", planned: 14, difficulty: 1 },
-  { from: "Sennott", to: "Benedum", planned: 7, difficulty: 1 },
-  { from: "Benedum", to: "Cathedral", planned: 9, difficulty: 1.25 },
-  { from: "Cathedral", to: "Home", planned: 16, difficulty: 0.95 },
+  { from: "Home", to: "Sennott", planned: 14, difficulty: 1, fromWeek: 1 },
+  { from: "Sennott", to: "Benedum", planned: 7, difficulty: 1, fromWeek: 1 },
+  { from: "Benedum", to: "Cathedral", planned: 9, difficulty: 1.25, fromWeek: 1 },
+  { from: "Cathedral", to: "Home", planned: 16, difficulty: 0.95, fromWeek: 1 },
+  // A leg the student only starts walking in week 5, when a class moves. It is
+  // the transfer test: a learner that knows this person's pace should get it
+  // right on the first walk, while anything learning leg by leg is still blind.
+  { from: "Sennott", to: "Posvar", planned: 11, difficulty: 1, fromWeek: 5 },
 ] as const;
 export const legId = (from: string, to: string) => `${from}->${to}`;
 export interface OverheadRecord { week: number; kind: "settle" | "meal"; plannedMinutes: number; actualMinutes: number; synthetic: true }
@@ -140,9 +144,10 @@ export function syntheticStudent(weeks = 8, traits: StudentTraits = TRAITS, seed
       add(w, 4, at(16), "Midterm review (first pass)", "MATH 0220", 180, { lead: 52 });
       add(w, 6, at(22), "Midterm review (cram)", "MATH 0220", 180, { lead: 8 });
     }
-    // Twelve walks a week, three on each of the four campus legs.
-    for (let i = 0; i < 12; i++) {
-      const leg = LEGS[i % 4];
+    // Three walks a week on every leg the student is walking by then.
+    const live = LEGS.filter((l) => w >= l.fromWeek);
+    for (let i = 0; i < live.length * 3; i++) {
+      const leg = live[i % live.length];
       const actual = leg.planned * traits.walkSpeed * leg.difficulty * jitterWalk(0.1);
       walks.push({ week: w, from: leg.from, to: leg.to, leg: legId(leg.from, leg.to), plannedMinutes: leg.planned, actualMinutes: Math.max(1, Math.round(actual * 10) / 10), synthetic: true });
     }
