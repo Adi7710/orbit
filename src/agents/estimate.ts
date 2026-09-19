@@ -1,4 +1,4 @@
-import { heuristicMinutes } from "@/core/estimator";
+import { clampToBaseline, heuristicMinutes } from "@/core/estimator";
 import { nemotronJson, type Provider } from "./models";
 
 /**
@@ -70,13 +70,13 @@ export async function estimateTask(title: string, courseCode?: string, variant: 
   );
 
   const raw = Math.max(1, Math.round(r.data.minutes));
-  let minutes = raw;
-  let clamped = false;
-  if (anchored && r.provider !== "heuristic") {
-    const lo = Math.round(baseline * 0.5), hi = Math.round(baseline * 2);
-    minutes = Math.min(hi, Math.max(lo, raw));
-    clamped = minutes !== raw;
-  }
+  // The clamp itself lives in the pure core so it can be proven without a key.
+  // It only applies when a model actually answered: clamping the heuristic to
+  // a window derived from the heuristic would always be a no-op, and counting
+  // that as "clampFired: 0" would read as evidence the model behaved.
+  const c = anchored && r.provider !== "heuristic" ? clampToBaseline(raw, baseline) : { minutes: raw, clamped: false };
+  const minutes = c.minutes;
+  const clamped = c.clamped;
 
   return {
     minutes,

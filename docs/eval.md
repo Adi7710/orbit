@@ -27,7 +27,7 @@ A second finding came out of the same run: one call took 30 seconds. The client 
 
 ## The fixes
 
-**Anchor the model instead of trusting it.** The anchored variant hands Nemotron the heuristic as a baseline and asks it to adjust only where the title is informative. Code then clamps the answer to between half and double the baseline. The model can still correct a bad rule, which is the point of having it, but a five-times miss is structurally impossible rather than merely discouraged. For "Quiz 3 prep" the baseline is 45, so the clamp window is 22 to 90 and 240 cannot happen.
+**Anchor the model instead of trusting it.** The anchored variant hands Nemotron the heuristic as a baseline and asks it to adjust only where the title is informative. Code then clamps the answer to between half and double the baseline. The model can still correct a bad rule, which is the point of having it, but a five-times miss is structurally impossible rather than merely discouraged. For "Quiz 3 prep" the baseline is 45, so the clamp window is 23 to 90 and 240 cannot happen. That is not a claim about a prompt: the clamp lives in `src/core/estimator.ts` as `clampToBaseline`, in the pure core with the rest of the arithmetic, and `src/core/__tests__/clamp.test.ts` proves it **with no key and no network** — including the original 240 collapsing to 90, and a property test that no model output at all, up to 100000, can leave the window for any title in the eval set. The clamp fires only when a model actually answered; clamping the heuristic against a window derived from the heuristic would be a permanent no-op reported as `clampFired: 0`, which would read as evidence the model behaved.
 
 **Do not retry a timeout.** Only a schema rejection is worth a second attempt. This halves the worst case.
 
@@ -42,6 +42,8 @@ Both variants stay in the code and in the eval. The zero-shot prompt is unchange
 | Heuristic | 16.3 min | 9/10 | n/a | 0 ms |
 | Nemotron zero-shot | 35.3 min | 8/10 | n/a | 7.6 s |
 | Nemotron anchored | _to fill from a run with the key_ | | | |
+
+**Run without a key (2026-09-19 16:55, lead):** all three rows come back identical at MAE 16.3, 9/10, because both model variants report `answeredByModel: 0/10` and fall back to the heuristic ten times out of ten with `errors: ["no NVIDIA_API_KEY"]`. That is the harness being honest rather than the model being useless, but it means **this table carries no signal until the key is present** — three copies of one number reads as "the model does nothing". The clamp row is the part that does not need the key: see `clamp.test.ts`.
 
 ## What this says about the architecture
 

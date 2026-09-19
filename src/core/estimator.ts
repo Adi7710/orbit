@@ -64,3 +64,36 @@ export function heuristicMinutes(title: string): number {
   if (/(discussion|post|reflection)/.test(s)) return 30;
   return 60;
 }
+
+// MARK: - The anchored clamp
+
+/**
+ * How far the model is allowed to move the heuristic baseline.
+ *
+ * This is the whole safety argument of the anchored variant, so it lives here
+ * in the pure core with the rest of the arithmetic rather than inline in the
+ * agent: it has to be provable without a network call or an API key.
+ *
+ * Half to double is deliberately generous. The model must be able to correct
+ * a bad rule -- that is the entire reason for having it -- while a five-times
+ * miss like "Quiz 3 prep" at 240 minutes against a 45-minute baseline becomes
+ * structurally impossible instead of merely discouraged by a prompt.
+ */
+export const CLAMP_LO = 0.5;
+export const CLAMP_HI = 2;
+
+export interface ClampResult {
+  /** What we will actually plan with. */
+  minutes: number;
+  /** True when code had to pull the model back. Reported by /api/eval. */
+  clamped: boolean;
+  lo: number;
+  hi: number;
+}
+
+export function clampToBaseline(raw: number, baseline: number): ClampResult {
+  const lo = Math.round(baseline * CLAMP_LO);
+  const hi = Math.round(baseline * CLAMP_HI);
+  const minutes = Math.min(hi, Math.max(lo, raw));
+  return { minutes, clamped: minutes !== raw, lo, hi };
+}
