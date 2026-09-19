@@ -33,6 +33,8 @@ interface Store {
   instructors: Record<string, string>;
   /** Instructor addresses the student corrected at runtime. Never persisted; the shipped roster stays synthetic. */
   contacts: Contact[];
+  /** Rolling history of self-eval runs, so the score is a trend and not one reading. */
+  selfEval: { at: string; asked: number; passed: number; score: number; avgCritic: number | null }[];
   /** Completed sessions the Patterns card learns from. Seeded with synthetic history; real completions append. */
   habits: HabitRecord[];
 }
@@ -68,11 +70,30 @@ function seed(): Store {
     habits: syntheticHistory(new Date()),
     instructors: { "MATH 0220": "prof.lee@pitt.edu", "CS 0441": "prof.chen@pitt.edu", "ENGCMP 0200": "prof.ortiz@pitt.edu" },
     contacts: [],
+    selfEval: [],
   };
 }
 
+/** Field names a seeded store has. Computed once, not per call. */
+const SEED_KEYS: string[] = Object.keys(seed() as unknown as Record<string, unknown>);
+
 export function store(): Store {
   if (!g.__orbit) g.__orbit = seed();
+  // Backfill anything added to Store since this object was created.
+  //
+  // The store is a module-level object that deliberately survives hot reload,
+  // so adding a field to the *type* does not add it to the object already in
+  // memory. Every route reading the new field then throws until someone
+  // restarts -- and a restart wipes an imported calendar, which is exactly the
+  // moment you least want to be forced into one. Adding a field must never be
+  // able to break a running server.
+  const s = g.__orbit as unknown as Record<string, unknown>;
+  // Cheap check on the hot path: seed() rebuilds fixtures and a synthetic
+  // history, so only pay for it when a key is genuinely absent.
+  if (SEED_KEYS.some((k) => s[k] === undefined)) {
+    const fresh = seed() as unknown as Record<string, unknown>;
+    for (const k of SEED_KEYS) if (s[k] === undefined) s[k] = fresh[k];
+  }
   return g.__orbit;
 }
 

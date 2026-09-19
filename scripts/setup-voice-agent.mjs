@@ -103,6 +103,20 @@ const TOOLS = [
     },
     required: ["said"],
   },
+  {
+    name: "ask",
+    description:
+      "Answer any other question the student asks about their own day, schedule, workload, windows, tasks, bus or history. This is your fallback for anything the other tools do not cover -- use it rather than saying you cannot help. It returns a finished spoken sentence built only from real data, and it will say plainly when it does not know something, which you should read back honestly rather than filling in yourself.",
+    body: { said: { type: "string", description: "The student's question, in their own words." } },
+    required: ["said"],
+  },
+  {
+    name: "why",
+    description:
+      "Explain where a number you just said came from. Call this whenever the student pushes back -- 'why', 'how do you know that', 'says who', 'that seems wrong'. It returns the underlying facts and the part of the system that computed them.",
+    body: { said: { type: "string", description: "What they are questioning, in their own words." } },
+    required: ["said"],
+  },
 ];
 
 const LLM_CANDIDATES = ["claude-sonnet-4-5", "claude-3-7-sonnet", "claude-3-5-sonnet", "gemini-2.5-flash", "gpt-4o"];

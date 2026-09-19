@@ -11,6 +11,7 @@ import { recordHabit } from "@/lib/habitLog";
 import { randomUUID } from "node:crypto";
 import { findContact, mergeRoster, resolveCourse, SAMPLE_ROSTER } from "@/core/contacts";
 import { draftEmail } from "./emailAgent";
+import { ask } from "./ask";
 
 /**
  * The voice tool surface.
@@ -135,7 +136,7 @@ export function asSentence(text: string): string {
 
 // MARK: - The tools
 
-export type VoiceTool = "get_today" | "log_actual" | "set_mode" | "get_bus" | "get_estimate" | "get_coach" | "draft_email";
+export type VoiceTool = "get_today" | "log_actual" | "set_mode" | "get_bus" | "get_estimate" | "get_coach" | "draft_email" | "ask" | "why";
 
 export interface VoiceRequest { tool: VoiceTool | string; task?: string; minutes?: number; mode?: string; destination?: string; said?: string; course?: string; newDate?: string }
 
@@ -308,8 +309,43 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
       };
     }
 
+    case "ask": {
+      // Anything the dedicated tools do not cover. Grounded in the factsheet,
+      // verified before it is spoken, and honest when the facts run out --
+      // which replaced a blanket "I only know your schedule, your tasks and
+      // your bus", true and useless for every real question.
+      const q = (req.said ?? req.task ?? "").trim();
+      if (!q) return { ok: false, text: "Ask me about your day and I will tell you what I actually know." };
+      const a = await ask(q, await buildToday());
+      log("voice", "voice_ask", { provider: a.provider, grounded: a.check.ok, cited: a.check.cited.length });
+      // Numbers are spoken, not printed, for the same reason as everywhere else.
+      return { ok: a.provider !== "refused", text: speakNumbers(a.text), data: { because: a.because.map((b) => b.key), provider: a.provider } };
+    }
+
+    case "why": {
+      // Defending an answer is a lookup, not a second opinion: each fact
+      // carries the code it came from.
+      const q = (req.said ?? req.task ?? "").trim();
+      const a = await ask(q || "how much time do I have today", await buildToday());
+      if (a.because.length === 0) return { ok: false, text: "I did not have anything to base that on, which is why I did not answer it." };
+      const top = a.because.slice(0, 2);
+      // Joined fragments, so the leading capital has to go or it reads
+      // "Because You have...". And a source is written for a developer
+      // ("computeLedger in src/core/ledger.ts"); spoken aloud a file path is
+      // noise, so only the human-readable part survives.
+      const lower = (x: string) => x.charAt(0).toLowerCase() + x.slice(1);
+      const plainSource = top[0].source.replace(/\s*in\s+src\/[\w/.]+/i, "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+      return {
+        ok: true,
+        text: speakNumbers(`Because ${lower(top[0].text)}${top[1] ? ` And ${lower(top[1].text)}` : ""} That comes from ${plainSource}.`),
+        data: { keys: top.map((b) => b.key) },
+      };
+    }
+
     default:
-      return { ok: false, text: "I only know your schedule, your tasks and your bus." };
+      // Unknown tool names fall through to the open question path rather than
+      // refusing, so a new phrasing never produces a dead end.
+      return route({ ...req, tool: "ask", said: req.said ?? req.task ?? String(req.tool) });
   }
 }
 

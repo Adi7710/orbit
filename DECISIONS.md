@@ -340,3 +340,24 @@ Affects: src/core/contacts.ts, src/app/api/email/roster/route.ts, src/lib/store.
 Decision: mergeRoster accepts undefined, and the roster route does s.contacts ??= [].
 Why: The store is a module-level object that survives hot reload, so adding `contacts` to its type did not add it to the object already in memory: every call 500'd with "s.contacts is not iterable" until a restart. A restart would also have wiped the imported Canvas data, which is exactly the moment you do not want to be forced into one.
 Affects: src/core/contacts.ts, src/app/api/email/roster/route.ts.
+
+## 2026-09-19 18:50 ET · lead Claude · A new store field can no longer break a running server
+Decision: store() backfills any key a seeded store has that the live object is missing, guarded by a cheap presence check so seed() is not rebuilt on the hot path.
+Why: The store is a module-level object that deliberately survives hot reload, so adding `contacts` to the type did not add it to the object already in memory. Every route touching it 500'd with "not iterable" until a restart — and a restart wipes an imported calendar, which is exactly the moment you least want to be forced into one.
+Affects: src/lib/store.ts.
+
+## 2026-09-19 19:00 ET · Adi + lead Claude · The Ask agent: answer anything, ground every number, defend it
+Decision: New src/agents/ask.ts with pure src/core/factsheet.ts and src/core/answerCheck.ts. A factsheet of every fact Orbit may state is built from the deterministic core, each with a key, the numbers it licenses and the code it came from. A question retrieves the facts that bear on it, a model phrases them, and code then checks that every number in the answer was licensed — an unlicensed number discards the model's wording entirely and states the facts plainly instead. Two new voice tools: `ask` for anything the dedicated tools do not cover, and `why`, which reads back the facts and where they were computed. The old default branch, "I only know your schedule, your tasks and your bus", is gone.
+Why: The server-writes-the-sentence rule does not survive open questions — you cannot pre-write a sentence for a question nobody has asked yet. This is the replacement, and it inverts the usual approach: instead of asking a model to stick to its context, the context is enumerable and the check afterwards is arithmetic.
+Affects: src/agents/ask.ts, src/core/factsheet.ts, src/core/answerCheck.ts, src/agents/voiceTools.ts, scripts/setup-voice-agent.mjs.
+
+## 2026-09-19 19:00 ET · Adi + lead Claude · The self-eval loop, and what it is not
+Decision: src/core/questionBank.ts holds 24 questions with the fact keys a right answer must rest on. POST /api/selfeval answers all of them, scores three ways, grades with the existing Critic, and keeps a trend. scripts/selfeval-loop.mjs runs it on a schedule and writes docs/selfeval.md.
+Stated plainly because it would be easy to overclaim: **no weights change and nothing is trained.** What the loop does is turn "can Orbit answer questions" from an opinion into a number, and name exactly which questions it failed, so a change either moves that number or it did not.
+Score went 54.2% -> 87.5% -> 95.8% -> 100% in four rounds, and every step came from a failure the harness found:
+  1. All four out-of-scope questions leaked. rank() always appended the ledger fact, so the relevant list was never empty and the agent never refused anything — it answered "what will be on the midterm" confidently. Named subjects (grades, exam content, weather, life advice) are now refused before retrieval, because relying on "no fact matched" does not work when "should I drop out" shares the word drop with the cut suggestions.
+  2. Four correct answers were flagged ungrounded. The verifier read the 4 in "Problem Set 4" and the 61 in "the 61B" as invented claims. Numbers printed in a fact are now licensed by it.
+  3. Three questions were answered from the wrong facts: no stemming (so "estimates" never matched "estimate"), no route for "due soonest", and "on time" making "time" a question word that matches "times" in every calibration fact — which is how a bus question got answered out of the estimator history.
+  4. A question passed while burying the answer third. satisfies() only asked that the right fact appear somewhere, so leadsWith() now requires it in the first two. It immediately found another one.
+One weakness the tests found and fixed: verification was scoped to the whole factsheet, so "you have 340 usable minutes" was licensed by an unrelated fact mentioning 340 XP. It is now scoped to the facts the answer was actually shown.
+Affects: src/core/questionBank.ts, src/app/api/selfeval, scripts/selfeval-loop.mjs, docs/selfeval.md.
