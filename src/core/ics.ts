@@ -98,7 +98,7 @@ export function parseRecurrence(value: string): Recurrence | undefined {
 export function parseIcs(text: string): IcsEvent[] {
   const events: IcsEvent[] = [];
   let fields: Record<string, ReturnType<typeof parseProp>> = {};
-  let exdates: string[] = [];
+  let exdates: { value: string; params: Record<string, string> }[] = [];
   let inside = false;
   for (const line of unfold(text)) {
     if (line.startsWith("BEGIN:VEVENT")) { inside = true; fields = {}; exdates = []; continue; }
@@ -115,7 +115,7 @@ export function parseIcs(text: string): IcsEvent[] {
           end: fields.DTEND ? parseIcsDate(fields.DTEND.value, fields.DTEND.params) : undefined,
           allDay,
           recurrence: fields.RRULE ? parseRecurrence(fields.RRULE.value) : undefined,
-          excluded: exdates.flatMap((e) => e.split(",")).map((e) => parseIcsDate(e)).filter((d): d is Date => !!d),
+          excluded: exdates.flatMap((e) => e.value.split(",").map((v) => parseIcsDate(v, e.params))).filter((d): d is Date => !!d),
         });
       }
       inside = false;
@@ -124,29 +124,42 @@ export function parseIcs(text: string): IcsEvent[] {
     if (!inside) continue;
     const p = parseProp(line);
     if (!p) continue;
-    if (p.name === "EXDATE") exdates.push(p.value);
+    if (p.name === "EXDATE") exdates.push({ value: p.value, params: p.params });
     else fields[p.name] = p;
   }
   return events;
 }
 
-const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+/** Calendar date of `d` in `tz` (or the server's local zone when tz is omitted) as whole days since the epoch. */
+function dayNumber(d: Date, tz?: string): number {
+  if (!tz) return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5;
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
+  return Date.UTC(get("year"), get("month") - 1, get("day")) / 864e5;
+}
+const weekdayOf = (dayNum: number) => new Date(dayNum * 864e5).getUTCDay();
 
-export function occursOn(ev: IcsEvent, day: Date): boolean {
-  if (ev.excluded.some((x) => sameDay(x, day))) return false;
-  if (!ev.recurrence) return sameDay(ev.start, day);
+/**
+ * Does the event fall on `day`? Dates are compared as calendar days in `tz`.
+ * Without tz the server's local zone is used, which is wrong on a UTC host
+ * (a 20:00 New York class is already tomorrow in UTC), so callers that know the
+ * student's zone should pass it.
+ */
+export function occursOn(ev: IcsEvent, day: Date, tz?: string): boolean {
+  const target = dayNumber(day, tz);
+  const first = dayNumber(ev.start, tz);
+  if (ev.excluded.some((x) => dayNumber(x, tz) === target)) return false;
+  if (!ev.recurrence) return first === target;
   const r = ev.recurrence;
-  const target = startOfDay(day), first = startOfDay(ev.start);
   if (target < first) return false;
-  if (r.until && target > startOfDay(r.until)) return false;
-  const days = Math.round((target.getTime() - first.getTime()) / 864e5);
+  if (r.until && target > dayNumber(r.until, tz)) return false;
+  const days = target - first;
   if (r.freq === "DAILY") {
     if (days % r.interval !== 0) return false;
     return r.count ? days / r.interval < r.count : true;
   }
-  const allowed = r.weekdays.length ? r.weekdays : [first.getDay()];
-  if (!allowed.includes(target.getDay())) return false;
+  const allowed = r.weekdays.length ? r.weekdays : [weekdayOf(first)];
+  if (!allowed.includes(weekdayOf(target))) return false;
   const weeks = Math.floor(days / 7);
   if (weeks % r.interval !== 0) return false;
   return r.count ? (weeks / r.interval) * allowed.length < r.count : true;
@@ -176,7 +189,7 @@ export function placeFromLocation(location?: string): string | undefined {
 
 export function blocksOn(day: Date, events: IcsEvent[], tz?: string): FixedBlock[] {
   return events
-    .filter((e) => !e.allDay && e.end && occursOn(e, day))
+    .filter((e) => !e.allDay && e.end && occursOn(e, day, tz))
     .map((e) => ({
       id: `${e.uid}@${day.toDateString()}`,
       title: cleanTitle(e.summary),
@@ -189,9 +202,13 @@ export function blocksOn(day: Date, events: IcsEvent[], tz?: string): FixedBlock
     .sort((a, b) => a.start - b.start);
 }
 
-/** Canvas assignments become tasks carrying their real due time. Date-only events are due at 23:59. */
-export function taskFromEvent(e: IcsEvent): Task {
-  const due = e.allDay ? new Date(e.start.getFullYear(), e.start.getMonth(), e.start.getDate(), 23, 59) : e.start;
+/** Canvas assignments become tasks carrying their real due time. Date-only events are due at 23:59 in `tz` (server-local when omitted). */
+export function taskFromEvent(e: IcsEvent, tz?: string): Task {
+  let due = e.start;
+  if (e.allDay) {
+    const wall = new Date(Date.UTC(e.start.getFullYear(), e.start.getMonth(), e.start.getDate(), 23, 59));
+    due = tz ? new Date(wall.getTime() - tzOffsetMinutes(wall, tz) * 60000) : new Date(e.start.getFullYear(), e.start.getMonth(), e.start.getDate(), 23, 59);
+  }
   const title = cleanTitle(e.summary);
   return {
     id: e.uid,

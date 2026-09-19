@@ -28,6 +28,10 @@ export default function TodayClient() {
   const [board, setBoard] = useState<{ rank: number; name: string; xpWeek: number; streakWeeks: number; group?: string }[]>([]);
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState(false);
+  const [timetableUrl, setTimetableUrl] = useState("");
+  const [canvasUrl, setCanvasUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importNote, setImportNote] = useState("");
 
   const refresh = useCallback(async () => {
     const [a, b] = await Promise.all([fetch("/api/today").then((r) => r.json()), fetch("/api/leaderboard?group=Tower%20A").then((r) => r.json())]);
@@ -57,6 +61,29 @@ export default function TodayClient() {
     const actual = Number(prompt("How many minutes did it actually take?", String(planned)) ?? planned);
     const r = await fetch("/api/complete", { method: "POST", body: JSON.stringify({ taskId, actualMinutes: actual }), headers: { "Content-Type": "application/json" } }).then((r) => r.json());
     if (r.ok) say(`+${r.xp} XP: ${r.reasons.join(", ")}`);
+    refresh();
+  };
+
+  const importCalendars = async (sample: boolean) => {
+    setImporting(true);
+    setImportNote("");
+    try {
+      const r = await fetch("/api/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sample ? { sample: true } : { timetableUrl: timetableUrl.trim() || undefined, canvasUrl: canvasUrl.trim() || undefined }),
+      }).then((r) => r.json());
+      const parts: string[] = [];
+      if (r.timetable) parts.push(`${r.timetable.blocks} class${r.timetable.blocks === 1 ? "" : "es"} on ${r.day}`);
+      if (r.canvas) parts.push(`${r.canvas.added + r.canvas.updated} Canvas task${r.canvas.added + r.canvas.updated === 1 ? "" : "s"}`);
+      const problems = [...(r.warnings ?? []), ...Object.entries(r.errors ?? {}).map(([k, v]) => `${k}: ${v}`)];
+      if (r.error) problems.push(r.error);
+      setImportNote([parts.length ? `Imported ${parts.join(" and ")}.` : "", ...problems].filter(Boolean).join(" "));
+      if (parts.length) say(`Imported ${parts.join(" and ")}`);
+    } catch {
+      setImportNote("Import failed. Is the server reachable?");
+    }
+    setImporting(false);
     refresh();
   };
 
@@ -158,6 +185,20 @@ export default function TodayClient() {
         <ul className="mt-2 text-sm">{t.calibration.map((c) => <li key={c.key}>{c.key.replace("::", " · ")}: ×{c.multiplier.toFixed(2)} ({c.samples} sessions)</li>)}</ul>
         <h2 className="mt-5 text-sm font-medium text-zinc-500">Timeline</h2>
         <ul className="mt-2 max-h-48 overflow-auto text-xs text-zinc-600">{t.events.map((e) => <li key={e.seq}>{new Date(e.ts).toLocaleTimeString()} · {e.actor} · {e.type}</li>)}</ul>
+      </section>
+
+      <section className="rounded-2xl border p-5 md:col-span-3">
+        <h2 className="text-sm font-medium text-zinc-500">Bring your own calendar</h2>
+        <p className="mt-1 text-xs text-zinc-500">Paste the .ics links from your timetable and from Canvas. Links are fetched by the server and only https is accepted.</p>
+        <div className="mt-3 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+          <input value={timetableUrl} onChange={(e) => setTimetableUrl(e.target.value)} placeholder="Timetable .ics link" aria-label="Timetable .ics link" className="rounded-xl border px-3 py-2 text-sm" />
+          <input value={canvasUrl} onChange={(e) => setCanvasUrl(e.target.value)} placeholder="Canvas calendar .ics link" aria-label="Canvas calendar .ics link" className="rounded-xl border px-3 py-2 text-sm" />
+          <div className="flex gap-2">
+            <button disabled={importing || (!timetableUrl.trim() && !canvasUrl.trim())} onClick={() => importCalendars(false)} className="rounded-full bg-zinc-900 px-4 py-1.5 text-sm text-white disabled:opacity-50">{importing ? "Importing…" : "Import"}</button>
+            <button disabled={importing} onClick={() => importCalendars(true)} className="rounded-full border px-4 py-1.5 text-sm disabled:opacity-50">Use sample data</button>
+          </div>
+        </div>
+        {importNote && <p className="mt-2 text-sm text-zinc-600">{importNote}</p>}
       </section>
 
       {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-zinc-900 px-4 py-2 text-sm text-white shadow-lg">{toast}</div>}
