@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import LedgerReveal from "./LedgerReveal";
 import WatcherPanel from "./WatcherPanel";
+import VoiceButton from "./VoiceButton";
 
 type Today = {
   mode: "normal" | "crisis" | "chill";
@@ -111,6 +112,8 @@ export default function TodayClient() {
           <span className="ml-3 rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-900">{t.user.xpWeek} XP · {t.user.streakWeeks}-wk streak</span>
         </div>
       </header>
+
+      <VoiceButton onChange={refresh} />
 
       <WatcherPanel onChange={refresh} />
 
