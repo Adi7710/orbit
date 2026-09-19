@@ -53,3 +53,18 @@ Affects: src/services/prt.ts, .env.example, README.
 Decision: PLACES maps Home to the Squirrel Hill stops for the two bus legs (morning Home→first class, evening last class→Home). The ledger's travel graph keeps the hand-computed walking legs between campus buildings; the "walk home" default in the fixture is a placeholder until the import route replaces it with the student's real commute mode.
 Why: Keeps the tested ledger numbers stable while the bus feature uses real stops. Jatin's ICS import (#2) should set commute mode and home from the setup form.
 Affects: src/lib/transit.ts, src/core/__tests__/fixture.ts, issue #2.
+
+## 2026-09-19 14:26 ET · Jatin · Nemotron ids pinned
+Decision: NEMOTRON_MODEL=nvidia/nemotron-3.5-lightning-30b-a3b (text, JSON schema, thinking off) and Parse stays on nvidia/nemotron-parse. nvidia/nemotron-parse-2.0 is not usable: without tools it has a 4096-token context and rejects a full page image, with tools it returns 400 (no auto tool choice).
+Why: /api/nvidia lists 82 models for our key; the chosen text id is what the model page recommends and supports structured output. /api/eval returns provider nemotron-hosted with real latency.
+Affects: .env.local (not committed), src/agents/models.ts (no change needed; chat_template_kwargs is accepted).
+
+## 2026-09-19 14:26 ET · Jatin · First honest /api/eval: Nemotron is worse than the heuristic
+Decision: Keep the eval as is and report the result. On 10 synthetic sessions Nemotron MAE was 35.3 min (within 25%: 8/10, avg latency 7.6 s, one call timed out at 30 s and fell back to the heuristic) against the heuristic's MAE 16.3 (9/10). Worst miss: "Quiz 3 prep" estimated 240 min against 50 actual.
+Why: This is the "failure we found" for the NVIDIA track and for docs/eval.md; hiding it would make the eval worthless. It is also the case for the Brev fine-tune (#5) and for clamping estimates to the per-course calibration.
+Affects: src/agents/estimate.ts (Adi), issue #5, docs/eval.md.
+
+## 2026-09-19 14:30 ET · Jatin · Nemotron Parse response shape and a synthetic syllabus sample
+Decision: Added data/samples/cs0441-syllabus-p1.{png,txt}, a synthetic one-page syllabus rendered at 1700x2200, for testing /api/syllabus and the upload panel. The Parse response shape is documented in issue #6: tool_calls[0].function.arguments is a JSON array of arrays (one inner array per image), each element {type, text, bbox:{xmin,ymin,xmax,ymax}} with bbox normalized 0-1, tables as LaTeX tabular text, checkbox glyphs dropped. parse.ts normalize() reads the outer array as elements and yields one empty element; the fix is to flatten one level.
+Why: A 612x792 render returned an empty page and hid the shape problem; the higher resolution shows the real output. The verbatim-quote guard already rejected an invented "Syllabus Quiz" task.
+Affects: src/agents/parse.ts and syllabus.ts (Adi), web syllabus panel (#9: scale boxes by image size).
