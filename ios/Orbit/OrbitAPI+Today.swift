@@ -16,14 +16,14 @@ extension OrbitAPI {
     /// Returns the decoded day and the raw bytes, so the caller can cache the
     /// exact payload it rendered rather than a re-encoding of it.
     func today() async throws -> (day: Today, raw: Data) {
-        let data = try await send(path: "api/today", method: "GET", body: Optional<Never>.none)
+        let data = try await send(path: "api/today", method: "GET", body: Optional<NoBody>.none)
         return (try decoder.decode(Today.self, from: data), data)
     }
 
     // MARK: - Writes
 
     func plan() async throws -> PlanResponse {
-        let data = try await send(path: "api/plan", method: "POST", body: Optional<Never>.none, timeout: 45)
+        let data = try await send(path: "api/plan", method: "POST", body: Optional<NoBody>.none, timeout: 45)
         return try decoder.decode(PlanResponse.self, from: data)
     }
 
@@ -54,6 +54,10 @@ extension OrbitAPI {
         let data = try await send(path: "api/mode", method: "POST", body: Body(mode: mode.rawValue))
         return try decoder.decode(ModeResponse.self, from: data)
     }
+
+    /// Stands in for "this request has no body". `Never` cannot be used here:
+    /// it is not Encodable.
+    private struct NoBody: Encodable {}
 
     // MARK: - Transport
 

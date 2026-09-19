@@ -109,6 +109,16 @@ extension LinearGradient {
             endPoint: .bottomTrailing
         )
     }
+
+    /// The same lit edge in an arbitrary colour, for a card that is carrying a
+    /// status colour rather than a domain colour.
+    static func tintedEdge(_ tint: Color) -> LinearGradient {
+        LinearGradient(
+            colors: [tint.opacity(0.55), tint.opacity(0.08)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 }
 
 // MARK: - Type scale

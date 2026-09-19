@@ -152,7 +152,7 @@ struct ClassCardView: View {
                 )
             }
             shape.strokeBorder(
-                isLive ? LinearGradient.orbitDomainEdge("build") : LinearGradient.orbitEdge,
+                isLive ? LinearGradient.tintedEdge(tint) : LinearGradient.orbitEdge,
                 lineWidth: 1
             )
         }
