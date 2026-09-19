@@ -6,7 +6,7 @@ Built at SteelHacks XIII, Sept 19-20 2026. All code in this repository was start
 
 ## Tracks
 
-- NVIDIA "Beyond the Chatbot": Nemotron estimates task minutes and domains (not chat) and is evaluated against a synthetic session log at `/api/eval` (MAE, within-25% hit rate, latency, provider). Nemotron Parse (on a teammate's Mac) will read syllabus PDFs into deadlines with bounding-box provenance.
+- NVIDIA "Beyond the Chatbot": Nemotron estimates task minutes and domains (not chat) and is evaluated against a synthetic session log at `/api/eval` (MAE, within-25% hit rate, latency, provider). Nemotron Parse (hosted) reads syllabus PDFs into deadlines with bounding-box provenance.
 - ElevenLabs "Out Loud": a voice agent gives the morning briefing from the real ledger, takes the evening "how long did it really take" check-in that feeds the estimator, and switches modes by voice.
 - LANXESS "Xtract": every imported deadline links back to its source (ICS uid or syllabus page and box).
 - General.
@@ -24,13 +24,15 @@ src/core            pure, tested arithmetic (no framework, no network)
   overlap.ts        shared free windows with opted-in friends (classes never exposed)
   bus.ts            leave-by from gap end + walk + live arrivals; ghost-trip detection
 src/agents
-  models.ts         model registry: Nemotron (Ollama local -> hosted NIM) with heuristic fallback; Claude
+  models.ts         model registry: Nemotron via NVIDIA hosted API (id discovery, JSON-schema calls, heuristic fallback); Claude
+  parse.ts          Nemotron Parse via the hosted API: page image -> markdown + bounding boxes
+  syllabus.ts       parsed pages -> dated tasks; every task must quote the document verbatim or it is dropped
   estimate.ts       Nemotron's non-chat job: minutes + domain from a title, JSON-schema constrained
   dayAgent.ts       Claude with four tools; every tool is a PROPOSAL, humans approve in /api/proposals
   voice.ts          ElevenLabs token minting; briefing text built from the ledger
 src/services/prt.ts Pittsburgh Regional Transit GTFS-realtime adapter with a demo snapshot
 src/lib             in-memory store (swap for Postgres), today builder
-src/app/api         today, plan, proposals/[id], complete, leaderboard, mode, voice/token, voice/tool, eval
+src/app/api         today, plan, proposals/[id], complete, leaderboard, mode, voice/token, voice/tool, eval, syllabus, nvidia
 src/app             Today screen
 ```
 

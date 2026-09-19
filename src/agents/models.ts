@@ -1,48 +1,102 @@
 import Anthropic from "@anthropic-ai/sdk";
 
 /**
- * Model registry. Claude is the reasoning and drafting layer. Nemotron (via
- * any OpenAI-compatible endpoint: Ollama on the Mac, hosted NIM, or an L4)
- * does the non-chat jobs: classification, estimation, extraction. Every call
- * records which provider actually answered so degraded mode is visible.
+ * Model registry. Claude is the reasoning and drafting layer. Nemotron, via
+ * NVIDIA's hosted API (build.nvidia.com, OpenAI-compatible), does the
+ * non-chat jobs: classification, estimation, document parsing. No local
+ * models. Every call records which provider actually answered so degraded
+ * mode is visible on screen.
  */
 export const claude = () => new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-export interface NemotronResult<T> { data: T; provider: "nemotron-local" | "nemotron-hosted" | "claude-fallback" | "heuristic"; latencyMs: number }
+export const NVIDIA_BASE = process.env.NVIDIA_BASE_URL ?? "https://integrate.api.nvidia.com/v1";
+export const nvidiaKey = () => process.env.NVIDIA_API_KEY;
 
-const endpoints = () => [
-  { name: "nemotron-local" as const, url: process.env.NEMOTRON_BASE_URL, key: process.env.NEMOTRON_API_KEY ?? "ollama", model: process.env.NEMOTRON_MODEL ?? "nemotron-3-nano-4b" },
-  { name: "nemotron-hosted" as const, url: "https://integrate.api.nvidia.com/v1", key: process.env.NVIDIA_API_KEY, model: "nvidia/nemotron-3.5-lightning-30b-a3b" },
-].filter((e) => e.url && e.key);
+/** Preferred text model ids, first available wins. Override with NEMOTRON_MODEL. */
+export const NEMOTRON_TEXT_CANDIDATES = [
+  process.env.NEMOTRON_MODEL,
+  "nvidia/nemotron-3.5-lightning-30b-a3b",
+  "nvidia/nemotron-3-super-120b-a12b",
+  "nvidia/nemotron-3-nano-30b-a3b",
+  "nvidia/nemotron-3-ultra-550b-a55b",
+].filter((x): x is string => !!x);
 
-/** JSON-schema constrained call to Nemotron with fallback chain. */
-export async function nemotronJson<T>(system: string, user: string, schema: object, fallback: () => T, timeoutMs = 8000): Promise<NemotronResult<T>> {
-  for (const ep of endpoints()) {
-    const started = Date.now();
+export const NEMOTRON_PARSE_CANDIDATES = [process.env.NEMOTRON_PARSE_MODEL, "nvidia/nemotron-parse", "nvidia/nemoretriever-parse"].filter((x): x is string => !!x);
+
+let modelCache: { ids: string[]; at: number } | undefined;
+
+/** Lists the ids the key can actually call. Cached for 10 minutes. */
+export async function availableModels(): Promise<string[]> {
+  if (!nvidiaKey()) return [];
+  if (modelCache && Date.now() - modelCache.at < 6e5) return modelCache.ids;
+  try {
+    const r = await fetch(`${NVIDIA_BASE}/models`, { headers: { Authorization: `Bearer ${nvidiaKey()}` } });
+    if (!r.ok) return [];
+    const j = (await r.json()) as { data?: { id: string }[] };
+    modelCache = { ids: (j.data ?? []).map((m) => m.id), at: Date.now() };
+    return modelCache.ids;
+  } catch {
+    return [];
+  }
+}
+
+export async function pickModel(candidates: string[]): Promise<string | undefined> {
+  const ids = await availableModels();
+  if (ids.length === 0) return candidates[0]; // key may lack /models access; try the first anyway
+  return candidates.find((c) => ids.includes(c)) ?? candidates.find((c) => ids.some((id) => id.toLowerCase().includes(c.split("/").pop()!.toLowerCase())));
+}
+
+export type Provider = "nemotron-hosted" | "claude-fallback" | "heuristic";
+export interface NemotronResult<T> { data: T; provider: Provider; model?: string; latencyMs: number; error?: string }
+
+/** JSON-schema constrained call to hosted Nemotron. Falls back to a JSON-only prompt if the endpoint rejects response_format. */
+export async function nemotronJson<T>(system: string, user: string, schema: object, fallback: () => T, timeoutMs = 15000): Promise<NemotronResult<T>> {
+  const key = nvidiaKey();
+  if (!key) return { data: fallback(), provider: "heuristic", latencyMs: 0, error: "no NVIDIA_API_KEY" };
+  const model = await pickModel(NEMOTRON_TEXT_CANDIDATES);
+  if (!model) return { data: fallback(), provider: "heuristic", latencyMs: 0, error: "no nemotron model available" };
+
+  const started = Date.now();
+  const attempt = async (withSchema: boolean) => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-      const res = await fetch(`${ep.url}/chat/completions`, {
+      const res = await fetch(`${NVIDIA_BASE}/chat/completions`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${ep.key}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
         body: JSON.stringify({
-          model: ep.model,
-          messages: [{ role: "system", content: system }, { role: "user", content: user }],
-          response_format: { type: "json_schema", json_schema: { name: "out", schema, strict: true } },
+          model,
+          messages: [
+            { role: "system", content: `${system}\nRespond with a single JSON object and nothing else. Schema: ${JSON.stringify(schema)}` },
+            { role: "user", content: user },
+          ],
+          ...(withSchema ? { response_format: { type: "json_schema", json_schema: { name: "out", schema, strict: true } } } : {}),
           temperature: 0,
-          max_tokens: 400,
+          max_tokens: 512,
+          chat_template_kwargs: { enable_thinking: false },
         }),
         signal: ctrl.signal,
       });
+      const text = await res.text();
+      if (!res.ok) throw new Error(`${res.status} ${text.slice(0, 200)}`);
+      const body = JSON.parse(text);
+      const content: string = body.choices?.[0]?.message?.content ?? "";
+      const json = content.match(/\{[\s\S]*\}/)?.[0] ?? content;
+      return JSON.parse(json) as T;
+    } finally {
       clearTimeout(timer);
-      if (!res.ok) continue;
-      const body = await res.json();
-      const text = body.choices?.[0]?.message?.content ?? "";
-      const data = JSON.parse(text.replace(/^```json|```$/g, "").trim()) as T;
-      return { data, provider: ep.name, latencyMs: Date.now() - started };
-    } catch {
-      continue;
+    }
+  };
+
+  try {
+    const data = await attempt(true);
+    return { data, provider: "nemotron-hosted", model, latencyMs: Date.now() - started };
+  } catch (e1) {
+    try {
+      const data = await attempt(false);
+      return { data, provider: "nemotron-hosted", model, latencyMs: Date.now() - started };
+    } catch (e2) {
+      return { data: fallback(), provider: "heuristic", model, latencyMs: Date.now() - started, error: `${(e1 as Error).message} | ${(e2 as Error).message}` };
     }
   }
-  return { data: fallback(), provider: "heuristic", latencyMs: 0 };
 }
