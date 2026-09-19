@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   const aspect = (u.searchParams.get("aspect") ?? "assignments") as Aspect;
   if (!(aspect in ASPECTS)) return NextResponse.json({ error: `unknown aspect; try ${Object.keys(ASPECTS).join(", ")}` }, { status: 400 });
   const wanted = (u.searchParams.get("arms") ?? "raw,existing,rules").split(",") as Arm[];
-  const arms = wanted.filter((a) => ["raw", "existing", "rules", "nemotron", "weekly-rules", "weekly-nemotron"].includes(a));
+  const arms = wanted.filter((a) => ["raw", "existing", "existing-buffered", "rules", "nemotron", "weekly-rules", "weekly-nemotron"].includes(a));
   const heldOut = u.searchParams.get("student") === "b";
   const result = await runExperiment(aspect, arms, heldOut ? { student: studentB() } : {});
   return NextResponse.json({ ...result, markdown: reportMarkdown(result), trace: arms.includes("weekly-nemotron") ? traceMarkdown(result) : arms.includes("weekly-rules") ? traceMarkdown(result, "weekly-rules") : undefined });

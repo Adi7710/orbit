@@ -94,7 +94,7 @@ describe("the synthetic student", () => {
     expect(s.sessions).toHaveLength(56);
     expect(s.sessions.every((r) => r.synthetic)).toBe(true);
     expect(Math.max(...s.sessions.map((r) => r.week ?? 0))).toBe(8);
-    expect(s.walks).toHaveLength(80);
+    expect(s.walks).toHaveLength(96); // 12 a week, three on each of four legs
   });
 
   it("starts with the story from the brief: a 90 minute problem set that takes about two hours", () => {
@@ -107,9 +107,15 @@ describe("the synthetic student", () => {
   it("carries the hidden traits in the logs", () => {
     const all = weeklyCandidates(s.sessions, emptyProfile(), 8);
     for (const c of all) expect(Math.abs(c.meanRatio - TRAITS.factor[c.kind])).toBeLessThan(0.06);
-    const walk = s.walks.reduce((a, w) => a + w.actualMinutes / w.plannedMinutes, 0) / s.walks.length;
-    expect(walk).toBeGreaterThan(1.12);
-    expect(walk).toBeLessThan(1.19);
+    // Walking is not one number: the uphill Benedum leg runs well over the
+    // student's own pace, so a single global factor cannot fit all four legs.
+    const ratio = (leg: string) => {
+      const ws = s.walks.filter((w) => w.leg === leg);
+      return ws.reduce((a, w) => a + w.actualMinutes / w.plannedMinutes, 0) / ws.length;
+    };
+    expect(ratio("Home->Sennott")).toBeCloseTo(TRAITS.walkSpeed, 1);
+    expect(ratio("Benedum->Cathedral")).toBeCloseTo(TRAITS.walkSpeed * 1.25, 1);
+    expect(ratio("Benedum->Cathedral") - ratio("Cathedral->Home")).toBeGreaterThan(0.25);
     const lead = s.sessions.filter((r) => r.startedHoursBeforeDue !== undefined && r.title.startsWith("Problem")).map((r) => r.startedHoursBeforeDue!);
     expect(lead.every((h) => h > 0)).toBe(true);
   });

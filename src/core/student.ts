@@ -53,7 +53,21 @@ export const TRAITS_B: StudentTraits = {
 };
 export const studentB = (weeks = 8) => syntheticStudent(weeks, TRAITS_B, 777, "Jordan (synthetic, held out)");
 
-export interface WalkRecord { week: number; from: string; to: string; plannedMinutes: number; actualMinutes: number; synthetic: true }
+export interface WalkRecord { week: number; from: string; to: string; leg: string; plannedMinutes: number; actualMinutes: number; synthetic: true }
+
+/**
+ * The walking legs the app already knows, with the minutes it allows for each.
+ * `difficulty` is hidden truth: Benedum to the Cathedral is uphill and ends with
+ * the Cathedral's slow lifts, so no single "this student walks 1.15x" factor can
+ * fit all four legs. The learner has to find the legs, not just the student.
+ */
+export const LEGS = [
+  { from: "Home", to: "Sennott", planned: 14, difficulty: 1 },
+  { from: "Sennott", to: "Benedum", planned: 7, difficulty: 1 },
+  { from: "Benedum", to: "Cathedral", planned: 9, difficulty: 1.25 },
+  { from: "Cathedral", to: "Home", planned: 16, difficulty: 0.95 },
+] as const;
+export const legId = (from: string, to: string) => `${from}->${to}`;
 export interface OverheadRecord { week: number; kind: "settle" | "meal"; plannedMinutes: number; actualMinutes: number; synthetic: true }
 export interface SyntheticStudent {
   name: string;
@@ -84,6 +98,10 @@ const EXAM_WEEKS = [4, 8];
 export function syntheticStudent(weeks = 8, traits: StudentTraits = TRAITS, seed = 31337, name = "Maya (synthetic)"): SyntheticStudent {
   const rand = mulberry32(seed);
   const jitter = (spread: number) => 1 + (rand() * 2 - 1) * spread;
+  // Walks and overheads draw from their own stream so that changing them cannot
+  // shift the task sessions, and the assignment results stay reproducible.
+  const randWalk = mulberry32(seed + 1);
+  const jitterWalk = (spread: number) => 1 + (randWalk() * 2 - 1) * spread;
   const sessions: HabitRecord[] = [];
   const walks: WalkRecord[] = [];
   const overheads: OverheadRecord[] = [];
@@ -122,14 +140,14 @@ export function syntheticStudent(weeks = 8, traits: StudentTraits = TRAITS, seed
       add(w, 4, at(16), "Midterm review (first pass)", "MATH 0220", 180, { lead: 52 });
       add(w, 6, at(22), "Midterm review (cram)", "MATH 0220", 180, { lead: 8 });
     }
-    // Ten walks a week between the four campus legs the app already knows.
-    const legs: [string, string, number][] = [["Home", "Sennott", 14], ["Sennott", "Benedum", 7], ["Benedum", "Cathedral", 9], ["Cathedral", "Home", 16]];
-    for (let i = 0; i < 10; i++) {
-      const [from, to, planned] = legs[i % 4];
-      walks.push({ week: w, from, to, plannedMinutes: planned, actualMinutes: Math.max(1, Math.round(planned * traits.walkSpeed * jitter(0.08) * 10) / 10), synthetic: true });
+    // Twelve walks a week, three on each of the four campus legs.
+    for (let i = 0; i < 12; i++) {
+      const leg = LEGS[i % 4];
+      const actual = leg.planned * traits.walkSpeed * leg.difficulty * jitterWalk(0.1);
+      walks.push({ week: w, from: leg.from, to: leg.to, leg: legId(leg.from, leg.to), plannedMinutes: leg.planned, actualMinutes: Math.max(1, Math.round(actual * 10) / 10), synthetic: true });
     }
-    for (let i = 0; i < 5; i++) overheads.push({ week: w, kind: "settle", plannedMinutes: 5, actualMinutes: Math.round(traits.settleMinutes * jitter(0.15) * 10) / 10, synthetic: true });
-    for (let i = 0; i < 3; i++) overheads.push({ week: w, kind: "meal", plannedMinutes: 35, actualMinutes: Math.round(traits.mealMinutes * jitter(0.1)), synthetic: true });
+    for (let i = 0; i < 5; i++) overheads.push({ week: w, kind: "settle", plannedMinutes: 5, actualMinutes: Math.round(traits.settleMinutes * jitterWalk(0.15) * 10) / 10, synthetic: true });
+    for (let i = 0; i < 3; i++) overheads.push({ week: w, kind: "meal", plannedMinutes: 35, actualMinutes: Math.round(traits.mealMinutes * jitterWalk(0.1)), synthetic: true });
   }
 
   sessions.sort((a, b) => a.completedAt.getTime() - b.completedAt.getTime());

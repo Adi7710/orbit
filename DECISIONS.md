@@ -248,3 +248,18 @@ Affects: docs/learning/01-assignments.md. Still offline: the learned multipliers
 Decision: The weekly prompt now hands the model the per-kind ratio (it may not do the arithmetic), forbids lowering a multiplier while plans are still coming in short, and forbids contradicting its own memo.
 Why: The first live run flattened every kind of work to 1.1 and then oscillated 1.1 -> 1.0 -> 1.1 for eight weeks while its memo said "consistently underestimates" (mean error 15.0, barely better than no learning). Each rule maps to one observed failure. After them the model beat the running average on both students.
 Affects: src/agents/weeklyLearner.ts SYSTEM prompt. The same lesson applies to the next aspects: give the model the arithmetic, keep the judgement.
+
+## 2026-09-19 21:40 ET · Jatin · One weekly learner serves every aspect
+Decision: Generalized src/agents/weeklyLearner.ts from task kinds to an `AspectSpec` plus generic `Observation { label, category, estimate, actual }`. An aspect supplies its nouns, its categories and a two-sentence brief; only that aspect's records are ever shown to the model. The experiment is now aspect-driven (`observationsByWeek`) and both aspects share the arms, the scoring and the week-by-week trace.
+Why: The owner wants aspects done one at a time, and each was going to need the same machinery. Generalizing after the second aspect (rather than guessing up front) meant the shape was known. Aspects 3 and 4 now cost an ASPECTS entry and a data mapping.
+Affects: weeklyLearner.ts, learningExperiment.ts, weeklyLearner.test.ts. The synthetic student's walks gained per-leg difficulty and their own PRNG stream so that changing them cannot shift the task sessions and the aspect-1 numbers stay reproducible.
+
+## 2026-09-19 21:40 ET · Jatin · Aspect 2 (walking speed): Nemotron learns it but does not earn its place; use the travel graph plus a buffer
+Decision: Walking stays on the existing TravelGraph median, with a safety buffer as the dial for lateness. No Nemotron call for walking. Measured over weeks 2-8: no learning 2.1 min / 99% of walks planned short (Maya); travel graph median 0.8 min / 39%; Nemotron 0.8 min / 40% (Maya) and 1.3 min / 8% against the median's 0.6 min / 46% (Jordan); median plus a 15% buffer 2.1 min / 0% and 1.8 min / 0%. Nemotron did learn the pattern, reaching 1.15/1.15/1.45/1.11 against a truth of 1.15/1.15/1.44/1.09 and naming the uphill leg every week.
+Why: It ties the code on one student and loses on the other. Its only real contribution was refusing to plan short, and a buffer buys that in code with no latency and no call. On Jordan it would not go below 1.0 even though its own memo said he was fast, so the caution is a bias, not judgement.
+Affects: docs/learning/02-walking.md, the `existing-buffered` arm. The buffer size is a product decision that is not yet made; nothing is wired into the live TravelGraph.
+
+## 2026-09-19 21:40 ET · Jatin · Where a model earns its place, from two aspects
+Decision: Use Nemotron for an aspect only when the signal is sparse, noisy and not already modelled. Assignments: 1-3 records a week, wide spread, no existing mechanism, Nemotron 3.9 min against the code baseline's 6.8. Walking: 3 records a week per leg, 10% spread, already a median, Nemotron 0.8 against 0.8.
+Why: It gives a cheap test to apply to the remaining aspects before building them, instead of discovering the answer after a full experiment each time.
+Affects: the order and framing of aspects 3 (procrastination) and 4 (exam studying). Both look sparse and noisy, so both are expected to be closer to assignments than to walking.

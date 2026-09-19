@@ -1,19 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { HabitRecord } from "../habits";
 import { syntheticStudent } from "../student";
 import { runExperiment } from "../../agents/learningExperiment";
 
 const nemotron = vi.fn();
 vi.mock("../../agents/models", () => ({ nemotronJson: (...a: unknown[]) => nemotron(...a) }));
-const { CLAMP_MAX, emptyMemory, learnFromWeek, seenSessions } = await import("../../agents/weeklyLearner");
+const { CLAMP_MAX, emptyMemory, learnFromWeek, seenItems } = await import("../../agents/weeklyLearner");
+const { ASPECTS } = await import("../../agents/learningExperiment");
+const ASPECT = ASPECTS.assignments;
 
-const KINDS = ["big_assignment", "assignment", "lab"] as const;
-const row = (title: string, estimate: number, actual: number, week: number): HabitRecord => ({
-  taskId: `${title}-${week}`, title, domain: "build", plannedMinutes: estimate, actualMinutes: actual,
-  completedAt: new Date(Date.UTC(2026, 8, week * 7)), inGap: true, week,
-});
+const obs = (label: string, category: string, estimate: number, actual: number) => ({ label, category, estimate, actual });
 /** Week 1 of the brief: a 90 minute assignment that really took 120. */
-const week1 = [row("Problem Set 1", 90, 120, 1), row("Essay draft 1", 150, 200, 1), row("Homework 1", 45, 47, 1)];
+const week1 = [obs("Problem Set 1", "big_assignment", 90, 120), obs("Essay draft 1", "big_assignment", 150, 200), obs("Homework 1", "assignment", 45, 47)];
 
 const reply = (multipliers: unknown[], memo = "") =>
   nemotron.mockResolvedValue({ data: { multipliers, memo }, provider: "nemotron-hosted", model: "m", latencyMs: 9 });
@@ -23,37 +20,37 @@ beforeEach(() => nemotron.mockReset());
 describe("what the learner is shown", () => {
   it("sees one week only, and the plan it was working from", () => {
     const memory = { week: 1, multipliers: { big_assignment: 1.3 }, memos: [] };
-    const seen = seenSessions(week1, memory, [...KINDS]);
+    const seen = seenItems(week1, memory, ASPECT);
     expect(seen).toHaveLength(3);
     // The consequence of its own last decision: it planned 117 for a 90 minute estimate, and the work took 120.
-    expect(seen[0]).toEqual({ title: "Problem Set 1", kind: "big_assignment", estimate: 90, planned: 117, actual: 120 });
+    expect(seen[0]).toEqual({ label: "Problem Set 1", category: "big_assignment", estimate: 90, planned: 117, actual: 120 });
     // A kind it has not learned yet is planned at the student's own estimate.
-    expect(seen[2]).toMatchObject({ kind: "assignment", estimate: 45, planned: 45 });
+    expect(seen[2]).toMatchObject({ category: "assignment", estimate: 45, planned: 45 });
   });
 
   it("is shown nothing outside the aspect under test", () => {
-    const mixed = [...week1, row("Reading: Chapter 1", 40, 30, 1), row("Midterm review", 180, 240, 1)];
-    const seen = seenSessions(mixed, emptyMemory(), [...KINDS]);
-    expect(seen.map((s) => s.kind).sort()).toEqual(["assignment", "big_assignment", "big_assignment"]);
+    const mixed = [...week1, obs("Reading: Chapter 1", "reading", 40, 30), obs("Midterm review", "exam_prep", 180, 240)];
+    const seen = seenItems(mixed, emptyMemory(), ASPECT);
+    expect(seen.map((s) => s.category).sort()).toEqual(["assignment", "big_assignment", "big_assignment"]);
   });
 });
 
 describe("the learner learns from one week", () => {
   it("uses the number Nemotron chose, not one the code computed", async () => {
-    reply([{ kind: "big_assignment", multiplier: 1.28, reason: "ran a third over" }], "Runs long on big work.");
-    const { memory, lesson } = await learnFromWeek(week1, emptyMemory(), 1, [...KINDS]);
+    reply([{ category: "big_assignment", multiplier: 1.28, reason: "ran a third over" }], "Runs long on big work.");
+    const { memory, lesson } = await learnFromWeek(week1, emptyMemory(), 1, ASPECT);
     expect(memory.multipliers.big_assignment).toBe(1.28);
     expect(lesson.provider).toBe("nemotron-hosted");
-    expect(lesson.changes[0]).toMatchObject({ kind: "big_assignment", from: 1, to: 1.28, clamped: false });
+    expect(lesson.changes[0]).toMatchObject({ category: "big_assignment", from: 1, to: 1.28, clamped: false });
   });
 
   it("carries its own memory into the next week", async () => {
-    reply([{ kind: "big_assignment", multiplier: 1.28, reason: "" }], "Runs long on big work.");
-    const w1 = await learnFromWeek(week1, emptyMemory(), 1, [...KINDS]);
+    reply([{ category: "big_assignment", multiplier: 1.28, reason: "" }], "Runs long on big work.");
+    const w1 = await learnFromWeek(week1, emptyMemory(), 1, ASPECT);
     expect(w1.memory.memos).toEqual([{ week: 1, text: "Runs long on big work." }]);
 
-    reply([{ kind: "big_assignment", multiplier: 1.33, reason: "" }], "Still short.");
-    const w2 = await learnFromWeek([row("Problem Set 2", 90, 122, 2)], w1.memory, 2, [...KINDS]);
+    reply([{ category: "big_assignment", multiplier: 1.33, reason: "" }], "Still short.");
+    const w2 = await learnFromWeek([obs("Problem Set 2", "big_assignment", 90, 122)], w1.memory, 2, ASPECT);
     const sent = JSON.parse(nemotron.mock.calls.at(-1)![1] as string); // the week 2 call
     expect(sent.yourMemory).toEqual(["week 1: Runs long on big work."]);
     expect(sent.yourCurrentMultipliers).toEqual({ big_assignment: 1.28 });
@@ -63,25 +60,25 @@ describe("the learner learns from one week", () => {
   });
 
   it("clamps an absurd multiplier but keeps the model's judgement inside the rail", async () => {
-    reply([{ kind: "big_assignment", multiplier: 50, reason: "" }]);
-    const { memory, lesson } = await learnFromWeek(week1, emptyMemory(), 1, [...KINDS]);
+    reply([{ category: "big_assignment", multiplier: 50, reason: "" }]);
+    const { memory, lesson } = await learnFromWeek(week1, emptyMemory(), 1, ASPECT);
     expect(memory.multipliers.big_assignment).toBe(CLAMP_MAX);
     expect(lesson.changes[0].clamped).toBe(true);
   });
 
   it("ignores a kind it did not see this week, or one outside the aspect", async () => {
     reply([
-      { kind: "big_assignment", multiplier: 1.3, reason: "" },
-      { kind: "lab", multiplier: 1.4, reason: "" },      // no lab session this week
-      { kind: "reading", multiplier: 0.5, reason: "" },  // outside the aspect
+      { category: "big_assignment", multiplier: 1.3, reason: "" },
+      { category: "lab", multiplier: 1.4, reason: "" },      // no lab session this week
+      { category: "reading", multiplier: 0.5, reason: "" },  // outside the aspect
     ]);
-    const { memory } = await learnFromWeek(week1, emptyMemory(), 1, [...KINDS]);
+    const { memory } = await learnFromWeek(week1, emptyMemory(), 1, ASPECT);
     expect(memory.multipliers).toEqual({ big_assignment: 1.3 });
   });
 
   it("falls back to a running average when the model cannot be reached", async () => {
     nemotron.mockResolvedValue({ data: { multipliers: [], memo: "" }, provider: "heuristic", latencyMs: 0, error: "no NVIDIA_API_KEY" });
-    const { memory, lesson } = await learnFromWeek(week1, emptyMemory(), 1, [...KINDS]);
+    const { memory, lesson } = await learnFromWeek(week1, emptyMemory(), 1, ASPECT);
     expect(lesson.provider).toBe("heuristic");
     // big assignments ran (120/90 + 200/150) / 2 = 1.3333; a third of the way from 1 is 1.11.
     expect(memory.multipliers.big_assignment).toBeCloseTo(1.11, 2);
@@ -89,7 +86,7 @@ describe("the learner learns from one week", () => {
   });
 
   it("changes nothing when the week held no work of this kind", async () => {
-    const { memory, lesson } = await learnFromWeek([], emptyMemory(), 1, [...KINDS]);
+    const { memory, lesson } = await learnFromWeek([], emptyMemory(), 1, ASPECT);
     expect(memory.multipliers).toEqual({});
     expect(lesson.changes).toEqual([]);
     expect(nemotron).not.toHaveBeenCalled();
