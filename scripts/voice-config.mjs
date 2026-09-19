@@ -84,8 +84,15 @@ export const SYSTEM_PROMPT = [
   "You only know this student's schedule, their tasks and their bus. Anything else, say that plainly in one sentence.",
 ].join("\n");
 
+/**
+ * The static fallback. The real opening is composed per call in
+ * openingGreeting() and passed as a first_message override, because a static
+ * line cannot know the student name or how their day actually looks. This is
+ * what plays if overrides are ever turned off on the agent, so it has to stand
+ * on its own and stay welcoming rather than transactional.
+ */
 export const FIRST_MESSAGE =
-  "Morning. Let me look at your day. Say what you have finished and how long it took, or ask when you need to leave.";
+  "Hey, welcome to your Orbit. I have had a look at your day. Ask me what it really looks like, tell me what you have finished, or ask when you need to leave.";
 
 /** The block both scripts send. `agent` is merged in by the caller. */
 export const conversationConfig = () => ({ turn: { ...TURN }, tts: { ...TTS } });

@@ -71,7 +71,7 @@ export default function VoiceButton({ onChange, voiceActive }: { onChange?: () =
     setState("connecting");
     setLines([]);
     try {
-      const { token, reason } = await fetch("/api/voice/token").then((r) => r.json());
+      const { token, reason, greeting } = await fetch("/api/voice/token").then((r) => r.json());
       if (!token) { setState("unavailable"); setNote(reason ?? "voice not configured"); return; }
 
       await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -80,6 +80,13 @@ export default function VoiceButton({ onChange, voiceActive }: { onChange?: () =
       conv.current = (await Conversation.startSession({
         conversationToken: token,
         connectionType: "webrtc",
+        // The agent's own first_message is static and cannot know the student's
+        // name or their day. This replaces it with a line composed on the
+        // server, which is why the opening can greet you by name and still
+        // quote a real number. The agent has first_message overrides enabled;
+        // if that is ever turned off, the static greeting is used instead and
+        // nothing breaks.
+        ...(greeting ? { overrides: { agent: { firstMessage: greeting } } } : {}),
         onConnect: () => {
           setState("live");
           // The page polls for a drafted email while a call is live, so it can

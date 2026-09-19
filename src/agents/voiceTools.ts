@@ -349,6 +349,36 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
   }
 }
 
+/**
+ * The line Orbit actually opens a call with.
+ *
+ * Separate from the full briefing on purpose. The briefing is the honest
+ * accounting and it belongs on the page and in the answer to "what does my day
+ * look like"; leading a conversation with it means the first thing a student
+ * hears is a paragraph of arithmetic, which is not a welcome.
+ *
+ * This is short, warm, and hands the turn straight back. It still carries one
+ * real number, because an opening that says nothing true is just a doorbell --
+ * and that number is composed here, server-side, for the same reason every
+ * other number is.
+ */
+export async function openingGreeting(): Promise<string> {
+  const t = await buildToday();
+  const name = t.user.name;
+  const h = new Date().getHours();
+  const part = h < 12 ? "Morning" : h < 17 ? "Afternoon" : "Evening";
+
+  if (t.mode === "crisis") {
+    return `${part}, ${name}. Welcome back. You are in crisis mode, so it is coursework only and nothing is counting against you. What do you want to get through?`;
+  }
+  const open = `Hey ${name}, welcome to your Orbit.`;
+  const g = t.gaps[0];
+  if (g) {
+    return `${open} Good news, you have ${spokenDuration(g.usable)} clear from ${spokenClock(g.start)}, which is more than it looks like from your calendar. What do you want to do with it?`;
+  }
+  return `${open} Your day is tight today, so tonight is where the room is. Tell me what you have finished, or ask when you need to leave.`;
+}
+
 /** The opening line, spoken before the student says anything. */
 export async function openingBriefing(): Promise<string> {
   const t = await buildToday();

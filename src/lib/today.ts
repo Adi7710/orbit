@@ -45,6 +45,29 @@ export async function buildToday() {
   const nextClass = ordered.find((b) => b.start > nowMin && isPlace(b.place));
   const lastClass = [...ordered].reverse().find((b) => isPlace(b.place));
 
+  // The timeline the clients draw. Status and progress are decided here, never
+  // on the device: clock() may be the simulated demo clock, so a phone asking
+  // Date() mid-rehearsal would mark the 2:30 seminar finished at seven in the
+  // evening. Additive field; the web page ignores it.
+  const firstUpcoming = ordered.find((b) => b.start > nowMin);
+  const timeline = ordered.map((b) => ({
+    id: b.id,
+    title: b.title,
+    kind: b.kind,
+    courseCode: b.courseCode ?? null,
+    place: b.place ?? null,
+    startText: fmt(b.start),
+    endText: fmt(b.end),
+    minutes: b.end - b.start,
+    status:
+      b.end <= nowMin ? "done"
+      : b.start <= nowMin ? "now"
+      : b.id === firstUpcoming?.id ? "next"
+      : "later",
+    progress: b.start <= nowMin && nowMin < b.end ? +((nowMin - b.start) / (b.end - b.start)).toFixed(3) : null,
+    remainingMinutes: b.start <= nowMin && nowMin < b.end ? b.end - nowMin : null,
+  }));
+
   const goingToClass = !!nextClass;
   const leg = goingToClass
     ? { from: "Home" as const, to: nextClass!.place as keyof typeof BUILDINGS, arriveBySec: nextClass!.start * 60, why: `to ${nextClass!.title}` }
@@ -64,6 +87,7 @@ export async function buildToday() {
     mode: s.mode,
     user: s.user,
     ledger,
+    blocks: timeline,
     gaps: gaps.map((g) => ({ ...g, startText: fmt(g.start), endText: fmt(g.end), pick: picks.get(g.id) ?? null })),
     quests: quests.map((q) => ({ ...q, expiresText: fmt(q.expiresAt) })),
     bus: journey && o && leg
