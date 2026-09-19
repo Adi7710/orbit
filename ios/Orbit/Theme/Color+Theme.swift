@@ -21,6 +21,9 @@ enum OrbitToken {
     // Primary accent: cosmic indigo (light) / nebula blue (dark)
     static let indigo: UInt32 = 0x4F46E5
     static let nebula: UInt32 = 0x6366F1
+    /// Nebula blue is only 4.35:1 as small text on the charcoal ground, so text
+    /// and strokes in dark mode use this lift of it (5.9:1). Fills keep `nebula`.
+    static let nebulaLight: UInt32 = 0x818CF8
 
     // Secondary accents
     static let amber: UInt32 = 0xF59E0B      // urgent, deadlines
@@ -63,14 +66,16 @@ extension Color {
     static let orbitSurface = Color.orbit(light: OrbitToken.polarLift, dark: OrbitToken.charcoalLift)
     static let orbitHairline = Color.orbit(light: 0x0B0D17, dark: 0xFFFFFF, opacity: 0.10)
 
-    static let orbitAccent = Color.orbit(light: OrbitToken.indigo, dark: OrbitToken.nebula)
+    static let orbitAccent = Color.orbit(light: OrbitToken.indigo, dark: OrbitToken.nebulaLight)
     static let orbitAccentSoft = Color.orbit(light: OrbitToken.nebula, dark: OrbitToken.indigo)
     static let orbitUrgent = Color.orbit(light: OrbitToken.amberInk, dark: OrbitToken.amber)
     static let orbitLive = Color.orbit(light: OrbitToken.violetInk, dark: OrbitToken.violet)
 
     static let orbitInk = Color.orbit(light: 0x111827, dark: 0xF3F4F6)
     static let orbitInkSoft = Color.orbit(light: 0x4B5563, dark: 0x9CA3AF)
-    static let orbitInkFaint = Color.orbit(light: 0x9CA3AF, dark: 0x6B7280)
+    /// Both of the obvious greys fail here: 0x9CA3AF is 2.5:1 on white and
+    /// 0x6B7280 is 3.6:1 on the dark surface. These clear 4.5:1 on both.
+    static let orbitInkFaint = Color.orbit(light: 0x6B7280, dark: 0x8A93A6)
 
     /// Ring colour per domain, matching `Domain` in `src/core/types.ts`.
     static func orbitDomain(_ domain: String) -> Color {
