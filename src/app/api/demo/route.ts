@@ -31,7 +31,10 @@ export async function POST(req: Request) {
   }
 
   if (action === "restore") {
-    const back = g.__orbitDemoRemoved ?? [];
+    // Idempotent: a reset re-seeds the day, so putting a class back must not
+    // add a second copy of one that is already there.
+    const present = new Set(s.blocks.map((b) => b.id));
+    const back = (g.__orbitDemoRemoved ?? []).filter((b) => !present.has(b.id));
     s.blocks.push(...back);
     s.blocks.sort((a, b) => a.start - b.start);
     g.__orbitDemoRemoved = [];

@@ -188,3 +188,13 @@ Affects: src/app/globals.css, src/app/TodayClient.tsx.
 Decision: Use http://localhost:3123 for looking at the app and for the demo. The public tunnel exists so ElevenLabs' cloud can reach our webhook, and so teammates and the iOS simulator have an address.
 Why: Next.js in dev ships large uncompiled chunks and an HMR websocket; pushing all of that through a quick tunnel is slow and flaky, while the same page is instant locally. Measured: /api/today is 25 ms locally and 1.1 s through the tunnel.
 Affects: how we demo, issue #23.
+
+## 2026-09-19 18:05 ET · Adi + lead Claude · The Critic: a second model grades every agent decision before anyone sees it
+Decision: src/agents/critic.ts scores each Watcher decision on four dimensions (grounded, tierCorrect, useful, voice) with a JSON-schema call to Nemotron, and a deterministic rubric when no model is reachable. Weighted overall score decides a verdict: keep, demote (a proposal becomes a silent note) or suppress (never reaches the student, but stays in the trace so the failure is visible). Scores accumulate per decision kind into a reward ledger at /api/critic; a kind averaging below 2.5 over at least 3 samples is muted and stops being allowed to interrupt. Shown in the Watcher panel as a score badge per entry plus an expandable table of how each behaviour is scoring.
+Why: An agent that watches your day and acts on its own needs something between it and the user. Two properties make this real rather than decorative. First, the Critic can only ever lower trust: it can suppress or demote, never approve, never promote a Tier B proposal into a Tier A action, so a broken judge makes Orbit quieter rather than bolder. Second, it runs on Nemotron, so grading every decision costs nothing from the $25 Claude budget and is a third non-chat job for the NVIDIA track. The reward ledger is the part with teeth: a behaviour that keeps scoring badly loses the right to interrupt.
+Affects: src/agents/critic.ts, src/agents/watcher.ts, src/app/api/critic, src/app/WatcherPanel.tsx, docs/eval.md.
+
+## 2026-09-19 18:05 ET · lead Claude · Two bugs the Critic work surfaced
+Decision: The deterministic rubric no longer treats clock times as unsupported quantity claims (11:05 was being read as an invented "11"), and /api/demo restore is idempotent so putting a class back after a reset cannot add a second copy.
+Why: Both were found by running the loop and reading the output rather than trusting the tests.
+Affects: src/agents/critic.ts, src/app/api/demo/route.ts.

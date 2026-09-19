@@ -2,6 +2,7 @@ import { store, log } from "@/lib/store";
 import { buildToday } from "@/lib/today";
 import type { Proposal } from "./dayAgent";
 import { fmt } from "@/core/time";
+import { isMuted, judge, record, MUTE_BELOW, type Scores, type Verdict } from "./critic";
 
 /**
  * The Watcher.
@@ -63,6 +64,12 @@ export interface TraceEntry {
   reasoning: string;
   proposalId?: string;
   applied: boolean;
+  /** What the Critic made of it. See src/agents/critic.ts. */
+  score?: number;
+  scores?: Scores;
+  verdict?: Verdict;
+  critique?: string;
+  judgedBy?: string;
 }
 
 export interface WatcherStatus {
@@ -252,6 +259,14 @@ export async function tick(): Promise<{ status: WatcherStatus; fired: TraceEntry
 
   for (const e of events) {
     const d = await decide(e);
+
+    // Nothing reaches the student until the Critic has graded it. The Critic
+    // can only ever make this quieter: suppress it, or demote a proposal to a
+    // note. It cannot approve, and it cannot promote a Tier B into a Tier A.
+    const j = await judge({ kind: e.kind, tier: d.tier, headline: e.headline, evidence: e.evidence, action: d.action, reasoning: d.reasoning });
+    record(e.kind, j);
+
+    const mutedKind = isMuted(e.kind);
     const entry: TraceEntry = {
       seq: m.trace.length + 1,
       at: new Date().toISOString(),
@@ -260,20 +275,38 @@ export async function tick(): Promise<{ status: WatcherStatus; fired: TraceEntry
       action: d.action,
       reasoning: d.reasoning,
       applied: d.tier === "A",
+      score: j.overall,
+      scores: j.scores,
+      verdict: mutedKind ? "demote" : j.verdict,
+      critique: mutedKind ? `this kind of alert keeps scoring below ${MUTE_BELOW}, so it no longer interrupts` : j.note,
+      judgedBy: j.provider,
     };
-    if (d.tier === "B" && d.proposal) {
+
+    if (entry.verdict === "suppress") {
+      // Kept in the trace so the failure is visible, but never acted on.
+      entry.applied = false;
+      m.trace.push(entry);
+      log("agent", "watcher_suppressed", { kind: e.kind, score: j.overall, why: j.note });
+      continue;
+    }
+
+    const proposeIt = d.tier === "B" && d.proposal && entry.verdict === "keep";
+    if (proposeIt) {
       const already = s.proposals.some((p) => p.status === "pending" && JSON.stringify(p.proposal) === JSON.stringify(d.proposal));
       if (!already) {
-        const stored = { id: crypto.randomUUID(), proposal: d.proposal, status: "pending" as const, createdAt: new Date().toISOString() };
+        const stored = { id: crypto.randomUUID(), proposal: d.proposal!, status: "pending" as const, createdAt: new Date().toISOString() };
         s.proposals.push(stored);
         entry.proposalId = stored.id;
       } else {
         entry.action += " (already waiting on you)";
       }
+    } else if (d.tier === "B") {
+      entry.action += " — left as a note, not an ask";
     }
+
     m.trace.push(entry);
     fired.push(entry);
-    log("agent", "watcher_fired", { kind: e.kind, tier: d.tier, action: d.action });
+    log("agent", "watcher_fired", { kind: e.kind, tier: d.tier, action: d.action, score: j.overall, verdict: entry.verdict });
   }
 
   m.last = next;
