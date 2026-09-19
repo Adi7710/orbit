@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import HabitsCard from "./HabitsCard";
 import LedgerReveal from "./LedgerReveal";
 
 type Today = {
@@ -192,6 +193,8 @@ export default function TodayClient() {
           {t.proposals.filter((p) => p.status === "pending").length === 0 && <li className="text-sm text-zinc-500">Nothing pending. Hit “Plan my day”.</li>}
         </ul>
       </section>
+
+      <HabitsCard refreshKey={t.events.length} />
 
       <section className="rounded-2xl border p-5">
         <h2 className="text-sm font-medium text-zinc-500">Calibration</h2>

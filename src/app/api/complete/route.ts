@@ -18,6 +18,7 @@ export async function POST(req: Request) {
   const gap = findGaps(s.blocks, s.profile, s.travel).find((g) => nowMin >= g.start && nowMin <= g.end);
   task.completedAt = now;
   s.estimator.record(task.courseCode, task.domain, task.estimateMinutes, actualMinutes);
+  s.habits.push({ taskId: task.id, title: task.title, domain: task.domain, courseCode: task.courseCode, plannedMinutes: task.estimateMinutes, actualMinutes, completedAt: now, inGap: !!gap, dueAt: task.dueAt });
   const { xp, reasons } = xpFor({ task, actualMinutes, plannedMinutes: planned, completedInGap: gap, completedAt: now }, s.mode, s.user.streakWeeks);
   s.user.xpWeek += xp;
   const row = s.board.find((r) => r.userId === s.user.id);
