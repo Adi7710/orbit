@@ -168,3 +168,13 @@ Affects: src/agents/watcher.ts, src/app/api/watcher, src/app/api/demo, src/app/W
 Decision: findGaps now ids a window as `g<startMinute>` instead of `gap-<index>`. Tests pin it.
 Why: Positional ids silently re-label a different window whenever a class is added or cancelled, so the Watcher's first run reported "your window lost 111 minutes" when in truth an earlier window had appeared and everything shifted down one. A diff between two versions of the day is meaningless unless identity is stable. Found by running the cancel-a-class scenario and reading the output rather than trusting it.
 Affects: src/core/gaps.ts, src/agents/watcher.ts, quest ids.
+
+## 2026-09-19 17:15 ET · Adi + lead Claude · The voice agent is created from a script, not from clicks
+Decision: scripts/setup-voice-agent.mjs creates the four tools and the agent through the ElevenLabs API and writes ELEVENLABS_AGENT_ID back into .env.local. Re-running replaces rather than duplicating. Each tool has its own URL carrying its name (/api/voice/tool?tool=log_actual) so the model supplies arguments only and cannot select the wrong tool. Agent runs claude-sonnet-4-5 with eleven_flash_v2; English agents are restricted to the turbo/flash v2 families, which is what the first three attempts were actually failing on.
+Why: The webhook URL changes whenever the tunnel rotates, so pointing the tools at a new URL has to be one command, not a dozen clicks someone has to remember at 3 a.m.
+Affects: scripts/setup-voice-agent.mjs, src/app/api/voice/tool/route.ts, .env.local.
+
+## 2026-09-19 17:15 ET · lead Claude · Rotated the webhook secret after it appeared in an API error
+Decision: VOICE_TOOL_SECRET regenerated and the tools recreated with the new value.
+Why: ElevenLabs echoed the request headers back in a 422 validation error, so the old secret was printed to the terminal. It only guards our own webhook and never left this machine, but rotating costs one command.
+Affects: .env.local, the four registered tools.

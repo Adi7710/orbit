@@ -99,6 +99,8 @@ const FIRST_MESSAGE =
   "Morning. Let me look at your day. Say what you have finished and how long it took, or ask when you need to leave.";
 
 const LLM_CANDIDATES = ["claude-sonnet-4-5", "claude-3-7-sonnet", "claude-3-5-sonnet", "gemini-2.5-flash", "gpt-4o"];
+// English agents are restricted to the turbo/flash v2 families.
+const TTS_CANDIDATES = ["eleven_flash_v2", "eleven_turbo_v2", "eleven_flash_v2_5", "eleven_turbo_v2_5"];
 
 async function main() {
   console.log(`webhook base: ${BASE}`);
@@ -127,16 +129,14 @@ async function main() {
             url: `${BASE}/api/voice/tool?tool=${t.name}`,
             method: "POST",
             request_headers: SECRET ? { "x-orbit-secret": SECRET } : {},
-            ...(Object.keys(t.body).length
-              ? {
-                  request_body_schema: {
-                    type: "object",
-                    description: `Arguments for ${t.name}`,
-                    properties: Object.fromEntries(Object.entries(t.body).map(([k, v]) => [k, { ...v }])),
-                    required: t.required ?? [],
-                  },
-                }
-              : {}),
+            // A POST tool must declare a body schema even when it takes no
+            // arguments, so tools like get_today send an empty object.
+            request_body_schema: {
+              type: "object",
+              description: `Arguments for ${t.name}`,
+              properties: Object.fromEntries(Object.entries(t.body).map(([k, v]) => [k, { ...v }])),
+              required: t.required ?? [],
+            },
           },
         },
       }),
@@ -147,6 +147,7 @@ async function main() {
   }
 
   let lastError;
+  for (const tts of TTS_CANDIDATES) {
   for (const llm of LLM_CANDIDATES) {
     try {
       const agent = await call("/convai/agents/create", {
@@ -159,7 +160,7 @@ async function main() {
               language: "en",
               prompt: { prompt: SYSTEM_PROMPT, llm, temperature: 0.3, tool_ids: toolIds },
             },
-            tts: { model_id: "eleven_flash_v2_5" },
+            tts: { model_id: tts },
             conversation: { max_duration_seconds: 300 },
           },
         }),
@@ -172,8 +173,13 @@ async function main() {
       return;
     } catch (e) {
       lastError = e;
-      console.log(`  llm ${llm} rejected, trying the next one`);
+      const msg = String(e.message);
+      // Only cycle the LLM when the LLM is what was rejected; anything else
+      // means trying five more models just wastes time on the same error.
+      if (!/llm|model/i.test(msg) || /turbo or flash/i.test(msg)) { console.log(`  tts=${tts}: ${msg.slice(-90)}`); break; }
+      console.log(`  llm ${llm} rejected`);
     }
+  }
   }
   throw lastError;
 }
