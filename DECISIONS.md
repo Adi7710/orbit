@@ -361,3 +361,9 @@ Score went 54.2% -> 87.5% -> 95.8% -> 100% in four rounds, and every step came f
   4. A question passed while burying the answer third. satisfies() only asked that the right fact appear somewhere, so leadsWith() now requires it in the first two. It immediately found another one.
 One weakness the tests found and fixed: verification was scoped to the whole factsheet, so "you have 340 usable minutes" was licensed by an unrelated fact mentioning 340 XP. It is now scoped to the facts the answer was actually shown.
 Affects: src/core/questionBank.ts, src/app/api/selfeval, scripts/selfeval-loop.mjs, docs/selfeval.md.
+
+## 2026-09-19 19:15 ET · Adi + lead Claude · Orbit greets you by name
+Decision: The page header reads "Hey Adi! Welcome to your Orbit", and the spoken opening briefing now starts "Hey Adi." The name comes from the store (ORBIT_USER_NAME, defaulting to Adi) rather than being written into either surface, so the page and the voice cannot drift apart. The leaderboard's own row says the name too instead of "You".
+Why: It was a cold open — a product called Orbit that greeted you with "Orbit". Putting the name in the server-composed briefing is also the only way a name reaches speech without trusting the model to remember one, which is the same rule every other number follows.
+Note for whoever restarts next: store() backfills missing keys but never overwrites an existing value, so changing a seeded value needs a reset. That wipes an imported calendar, which is why this was done in one pass with the Canvas re-import.
+Affects: src/app/TodayClient.tsx, src/agents/voiceTools.ts, src/lib/store.ts, .env.example.

@@ -46,7 +46,7 @@ function seed(): Store {
   // Six prior sessions for MATH 0220 so the multiplier is already live (hand-checked ~1.6x).
   for (const a of [95, 100, 90, 105, 98, 92]) estimator.record("MATH 0220", "build", 60, a);
   return {
-    user: { id: "me", name: "You", group: "Tower A", streakWeeks: 2, xpWeek: 340, ringsClosed: 4 },
+    user: { id: "me", name: process.env.ORBIT_USER_NAME ?? "Adi", group: "Tower A", streakWeeks: 2, xpWeek: 340, ringsClosed: 4 },
     profile: fixtureProfile,
     travel: fixtureTravel,
     blocks: [...fixtureBlocks],
@@ -61,7 +61,7 @@ function seed(): Store {
       { userId: "jordan", name: "Jordan", sharesFreeTime: false, gaps: [{ id: "j1", start: t(11, 0), end: t(14, 0), usable: 180, isEvening: false }] },
     ],
     board: [
-      { userId: "me", name: "You", xpWeek: 340, streakWeeks: 2, ringsClosed: 4, group: "Tower A" },
+      { userId: "me", name: process.env.ORBIT_USER_NAME ?? "Adi", xpWeek: 340, streakWeeks: 2, ringsClosed: 4, group: "Tower A" },
       { userId: "sam", name: "Sam", xpWeek: 410, streakWeeks: 3, ringsClosed: 5, group: "Tower A" },
       { userId: "priya", name: "Priya", xpWeek: 385, streakWeeks: 1, ringsClosed: 6, group: "Tower A" },
       { userId: "jordan", name: "Jordan", xpWeek: 120, streakWeeks: 0, ringsClosed: 1, group: "Tower B" },

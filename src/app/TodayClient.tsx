@@ -146,7 +146,9 @@ export default function TodayClient() {
     <main className="mx-auto max-w-6xl p-4 sm:p-8 grid gap-6 md:grid-cols-3">
       <header className="md:col-span-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Orbit</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Hey {t.user.name}! Welcome to your Orbit
+          </h1>
           <p className="text-sm text-zinc-500">Your calendar lies about how much time you have. Orbit doesn&apos;t.</p>
         </div>
         <div className="flex items-center gap-2 text-sm">

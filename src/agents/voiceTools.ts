@@ -356,6 +356,10 @@ export async function openingBriefing(): Promise<string> {
   const g = t.gaps[0];
   const bus = t.bus ? ` Leave by ${spokenClock(Number(t.bus.leaveByText.split(":")[0]) * 60 + Number(t.bus.leaveByText.split(":")[1]))} for the ${t.bus.route}.` : "";
   return [
+    // Greet by name, the same way the page does. The briefing is composed
+    // server-side, so this is the one place a name can appear in speech
+    // without the model being trusted to remember it.
+    `Hey ${t.user.name}.`,
     `Your calendar thinks you have ${spokenDuration(t.ledger.naiveFree)} free today.`,
     `You actually have ${spokenDuration(t.ledger.usable)}.`,
     `The missing ${spoken(lost)} minutes are walking, eating and getting settled.`,
