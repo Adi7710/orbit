@@ -30,13 +30,19 @@ src/agents
   estimate.ts       Nemotron's non-chat job: minutes + domain from a title, JSON-schema constrained
   dayAgent.ts       Claude with four tools; every tool is a PROPOSAL, humans approve in /api/proposals
   voice.ts          ElevenLabs token minting; briefing text built from the ledger
-src/services/prt.ts Pittsburgh Regional Transit GTFS-realtime adapter with a demo snapshot
+src/services/schedule.ts  PRT static timetable slice (data/prt-oakland.json): service days, departures per stop, ride times
+src/services/prt.ts       PRT GTFS-realtime overlay (public trip updates), ghost detection, demo clock
+src/lib/transit.ts        the two legs a commuter has: Home -> first class, last class -> Home
 src/lib             in-memory store (swap for Postgres), today builder
 src/app/api         today, plan, proposals/[id], complete, leaderboard, mode, voice/token, voice/tool, eval, syllabus, nvidia
 src/app             Today screen
 ```
 
 Invariants: only `/api/proposals/[id]` turns a proposal into an action; agents have no tool that books, sends or moves anything; XP is computed server-side from planned vs actual minutes and is capped; friends' classes are never shared, only overlapping free windows; every model call records which provider answered so degraded mode is visible.
+
+## Transit data
+
+Pittsburgh Regional Transit publishes its timetable (GTFS) and realtime trip updates openly under its Developer License Agreement. `scripts/gtfs-extract.mjs` downloads the current GTFS zip and writes the Oakland / Squirrel Hill slice to `data/prt-oakland.json` (10 stops, 16 routes, about 17,000 departures). At runtime the app reads that file for scheduled departures and overlays the live feed at `https://truetime.portauthority.org/gtfsrt-bus/trips` (cached 30 seconds). A trip that should already be on the road but is missing from the live feed is shown as a ghost. Set `DEMO_CLOCK=2026-09-22T13:10` to plan against a weekday timetable during weekend judging.
 
 ## Run
 

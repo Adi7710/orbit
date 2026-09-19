@@ -3,12 +3,12 @@ import { computeLedger, suggestCuts } from "@/core/ledger";
 import { bestFit, findGaps } from "@/core/gaps";
 import { questsForDay } from "@/core/game";
 import { sharedGaps } from "@/core/overlap";
-import { busQuestForGap, ghostTrips, leaveBy } from "@/core/bus";
-import { upcomingArrivals } from "@/services/prt";
-import { fmt, fromDate } from "@/core/time";
+import { fmt } from "@/core/time";
 import { MODE_RULES } from "@/core/types";
+import { planLeg, PLACES } from "./transit";
+import { clock } from "@/services/prt";
 
-/** Everything the Today screen needs, computed from the deterministic core. */
+/** Everything the Today screen needs, computed from the deterministic core plus the real PRT schedule. */
 export async function buildToday() {
   const s = store();
   const horizon = MODE_RULES[s.mode].horizonHours;
@@ -22,20 +22,25 @@ export async function buildToday() {
   const ledger = computeLedger(s.blocks, s.profile, s.travel, liveTasks, s.estimator);
   const gaps = findGaps(s.blocks, s.profile, s.travel);
   const picks = new Map(gaps.map((g) => [g.id, bestFit(g, liveTasks, s.estimator)] as const));
-  // Avoid offering the same task in two gaps.
   const seen = new Set<string>();
   for (const [id, task] of picks) {
     if (task && seen.has(task.id)) picks.set(id, undefined);
     if (task) seen.add(task.id);
   }
 
-  const arrivals = await upcomingArrivals(["forbes-bigelow"]);
-  const nowMin = fromDate(now, "America/New_York");
-  const nextClass = s.blocks.filter((b) => b.start > nowMin).sort((a, b) => a.start - b.start)[0];
-  const bus = leaveBy(nowMin, 6, arrivals, nextClass?.start, 12);
-  const ghosts = ghostTrips(arrivals, arrivals.filter((a) => a.realtime));
-  const busQuest = gaps[0] ? busQuestForGap(gaps[0], 6, arrivals, 12) : undefined;
-  const quests = questsForDay(gaps, picks, busQuest ? { ...busQuest, leaveBy: busQuest.leaveBy } : undefined);
+  // Transit: the two legs a commuting student cares about, on the real timetable.
+  const c = clock();
+  const ordered = [...s.blocks].sort((a, b) => a.start - b.start);
+  const first = ordered[0];
+  const last = ordered[ordered.length - 1];
+  const nowMin = Math.floor(c.sec / 60);
+  const morning = first && first.place && first.place in PLACES && nowMin < first.start ? await planLeg("Home", first.place as keyof typeof PLACES, first.start * 60) : undefined;
+  const evening = last && last.place && last.place in PLACES ? await planLeg(last.place as keyof typeof PLACES, "Home") : undefined;
+  const activeLeg = morning?.options.length ? morning : evening;
+  const best = activeLeg?.options.find((o) => o.status === "live") ?? activeLeg?.options[0];
+
+  const busQuest = evening?.options[0] && gaps.length ? { gapId: gaps[gaps.length - 1].id, leaveBy: evening.options[0].leaveBy, route: evening.options[0].route } : undefined;
+  const quests = questsForDay(gaps, picks, busQuest);
   const shared = sharedGaps(gaps, s.friends);
   const cuts = ledger.overCommitted ? suggestCuts(liveTasks, -ledger.slack, new Set(s.profile.priorityDomains), s.estimator) : [];
 
@@ -45,9 +50,12 @@ export async function buildToday() {
     ledger,
     gaps: gaps.map((g) => ({ ...g, startText: fmt(g.start), endText: fmt(g.end), pick: picks.get(g.id) ?? null })),
     quests: quests.map((q) => ({ ...q, expiresText: fmt(q.expiresAt) })),
-    bus: bus ? { ...bus, leaveByText: fmt(bus.leaveBy), arrivalText: fmt(bus.arrival) } : null,
-    ghosts,
-    arrivals: arrivals.map((a) => ({ ...a, text: fmt(a.arrivalMinutes) })),
+    bus: best && activeLeg
+      ? { route: best.route, leaveByText: best.leaveByText, arrivalText: best.arriveText, ghost: best.status === "ghost", live: best.status === "live", from: activeLeg.from, to: activeLeg.to, stopName: activeLeg.boardStopName, walkToStop: activeLeg.walkToStop, rideMinutes: activeLeg.rideMinutes, delaySec: best.delaySec }
+      : null,
+    arrivals: (activeLeg?.options ?? []).map((o) => ({ route: o.route, text: o.departsText, realtime: o.status === "live", status: o.status, headsign: o.headsign })),
+    ghosts: (activeLeg?.options ?? []).filter((o) => o.status === "ghost").map((o) => ({ route: o.route })),
+    transit: { clockText: activeLeg?.clockText ?? fmt(nowMin), simulated: c.simulated, realtimeOk: activeLeg?.realtimeOk ?? false, morning, evening },
     shared: shared.map((w) => ({ ...w, startText: fmt(w.start), endText: fmt(w.end), names: w.userIds.map((id) => s.friends.find((f) => f.userId === id)?.name ?? id) })),
     tasks: liveTasks.map((t) => ({ ...t, planningMinutes: s.estimator.planningMinutes(t) })),
     cuts,

@@ -8,9 +8,10 @@ type Today = {
   ledger: { usable: number; naiveFree: number; travel: number; meals: number; routines: number; fixed: number; queued: number; slack: number; overCommitted: boolean };
   gaps: { id: string; startText: string; endText: string; usable: number; fromPlace?: string; isEvening: boolean; pick: { id: string; title: string; estimateMinutes: number } | null }[];
   quests: { id: string; title: string; xp: number; kind: string; expiresText: string }[];
-  bus: { route: string; leaveByText: string; arrivalText: string; ghost?: boolean } | null;
+  bus: { route: string; leaveByText: string; arrivalText: string; ghost?: boolean; live?: boolean; from: string; to: string; stopName: string; walkToStop: number; rideMinutes: number; delaySec?: number } | null;
   ghosts: { route: string }[];
-  arrivals: { route: string; text: string; realtime: boolean }[];
+  arrivals: { route: string; text: string; realtime: boolean; status: "live" | "scheduled" | "ghost"; headsign: string }[];
+  transit: { clockText: string; simulated: boolean; realtimeOk: boolean };
   shared: { startText: string; endText: string; minutes: number; names: string[] }[];
   tasks: { id: string; title: string; planningMinutes: number; estimateMinutes: number; courseCode?: string; dueAt?: string }[];
   cuts: { task: { title: string }; minutesSaved: number; reason: string }[];
@@ -98,12 +99,15 @@ export default function TodayClient() {
       </section>
 
       <section className="rounded-2xl border p-5">
-        <h2 className="text-sm font-medium text-zinc-500">Bus</h2>
+        <h2 className="text-sm font-medium text-zinc-500">Bus {t.bus ? `· ${t.bus.from} → ${t.bus.to}` : ""} <span className="text-zinc-400">· PRT {t.transit.realtimeOk ? "live" : "schedule"}{t.transit.simulated ? ` · demo clock ${t.transit.clockText}` : ""}</span></h2>
         {t.bus ? (
-          <div className="mt-2"><div className="text-2xl font-semibold">Leave by {t.bus.leaveByText}</div><div className="text-sm text-zinc-600">{t.bus.route} arrives {t.bus.arrivalText}{t.bus.ghost ? " (scheduled only)" : " (live)"}</div></div>
-        ) : <div className="mt-2 text-sm text-zinc-500">No bus needed before your next class.</div>}
-        <ul className="mt-3 text-xs text-zinc-500">{t.arrivals.map((a) => <li key={a.route + a.text}>{a.route} {a.text} {a.realtime ? "" : "· ghost?"}</li>)}</ul>
-        {t.ghosts.length > 0 && <div className="mt-2 text-xs text-amber-700">{t.ghosts.map((g) => g.route).join(", ")} scheduled but not on the live feed.</div>}
+          <div className="mt-2">
+            <div className="text-2xl font-semibold">Leave by {t.bus.leaveByText}</div>
+            <div className="text-sm text-zinc-600">{t.bus.route} departs {t.bus.stopName} {t.arrivals[0]?.text}{t.bus.live ? ` (live${t.bus.delaySec ? `, ${Math.round(t.bus.delaySec / 60)} min ${t.bus.delaySec > 0 ? "late" : "early"}` : ""})` : t.bus.ghost ? " (scheduled, not on the live feed)" : " (scheduled)"} · {t.bus.walkToStop} min walk · {t.bus.rideMinutes} min ride · arrive {t.bus.arrivalText}</div>
+          </div>
+        ) : <div className="mt-2 text-sm text-zinc-500">No bus leg today.</div>}
+        <ul className="mt-3 text-xs text-zinc-500">{t.arrivals.map((a) => <li key={a.route + a.text}>{a.route} {a.text} <span className="text-zinc-400">{a.headsign.toLowerCase()}</span>{a.status === "ghost" ? <span className="text-amber-700"> · ghost</span> : a.status === "live" ? " · live" : ""}</li>)}</ul>
+        {t.ghosts.length > 0 && <div className="mt-2 text-xs text-amber-700">{t.ghosts.map((g) => g.route).join(", ")} should be on the road but is not on the live feed.</div>}
       </section>
 
       <section className="rounded-2xl border p-5 md:col-span-2">
