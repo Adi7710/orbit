@@ -35,6 +35,18 @@ export interface DayContext {
   mode: "normal" | "crisis" | "chill";
 }
 
+/** Claude spend tracker: $25 of credits, Sonnet 5 at $2/$10 per MTok, cache reads at $0.20. */
+export const claudeSpend = { calls: 0, inputTokens: 0, outputTokens: 0, cacheRead: 0, cacheWrite: 0, usd: 0 };
+function recordCost(u: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null }) {
+  const cr = u.cache_read_input_tokens ?? 0, cw = u.cache_creation_input_tokens ?? 0;
+  claudeSpend.calls += 1;
+  claudeSpend.inputTokens += u.input_tokens;
+  claudeSpend.outputTokens += u.output_tokens;
+  claudeSpend.cacheRead += cr;
+  claudeSpend.cacheWrite += cw;
+  claudeSpend.usd += (u.input_tokens * 2 + u.output_tokens * 10 + cr * 0.2 + cw * 2.5) / 1e6;
+}
+
 export async function planDay(ctx: DayContext): Promise<{ proposals: Proposal[]; narration: string }> {
   const summary = [
     `Mode: ${ctx.mode}. Usable minutes ${ctx.ledger.usable}, queued ${ctx.ledger.queued}, slack ${ctx.ledger.slack}.`,
@@ -46,12 +58,18 @@ export async function planDay(ctx: DayContext): Promise<{ proposals: Proposal[];
 
   const res = await claude().messages.create({
     model: "claude-sonnet-5",
-    max_tokens: 1200,
-    system:
-      "You are Orbit's day agent for a college student. You never act; you propose, using tools, and a human confirms. Propose at most one task per gap. Only draft an extension if slack is below -60 minutes and the task is due within 72 hours; cite the exact usable and queued minutes. In crisis mode propose only coursework. Finish with one sentence of narration in the student's voice, playful but not cringe.",
-    tools,
+    max_tokens: 900,
+    system: [
+      {
+        type: "text",
+        text: "You are Orbit's day agent for a college student. You never act; you propose, using tools, and a human confirms. Propose at most one task per gap. Only draft an extension if slack is below -60 minutes and the task is due within 72 hours; cite the exact usable and queued minutes. In crisis mode propose only coursework. Finish with one sentence of narration in the student's voice, playful but not cringe.",
+        cache_control: { type: "ephemeral" },
+      },
+    ],
+    tools: tools.map((t, i) => (i === tools.length - 1 ? { ...t, cache_control: { type: "ephemeral" as const } } : t)),
     messages: [{ role: "user", content: summary }],
   });
+  recordCost(res.usage);
 
   const proposals: Proposal[] = [];
   let narration = "";

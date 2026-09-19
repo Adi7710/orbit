@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildToday } from "@/lib/today";
 import { log, store } from "@/lib/store";
-import { planDay, type Proposal } from "@/agents/dayAgent";
+import { claudeSpend, planDay, type Proposal } from "@/agents/dayAgent";
 import { fmt } from "@/core/time";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +50,6 @@ export async function POST() {
 
   const stored = proposals.map((p) => ({ id: crypto.randomUUID(), proposal: p, status: "pending" as const, createdAt: new Date().toISOString() }));
   s.proposals.push(...stored);
-  log("agent", "proposals_created", { count: stored.length, provider, at: fmt(new Date().getHours() * 60 + new Date().getMinutes()) });
-  return NextResponse.json({ proposals: stored, narration, provider });
+  log("agent", "proposals_created", { count: stored.length, provider, at: fmt(new Date().getHours() * 60 + new Date().getMinutes()), claudeSpendUsd: +claudeSpend.usd.toFixed(4), claudeCalls: claudeSpend.calls });
+  return NextResponse.json({ proposals: stored, narration, provider, claudeSpend: { ...claudeSpend, usd: +claudeSpend.usd.toFixed(4), budgetUsd: 25 } });
 }
