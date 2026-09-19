@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import LedgerReveal from "./LedgerReveal";
+import WatcherPanel from "./WatcherPanel";
 
 type Today = {
   mode: "normal" | "crisis" | "chill";
@@ -110,6 +111,8 @@ export default function TodayClient() {
           <span className="ml-3 rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-900">{t.user.xpWeek} XP · {t.user.streakWeeks}-wk streak</span>
         </div>
       </header>
+
+      <WatcherPanel onChange={refresh} />
 
       <LedgerReveal l={t.ledger} />
       {t.cuts.length > 0 && (
