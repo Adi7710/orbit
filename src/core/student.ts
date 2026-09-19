@@ -1,0 +1,137 @@
+import type { HabitRecord } from "./habits";
+import { taskKind, type TaskKind } from "./learning";
+import { mulberry32 } from "./prng";
+import { wall } from "./habitSeed";
+
+/**
+ * A made-up student, eight weeks of their life, with hidden true traits.
+ *
+ * Nothing here is real data. The traits are the answer key: the learner never
+ * sees them, only the logs they produce, and the experiments check whether the
+ * learning recovers what is actually true. Every row is flagged `synthetic`.
+ */
+export interface StudentTraits {
+  /** actual minutes / the student's own estimate, by kind of work. */
+  factor: Record<TaskKind, number>;
+  /** +- fraction of random spread on any single session. */
+  noise: number;
+  /** actual walking minutes / planned walking minutes. */
+  walkSpeed: number;
+  /** Real minutes to settle in after a walk, against the app's 5. */
+  settleMinutes: number;
+  /** Real minutes for a meal, against the app's 35. */
+  mealMinutes: number;
+  /** How many hours before a deadline the student starts an assignment, on average. */
+  assignmentLeadHours: number;
+  /** Share of exam studying that happens in the last 24 hours. */
+  examCramShare: number;
+}
+
+export const TRAITS: StudentTraits = {
+  factor: { big_assignment: 1.33, assignment: 1.05, lab: 1.2, reading: 0.85, exam_prep: 1.25, other: 1.0 },
+  noise: 0.08,
+  walkSpeed: 1.15,
+  settleMinutes: 8,
+  mealMinutes: 42,
+  assignmentLeadHours: 9,
+  examCramShare: 0.55,
+};
+
+/**
+ * A second, different student, used only to check that what the learning does for
+ * the first one is not tuned to her: takes far longer on big assignments, is
+ * slower at reading, faster at labs, walks quickly, and starts closer to deadlines.
+ */
+export const TRAITS_B: StudentTraits = {
+  factor: { big_assignment: 1.6, assignment: 1.2, lab: 0.95, reading: 1.1, exam_prep: 1.4, other: 1.1 },
+  noise: 0.1,
+  walkSpeed: 0.92,
+  settleMinutes: 6,
+  mealMinutes: 38,
+  assignmentLeadHours: 4,
+  examCramShare: 0.8,
+};
+export const studentB = (weeks = 8) => syntheticStudent(weeks, TRAITS_B, 777, "Jordan (synthetic, held out)");
+
+export interface WalkRecord { week: number; from: string; to: string; plannedMinutes: number; actualMinutes: number; synthetic: true }
+export interface OverheadRecord { week: number; kind: "settle" | "meal"; plannedMinutes: number; actualMinutes: number; synthetic: true }
+export interface SyntheticStudent {
+  name: string;
+  traits: StudentTraits;
+  weeks: number;
+  sessions: HabitRecord[];
+  walks: WalkRecord[];
+  overheads: OverheadRecord[];
+}
+
+/** Monday of week 1. */
+const START = { y: 2026, m: 8, d: 31 };
+const at = (h: number, m = 0) => h * 60 + m;
+
+interface Slot { day: number; start: number; title: (w: number) => string; course: string; estimate: number; due?: boolean; onlyWeeks?: (w: number) => boolean }
+
+const WEEK: Slot[] = [
+  { day: 0, start: at(19), title: (w) => `Problem Set ${w}`, course: "MATH 0220", estimate: 90, due: true },
+  { day: 1, start: at(11, 10), title: (w) => `Reading: Chapter ${w}`, course: "CS 0441", estimate: 40 },
+  { day: 1, start: at(20), title: (w) => `Homework ${w}`, course: "CS 0441", estimate: 45, due: true },
+  { day: 2, start: at(18), title: (w) => `Lab ${w} report`, course: "PHYS 0174", estimate: 120, due: true },
+  { day: 3, start: at(21), title: (w) => `Discussion post ${w}`, course: "ENGCMP 0200", estimate: 30, due: true },
+  { day: 4, start: at(11, 10), title: (w) => `Reading: Chapter ${w + 1}`, course: "CS 0441", estimate: 40 },
+  { day: 5, start: at(15), title: (w) => `Essay draft ${w}`, course: "ENGCMP 0200", estimate: 150, due: true, onlyWeeks: (w) => w % 2 === 1 },
+];
+const EXAM_WEEKS = [4, 8];
+
+export function syntheticStudent(weeks = 8, traits: StudentTraits = TRAITS, seed = 31337, name = "Maya (synthetic)"): SyntheticStudent {
+  const rand = mulberry32(seed);
+  const jitter = (spread: number) => 1 + (rand() * 2 - 1) * spread;
+  const sessions: HabitRecord[] = [];
+  const walks: WalkRecord[] = [];
+  const overheads: OverheadRecord[] = [];
+  let n = 0;
+
+  const add = (w: number, dayOffset: number, startMin: number, title: string, course: string, estimate: number, opts: { lead?: number } = {}) => {
+    const kind = taskKind(title, estimate);
+    const actual = Math.max(5, Math.round(estimate * traits.factor[kind] * jitter(traits.noise)));
+    const day = new Date(Date.UTC(START.y, START.m - 1, START.d + (w - 1) * 7 + dayOffset));
+    const startAt = wall(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate(), startMin);
+    const completedAt = new Date(startAt.getTime() + actual * 60000);
+    const lead = opts.lead === undefined ? undefined : Math.max(actual / 60 + 0.5, opts.lead);
+    sessions.push({
+      taskId: `stu-${++n}`,
+      title,
+      domain: kind === "reading" || kind === "exam_prep" ? "learn" : "build",
+      courseCode: course,
+      plannedMinutes: estimate,
+      actualMinutes: actual,
+      completedAt,
+      inGap: true,
+      dueAt: lead === undefined ? undefined : new Date(startAt.getTime() + lead * 36e5),
+      startedHoursBeforeDue: lead === undefined ? undefined : Math.round(lead * 10) / 10,
+      week: w,
+      synthetic: true,
+    });
+  };
+
+  for (let w = 1; w <= weeks; w++) {
+    for (const s of WEEK) {
+      if (s.onlyWeeks && !s.onlyWeeks(w)) continue;
+      add(w, s.day, s.start, s.title(w), s.course, s.estimate, s.due ? { lead: traits.assignmentLeadHours * jitter(0.45) } : {});
+    }
+    if (EXAM_WEEKS.includes(w)) {
+      // Cramming: most of the studying lands in the last day before the exam.
+      add(w, 4, at(16), "Midterm review (first pass)", "MATH 0220", 180, { lead: 52 });
+      add(w, 6, at(22), "Midterm review (cram)", "MATH 0220", 180, { lead: 8 });
+    }
+    // Ten walks a week between the four campus legs the app already knows.
+    const legs: [string, string, number][] = [["Home", "Sennott", 14], ["Sennott", "Benedum", 7], ["Benedum", "Cathedral", 9], ["Cathedral", "Home", 16]];
+    for (let i = 0; i < 10; i++) {
+      const [from, to, planned] = legs[i % 4];
+      walks.push({ week: w, from, to, plannedMinutes: planned, actualMinutes: Math.max(1, Math.round(planned * traits.walkSpeed * jitter(0.08) * 10) / 10), synthetic: true });
+    }
+    for (let i = 0; i < 5; i++) overheads.push({ week: w, kind: "settle", plannedMinutes: 5, actualMinutes: Math.round(traits.settleMinutes * jitter(0.15) * 10) / 10, synthetic: true });
+    for (let i = 0; i < 3; i++) overheads.push({ week: w, kind: "meal", plannedMinutes: 35, actualMinutes: Math.round(traits.mealMinutes * jitter(0.1)), synthetic: true });
+  }
+
+  sessions.sort((a, b) => a.completedAt.getTime() - b.completedAt.getTime());
+  return { name, traits, weeks, sessions, walks, overheads };
+}
