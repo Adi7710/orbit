@@ -8,9 +8,12 @@ import UIKit
 /// time rather than by a `@Environment(\.colorScheme)` read that would force a
 /// view to re-evaluate on every appearance change.
 ///
-/// These values are the iOS half of the theme. When `docs/theme.md` lands
-/// (Akshat's session owns it) the hex values below are the things to reconcile;
-/// nothing else in the app hard-codes a colour.
+/// These values are the iOS half of the theme, and they deliberately do NOT
+/// match `docs/theme.md`, which the web app follows. Adi's call on 19 Sept:
+/// iOS keeps the celestial palette it was specified with. Do not "fix" this
+/// by retuning to theme.md without asking him — see DECISIONS.md, 19:45.
+/// Nothing else in the app hard-codes a colour, so a future reconciliation is
+/// an edit to `OrbitToken` and nowhere else.
 enum OrbitToken {
     // Surfaces
     static let charcoal: UInt32 = 0x0B0D17   // deep cosmic charcoal, dark background
