@@ -153,3 +153,8 @@ Affects: src/core/habitSeed.ts, HabitsCard.
 Decision: The habit call uses a 20 s timeout and the code-written insights as fallback. Measured on hosted Nemotron: 7.6-13.6 s for a 3-insight answer, and two of three cold calls timed out. The prompt requires the stat key behind every number to be cited: without that rule the model wrote a correct "21% faster" but cited only the bucket names and the verifier (correctly) refused it.
 Why: Hosted latency is spiky (same 15 s tail as the eval). The UI must never wait on it, and an ungrounded percentage should not pass just because it happens to be right.
 Affects: src/agents/habitAgent.ts prompt, /api/habits cache (per profile, so a new completion re-words), issue for the Brev fine-tune (#5).
+
+## 2026-09-19 16:20 ET · Jatin · No "Your patterns" card; habits become an agent, not a screen
+Decision: Removed HabitsCard and its line in TodayClient. The pure habit math (src/core/habits.ts), the seeded synthetic history, the verifier and /api/habits stay as the foundation for a weekly learning agent that adjusts the app's estimates from a student's history; nothing about habits is shown as a card.
+Why: The owner wants the learning to happen inside the app's planning and voice agent, not as a report the student reads.
+Affects: src/app/TodayClient.tsx (back to main's version), issue/PR #25.
