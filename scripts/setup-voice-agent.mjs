@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Creates (or updates) Orbit's voice agent and its four server tools through
+ * Creates (or updates) Orbit's voice agent and its server tools through
  * the ElevenLabs API, so the whole thing is reproducible instead of a dozen
  * clicks somebody has to remember.
  *
@@ -77,6 +77,19 @@ const TOOLS = [
       "Work out when the student should stand up to catch their bus, using Pittsburgh Regional Transit live data, and whether they will make their next class. Call this for any question about leaving, the bus, being late, or getting to class or home.",
     body: { destination: { type: "string", description: "Optional building name such as Cathedral, Hillman, Posvar, Sennott, Benedum, or Home. Leave empty to use their next class." } },
   },
+  {
+    name: "get_estimate",
+    description:
+      "Tell the student how long a specific task will really take THEM, based on their own history, and which gap it fits. Call this for questions like 'how long will the problem set take me', 'how much time should I give the essay', or 'will the lab report fit before class'. Pass the task as they said it.",
+    body: { task: { type: "string", description: "The task as the student said it, for example 'the problem set' or 'the lab report'." } },
+    required: ["task"],
+  },
+  {
+    name: "get_coach",
+    description:
+      "Tell the student what their own history says about how they work: when they are fastest, which kinds of work take longer than they guess, and how close to deadlines they finish. Call this for 'how am I doing', 'when do I work best', 'what should I change', or 'any tips'. Takes no arguments.",
+    body: {},
+  },
 ];
 
 const SYSTEM_PROMPT = [
@@ -87,6 +100,8 @@ const SYSTEM_PROMPT = [
   "The rule you never break: every number you say must come from a tool result. You do not know how many minutes they have, when their bus leaves, or how much XP something earned unless a tool just told you. Read the tool's sentence back almost word for word. If you have not called a tool, you do not have the answer, and you say so rather than guessing.",
   "",
   "When they tell you something is finished, call log_actual immediately with the task as they said it and the minutes they gave. If you did not catch the number, ask only for the number. If the server comes back asking which task they meant, read its question out and wait.",
+  "",
+  "When they ask how long a task will take them, call get_estimate. When they ask how they are doing or what to change, call get_coach. Read what the tool says almost word for word, and never add a number of your own.",
   "",
   "When they say they are in crisis or want a chill day, call set_mode straight away. Do not ask them to confirm; it is reversible and they just told you.",
   "",
@@ -110,8 +125,16 @@ async function main() {
   for (const t of existing.tools ?? []) {
     const name = t.tool_config?.name ?? t.name;
     if (TOOLS.some((x) => x.name === name)) {
-      await call(`/convai/tools/${t.id}`, { method: "DELETE" }).catch(() => {});
-      console.log(`  removed old tool ${name}`);
+      // force=true is required, not optional. A tool attached to an agent --
+      // or, worse, to a *branch* of an agent that has already been deleted --
+      // returns 409 and stays. The original code swallowed that error and
+      // printed "removed" anyway, so every re-run silently doubled the
+      // registry: ten tools with duplicate names, four of them pointing at
+      // nothing. Report what actually happened instead of what we intended.
+      const res = await call(`/convai/tools/${t.id}?force=true`, { method: "DELETE" })
+        .then(() => "removed")
+        .catch((e) => `COULD NOT REMOVE (${String(e.message).slice(-60)})`);
+      console.log(`  ${res} old tool ${name}`);
     }
   }
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { asSentence, resolveTask, speakReason, spoken, spokenClock, spokenDuration } from "@/agents/voiceTools";
 import type { Task } from "@/core/types";
 
@@ -55,5 +55,62 @@ describe("speaking whole sentences", () => {
     expect(speakReason("95 focused minutes")).toBe("ninety-five focused minutes");
     expect(speakReason("2-week streak")).toBe("two-week streak");
     expect(speakReason("done inside a planned gap")).toBe("done inside a planned gap");
+  });
+});
+
+// MARK: - Nemotron-backed tools
+
+
+import { handleVoiceTool, speakNumbers } from "@/agents/voiceTools";
+import { reset, store } from "@/lib/store";
+
+describe("speaking insight sentences", () => {
+  it("says percents, multipliers and decimals as words", () => {
+    expect(speakNumbers("You work about 21% faster before noon.")).toBe("You work about twenty-one percent faster before noon.");
+    expect(speakNumbers("Graded work takes you 1.53x what you estimate.")).toBe("Graded work takes you one point five three times what you estimate.");
+    expect(speakNumbers("You usually finish 5.88 hours before it is due.")).toBe("You usually finish five point eight eight hours before it is due.");
+  });
+});
+
+describe("voice tools backed by the learning log", () => {
+  beforeEach(() => reset());
+
+  it("get_estimate speaks the calibrated minutes and where the task fits", async () => {
+    const r = await handleVoiceTool({ tool: "get_estimate", task: "the problem set" });
+    expect(r.ok).toBe(true);
+    // MATH 0220 has six seeded samples at about 1.6x: 90 minutes becomes 144 (two hours twenty-four).
+    expect(r.text).toContain("You would say one hour thirty for Problem Set 4, but your history says two hours twenty-four");
+    expect(r.text).toContain("It fits your");
+    expect(r.text.replace("Problem Set 4", "")).not.toMatch(/\d/); // the title is read as written; every number is spoken
+  });
+
+  it("get_estimate asks instead of guessing, and says so when it cannot find the task", async () => {
+    store().tasks.push({ id: "x", title: "Problem Set 5", domain: "build", estimateMinutes: 60, source: "manual", courseCode: "MATH 0220" });
+    expect((await handleVoiceTool({ tool: "get_estimate", task: "problem set" })).text).toMatch(/^Which one/);
+    expect((await handleVoiceTool({ tool: "get_estimate", task: "laundry" })).ok).toBe(false);
+  });
+
+  it("get_coach answers from the learning log in spoken words, without calling the model", async () => {
+    const r = await handleVoiceTool({ tool: "get_coach" });
+    expect(r.ok).toBe(true);
+    expect(r.text).toContain("Here is what your history says.");
+    expect(r.text).toMatch(/percent faster before noon/);
+    expect(r.text).not.toMatch(/\d/);
+  });
+
+  it("get_coach admits when there is too little history", async () => {
+    store().habits = store().habits.slice(0, 3);
+    const r = await handleVoiceTool({ tool: "get_coach" });
+    expect(r.text).toMatch(/not enough to say anything real/);
+  });
+
+  it("log_actual by voice feeds the learning log exactly like a tap", async () => {
+    const before = store().habits.length;
+    const r = await handleVoiceTool({ tool: "log_actual", task: "reading", minutes: 35 });
+    expect(r.ok).toBe(true);
+    expect(store().habits).toHaveLength(before + 1);
+    const row = store().habits.at(-1)!;
+    expect(row).toMatchObject({ taskId: "read", actualMinutes: 35, plannedMinutes: 40 });
+    expect(row.synthetic).toBeUndefined();
   });
 });

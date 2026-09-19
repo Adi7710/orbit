@@ -6,6 +6,8 @@ import type { LeaderRow } from "@/core/game";
 import type { FriendGaps } from "@/core/overlap";
 import { Estimator } from "@/core/estimator";
 import { t } from "@/core/time";
+import type { HabitRecord } from "@/core/habits";
+import { syntheticHistory } from "@/core/habitSeed";
 
 /**
  * In-memory store for the hackathon. Swap for Postgres (drizzle) by keeping
@@ -28,6 +30,8 @@ interface Store {
   friends: FriendGaps[];
   board: LeaderRow[];
   instructors: Record<string, string>;
+  /** Completed sessions the Patterns card learns from. Seeded with synthetic history; real completions append. */
+  habits: HabitRecord[];
 }
 
 const g = globalThis as unknown as { __orbit?: Store };
@@ -58,6 +62,7 @@ function seed(): Store {
       { userId: "jordan", name: "Jordan", xpWeek: 120, streakWeeks: 0, ringsClosed: 1, group: "Tower B" },
       { userId: "lee", name: "Lee", xpWeek: 520, streakWeeks: 5, ringsClosed: 7, group: "Tower B" },
     ],
+    habits: syntheticHistory(new Date()),
     instructors: { "MATH 0220": "prof.lee@pitt.edu", "CS 0441": "prof.chen@pitt.edu", "ENGCMP 0200": "prof.ortiz@pitt.edu" },
   };
 }
