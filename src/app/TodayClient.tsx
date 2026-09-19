@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import LedgerReveal from "./LedgerReveal";
 
 type Today = {
   mode: "normal" | "crisis" | "chill";
@@ -83,20 +84,13 @@ export default function TodayClient() {
         </div>
       </header>
 
-      <section className="rounded-2xl border p-5 md:col-span-2">
-        <h2 className="text-sm font-medium text-zinc-500">The honest ledger</h2>
-        <div className="mt-2 flex items-end gap-6">
-          <div><div className="text-4xl font-semibold">{hm(t.ledger.usable)}</div><div className="text-xs text-zinc-500">you actually have</div></div>
-          <div><div className="text-2xl text-zinc-400 line-through">{hm(t.ledger.naiveFree)}</div><div className="text-xs text-zinc-500">what the calendar claims</div></div>
-          <div className="text-sm text-zinc-600">The missing <b>{lost} min</b> = walking {t.ledger.travel} + meals {t.ledger.meals} + getting settled {t.ledger.routines}</div>
-        </div>
-        <div className={`mt-3 text-sm ${t.ledger.overCommitted ? "text-red-600" : "text-emerald-700"}`}>
-          {t.ledger.queued} min queued · slack {t.ledger.slack} min {t.ledger.overCommitted ? "· over-committed" : "· you fit"}
-        </div>
-        {t.cuts.length > 0 && (
-          <ul className="mt-2 text-sm text-zinc-600">{t.cuts.map((c) => <li key={c.task.title}>Cut <b>{c.task.title}</b> (saves {c.minutesSaved} min, {c.reason})</li>)}</ul>
-        )}
-      </section>
+      <LedgerReveal l={t.ledger} />
+      {t.cuts.length > 0 && (
+        <section className="rounded-2xl border border-red-200 bg-red-50/50 p-5 md:col-span-2">
+          <h2 className="text-sm font-medium text-red-700">The day will not fit. Cheapest way back:</h2>
+          <ul className="mt-2 text-sm text-zinc-700">{t.cuts.map((c) => <li key={c.task.title}>Drop <b>{c.task.title}</b> · saves {c.minutesSaved} min · {c.reason}</li>)}</ul>
+        </section>
+      )}
 
       <section className="rounded-2xl border p-5">
         <h2 className="text-sm font-medium text-zinc-500">Bus {t.bus ? `· ${t.bus.from} → ${t.bus.to}` : ""} <span className="text-zinc-400">· PRT {t.transit.realtimeOk ? "live" : "schedule"}{t.transit.simulated ? ` · demo clock ${t.transit.clockText}` : ""}</span></h2>

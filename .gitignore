@@ -41,3 +41,7 @@ yarn-error.log*
 next-env.d.ts
 data/GTFS.zip
 data/gtfs-extracted/
+
+# local tunnel
+.tunnel.log
+.tunnel-url.txt
