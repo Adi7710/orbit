@@ -1,49 +1,71 @@
-# Optimization 1: assignment time
+# Aspect 1: how long assignments really take
 
-**Question.** If a student's big assignment takes 2 hours in week 1 but the app planned 1.5, does the app plan it better in week 2?
+The rule for every aspect: **feed one week at a time, and check that the second week actually changes.**
 
-**What was tested.** A synthetic student (all data made up, flagged `synthetic`) is replayed week by week. The plan for week N uses only weeks before N; then week N is revealed, scored, and reviewed so it can change week N+1. Week 1 cannot benefit from anything, so results cover weeks 2 to 8 (7 weeks, 28 assignment sessions per student: big assignments, homework and lab reports). Four arms:
+## How the test works
 
-| Arm | What plans the time |
-|---|---|
-| No learning | the student's own estimate |
-| App today | the existing per-course calibration (needs 5 samples per course and domain) |
-| Weekly learner, code decides | measures each kind of work weekly, adopts every correction with enough evidence |
-| Weekly learner, Nemotron decides | same measurements; hosted Nemotron chooses adopt, step or hold per kind and writes the notes; code computes every number and verifies every claim |
+A synthetic student (all data invented, flagged `synthetic`) is replayed week by week.
 
-Two students, so the settings were not tuned to one: **Maya** (big assignments really take 1.33x her estimate, labs 1.2x, reading 0.85x) and **Jordan**, held out (1.6x, 0.95x, 1.1x, different seed). The learner never sees these true values, only the logs.
+1. Week N is planned with **only** what the learner knew before week N.
+2. Week N is scored against what the work really took.
+3. Only then is week N revealed to the learner, which updates itself for week N+1.
+
+Nothing is ever scored on data the learner had already seen. Week 1 cannot benefit from anything, so it is identical in every arm and is the baseline.
+
+**Nemotron is the thing that learns.** It sees one week, never the history. It sees what *it* planned against what the work took, so it can correct itself. It carries its own memory: the multipliers it chose plus a memo it writes to its future self. **It produces the number**; code only clamps it to 0.4–3.0 as a safety rail.
+
+Scope: only assignment-shaped work is shown to it (big assignments, homework, lab reports). Readings and exam studying are hidden, because it is being trained on this aspect and nothing else.
+
+Two students, so nothing is tuned to one. **Maya** (big assignments really take 1.33x her estimate, homework 1.05x, labs 1.2x) and **Jordan**, held out with a different seed (1.6x, 1.2x, 0.95x). The learner never sees these true values.
 
 ## Result
 
-| | Mean error (min) | Plan too short by (min, total) | Sessions under-planned |
-|---|---|---|---|
-| **Maya** | | | |
-| No learning | 21.1 | 505 | 71% |
-| App today | 14.8 | 337 | 46% |
-| Weekly learner, code decides | **6.3** | **138** | **4%** |
-| Weekly learner, Nemotron decides | 6.3 (3 of 8 weeks decided by Nemotron; the other 5 timed out or had nothing to decide) | 138 | 4% |
-| **Jordan (held out)** | | | |
-| No learning | 29.7 | 655 | 67% |
-| App today | 20.0 | 434 | 46% |
-| Weekly learner, code decides | **6.5** | **127** | **17%** |
-| Weekly learner, Nemotron decides | 7.2 (all 8 weeks decided by Nemotron) | 129 | 17% |
+Mean error between the planned minutes and the real minutes, over weeks 2–8:
 
-The example from the brief: **Problem Set 2, estimated 90 minutes, took 115.** No learning plans 90. The weekly learner plans **110**. For Jordan (took 138) it plans **125**.
+| | Maya | Jordan (held out) |
+|---|---|---|
+| No learning (student's own estimate) | 21.1 min | 29.7 min |
+| App today (per-course calibration) | 14.8 min | 20.0 min |
+| One week at a time, running average (no model) | 6.8 min | 8.5 min |
+| **One week at a time, Nemotron learns** | **3.9 min** | **6.7 min** |
 
-## What this shows
+Assignments planned too short: 71% → 0% for Maya, 67% → 4% for Jordan.
 
-1. **The weekly loop works.** Mean error falls about 70% and minutes planned too short fall about 73% against no learning, and it beats the app's current calibration by more than half. It holds on the held-out student. Learned multipliers land within 0.03 to 0.12 of the hidden truth (shrinkage toward "your estimate is right" and sampling noise account for the gap).
-2. **Nemotron's decisions did not beat plain rules for this optimization.** It tied on Maya and was slightly worse on Jordan (7.2 vs 6.5) because it was more cautious than the data justified (half-steps and holds where the ratio was consistent). A correction of the form "multiply by the measured ratio" is simple enough that code does it as well as a model.
-3. **Latency matters.** Hosted Nemotron took 1 to 90 seconds per weekly review and timed out in 3 of 8 weeks for Maya even at 90 s. Timeouts fall back to the rules decision, visibly, by design.
-4. **Nemotron's notes needed guarding.** Its numbers were real but its stories were not always: "consistent overestimation" for work that takes longer than estimated, "trending down from 1.22x to 1.27x" (up), "8 weeks of data" for 8 sessions, "getting faster" for a flat ratio. The verifier now checks direction, code-computed trend, and weeks against sessions. Replaying the notes Nemotron actually wrote through it refuses 10 of 18 for Jordan and 0 of 10 for Maya.
-5. **One threshold was tuned on Maya, and confirmed on Jordan.** Corrections under 0.05 were ignored, which stalled labs at 1.097 against 1.2; the minimum change is now 0.03.
+**Does one week change the next one?** Yes, and almost all of it lands immediately:
 
-## Limits
+| | What Nemotron chose after week 1 | The hidden truth |
+|---|---|---|
+| Maya, big assignments | 1.34 | 1.33 |
+| Maya, homework | 1.07 | 1.05 |
+| Maya, lab reports | 1.14 | 1.20 |
+| Jordan, big assignments | 1.58 | 1.60 |
+| Jordan, homework | 1.22 | 1.20 |
+| Jordan, lab reports | 0.90 | 0.95 |
 
-- Synthetic student, 8 weeks, one aspect. The gap between "no learning" and the learner is real for this data; a real student is noisier and changes over time.
-- Nemotron notes in the table above were written before the stricter verifier; the verifier's effect was measured by replay, not by a new live run.
-- Nothing here changes the live app yet. The learned multipliers are computed and tested offline; they are not wired into `planningMinutes`.
+Week 2 error falls from 15.0 to **2.7** minutes for Maya and from 18.0 to **6.7** for Jordan, purely from having seen week 1. After that it holds the pattern and makes small corrections rather than drifting.
+
+The example from the brief: **Problem Set 2, estimated 90 minutes, took 115.** Without learning the app plans 90. After one week it plans **119**.
+
+Latency 1.2–22.6 s per weekly review, every week answered, no timeouts. A weekly background job, so this is well inside budget.
+
+## The failure this went through first
+
+The first live run was much worse: Nemotron set **every** kind of work to a flat 1.1 for Maya and then oscillated 1.1 → 1.0 → 1.1 → 1.0 for eight weeks, while its own memo said "consistently underestimates time" the entire time. It contradicted its own memory and never converged (mean error 15.0, barely better than not learning). It worked on Jordan only because his misses were large enough to be obvious.
+
+Three causes, all in the prompt, all fixed:
+
+1. **It was doing arithmetic.** It had to divide actual by estimate in its head and instead reached for a round number. The per-kind ratio is now handed to it. The division is given away; the decision is not.
+2. **It could move a multiplier down while its plans were still coming in short.** Now stated as a rule: if the work ran over what you planned, the multiplier goes up, never down.
+3. **It ignored its own memo.** Now stated as a rule: the memo is your memory of this student, do not contradict it.
+
+After those three lines, Nemotron beat the running average on both students instead of losing to it on one.
+
+## What is still wrong
+
+- On Jordan it overshoots on a noisy week: homework drifted to 1.33 against a truth of 1.20, and labs to 0.82 against 0.95. Weeks 5 and 8 are its worst (12.5 and 10.3 min).
+- One aspect, one synthetic student shape, 8 weeks. A real student changes over a term; this one does not.
+- Nothing is wired into live planning yet.
 
 ## Reproduce
 
-`GET /api/learning/experiment?aspect=assignments&arms=raw,existing,rules` (instant), add `nemotron` for the live arm (about 2 to 4 minutes), add `&student=b` for the held-out student. Tests: `npm test` (`learning.test.ts`, `learner.test.ts`).
+`GET /api/learning/experiment?aspect=assignments&arms=raw,existing,weekly-rules,weekly-nemotron` (add `&student=b` for the held-out student). The response includes `trace`, the week-by-week record of what the learner saw, what it changed and what it wrote to itself. Tests: `npm test` (`weeklyLearner.test.ts`).
