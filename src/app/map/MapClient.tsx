@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type * as L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -36,9 +37,12 @@ export default function MapClient() {
   const Lref = useRef<typeof L | null>(null);
   const [j, setJ] = useState<Journey | null>(null);
   const [sel, setSel] = useState(0);
-  const [from, setFrom] = useState<string>("Home");
-  const [to, setTo] = useState<string>("Cathedral");
-  const [arriveBy, setArriveBy] = useState("15:30");
+  // Deep link: the Today bus card links here with the exact leg it is showing,
+  // so the two screens never open on different journeys.
+  const params = useSearchParams();
+  const [from, setFrom] = useState<string>(params.get("from") ?? "Home");
+  const [to, setTo] = useState<string>(params.get("to") ?? "Cathedral");
+  const [arriveBy, setArriveBy] = useState(params.get("arriveBy") ?? "15:30");
   const [updatedAgo, setUpdatedAgo] = useState(0);
   const [err, setErr] = useState("");
 
@@ -59,6 +63,12 @@ export default function MapClient() {
   }, [from, to, arriveBy]);
 
   useEffect(() => { load(); const t = setInterval(load, REFRESH_MS); return () => clearInterval(t); }, [load]);
+
+  useEffect(() => {
+    const q = new URLSearchParams({ from, to });
+    if (to !== "Home") q.set("arriveBy", arriveBy);
+    window.history.replaceState(null, "", `/map?${q}`);
+  }, [from, to, arriveBy]);
   useEffect(() => { const t = setInterval(() => setUpdatedAgo((n) => n + 1), 1000); return () => clearInterval(t); }, []);
 
   // Create the map once.
@@ -130,7 +140,7 @@ export default function MapClient() {
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3">
         <div className="pointer-events-auto mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-2xl bg-white/95 p-2 shadow-lg backdrop-blur">
-          <span className="pl-2 text-sm font-semibold">Orbit</span>
+          <a href="/" className="rounded-lg px-2 py-1 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-100" aria-label="Back to today">‹ Orbit</a>
           <select value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-lg border px-2 py-1 text-sm">{PLACES.map((p) => <option key={p}>{p}</option>)}</select>
           <span className="text-zinc-400">→</span>
           <select value={to} onChange={(e) => setTo(e.target.value)} className="rounded-lg border px-2 py-1 text-sm">{PLACES.map((p) => <option key={p}>{p}</option>)}</select>
