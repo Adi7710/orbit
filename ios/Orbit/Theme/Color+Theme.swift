@@ -8,37 +8,63 @@ import UIKit
 /// time rather than by a `@Environment(\.colorScheme)` read that would force a
 /// view to re-evaluate on every appearance change.
 ///
-/// These values are the iOS half of the theme, and they deliberately do NOT
-/// match `docs/theme.md`, which the web app follows. Adi's call on 19 Sept:
-/// iOS keeps the celestial palette it was specified with. Do not "fix" this
-/// by retuning to theme.md without asking him — see DECISIONS.md, 19:45.
-/// Nothing else in the app hard-codes a colour, so a future reconciliation is
-/// an edit to `OrbitToken` and nowhere else.
+/// The look is derived from the Homely smart-home concept by Varti Studio,
+/// adopted by Adi on 19 Sept. What was taken is the *language*, not the
+/// artwork: a true near-black ground, a warm bone light mode, one acid-lime
+/// accent spent on a single element per screen, a tight grotesque instead of a
+/// rounded face, and soft bloom rather than hard shadow. None of their layouts
+/// or assets are reproduced.
+///
+/// These values deliberately do NOT match `docs/theme.md`, which the web app
+/// follows. See DECISIONS.md, 19 Sept 20:05.
 enum OrbitToken {
-    // Surfaces
-    static let charcoal: UInt32 = 0x0B0D17   // deep cosmic charcoal, dark background
-    static let charcoalLift: UInt32 = 0x141829
-    static let polar: UInt32 = 0xF8F9FA      // crisp polar white, light background
-    static let polarLift: UInt32 = 0xFFFFFF
 
-    // Primary accent: cosmic indigo (light) / nebula blue (dark)
-    static let indigo: UInt32 = 0x4F46E5
-    static let nebula: UInt32 = 0x6366F1
-    /// Nebula blue is only 4.35:1 as small text on the charcoal ground, so text
-    /// and strokes in dark mode use this lift of it (5.9:1). Fills keep `nebula`.
-    static let nebulaLight: UInt32 = 0x818CF8
+    // MARK: Ground and surfaces
 
-    // Secondary accents
-    static let amber: UInt32 = 0xF59E0B      // urgent, deadlines
-    static let amberInk: UInt32 = 0xB45309   // amber that survives white behind it
-    static let violet: UInt32 = 0xA855F7     // active, live, notifications
-    static let violetInk: UInt32 = 0x7E22CE
+    /// True black-ish, not navy. The whole look rests on the ground being
+    /// neutral: any blue in it turns the lime accent municipal-green.
+    static let obsidian: UInt32 = 0x070708
+    static let obsidianRaised: UInt32 = 0x131315
+    static let obsidianInset: UInt32 = 0x1B1B1E
 
-    /// The fourth domain has no colour in the brief. Teal is the only hue left
-    /// that stays distinguishable from indigo, violet and amber for the common
-    /// forms of colour blindness. Logged in DECISIONS.md.
-    static let teal: UInt32 = 0x2DD4BF
-    static let tealInk: UInt32 = 0x0F766E
+    /// Warm bone, not white. Light mode in this system is paper, not screen.
+    static let bone: UInt32 = 0xEFEDE8
+    static let boneRaised: UInt32 = 0xFFFFFF
+    static let boneInset: UInt32 = 0xE6E3DC
+
+    // MARK: Accent
+
+    /// The acid lime. It is a FILL colour, always carrying `onAccent` text —
+    /// as text on bone it is 1.04:1, which is invisible. Anywhere the accent
+    /// has to *be* the text, use `accentInk`.
+    static let lime: UInt32 = 0xD4F34A
+    static let limeDeep: UInt32 = 0x5A6B0E
+    /// Near-black for text and icons sitting on lime.
+    static let onLime: UInt32 = 0x0A0A0A
+
+    /// The second accent: warm orange, for the genuinely urgent.
+    static let ember: UInt32 = 0xF4722C
+    static let emberDeep: UInt32 = 0xA8410A
+
+    // MARK: Domain hues
+
+    /// Four domains in a world that is otherwise neutral plus lime plus orange.
+    /// Teal and rose are the two additions, kept low-saturation so they sit in
+    /// the same room. Each dark value clears 7:1 on the raised surface and each
+    /// light value clears 5:1 on bone.
+    static let teal: UInt32 = 0x5FBFA8
+    static let tealDeep: UInt32 = 0x12695A
+    static let rose: UInt32 = 0xE2899B
+    static let roseDeep: UInt32 = 0x9B3A4E
+
+    // MARK: Ink
+
+    static let inkDark: UInt32 = 0xF4F4F2
+    static let inkLight: UInt32 = 0x111111
+    static let ink2Dark: UInt32 = 0xA0A09B
+    static let ink2Light: UInt32 = 0x55554F
+    static let ink3Dark: UInt32 = 0x85857F
+    static let ink3Light: UInt32 = 0x6B6B66
 }
 
 extension Color {
@@ -63,30 +89,36 @@ extension Color {
 // MARK: - Semantic colours
 
 extension Color {
-    static let orbitBackground = Color.orbit(light: OrbitToken.polar, dark: OrbitToken.charcoal)
-    /// The plate a card sits on. Deliberately opaque: an opaque fill is one
-    /// blend, a material is a blur pass.
-    static let orbitSurface = Color.orbit(light: OrbitToken.polarLift, dark: OrbitToken.charcoalLift)
-    static let orbitHairline = Color.orbit(light: 0x0B0D17, dark: 0xFFFFFF, opacity: 0.10)
+    static let orbitBackground = Color.orbit(light: OrbitToken.bone, dark: OrbitToken.obsidian)
+    /// The plate a card sits on. Opaque: an opaque fill is one blend, a
+    /// material is a blur pass.
+    static let orbitSurface = Color.orbit(light: OrbitToken.boneRaised, dark: OrbitToken.obsidianRaised)
+    /// Wells, tracks, tab strips — a step *into* the page rather than out of it.
+    static let orbitSurfaceInset = Color.orbit(light: OrbitToken.boneInset, dark: OrbitToken.obsidianInset)
+    static let orbitHairline = Color.orbit(light: 0x111111, dark: 0xFFFFFF, opacity: 0.09)
 
-    static let orbitAccent = Color.orbit(light: OrbitToken.indigo, dark: OrbitToken.nebulaLight)
-    static let orbitAccentSoft = Color.orbit(light: OrbitToken.nebula, dark: OrbitToken.indigo)
-    static let orbitUrgent = Color.orbit(light: OrbitToken.amberInk, dark: OrbitToken.amber)
-    static let orbitLive = Color.orbit(light: OrbitToken.violetInk, dark: OrbitToken.violet)
+    /// The lime. A fill, spent once per screen. Pair with `orbitOnAccent`.
+    static let orbitAccent = Color(hex: OrbitToken.lime)
+    static let orbitOnAccent = Color(hex: OrbitToken.onLime)
+    /// The accent when it has to be text or a stroke rather than a fill.
+    static let orbitAccentInk = Color.orbit(light: OrbitToken.limeDeep, dark: OrbitToken.lime)
 
-    static let orbitInk = Color.orbit(light: 0x111827, dark: 0xF3F4F6)
-    static let orbitInkSoft = Color.orbit(light: 0x4B5563, dark: 0x9CA3AF)
-    /// Both of the obvious greys fail here: 0x9CA3AF is 2.5:1 on white and
-    /// 0x6B7280 is 3.6:1 on the dark surface. These clear 4.5:1 on both.
-    static let orbitInkFaint = Color.orbit(light: 0x6B7280, dark: 0x8A93A6)
+    static let orbitUrgent = Color.orbit(light: OrbitToken.emberDeep, dark: OrbitToken.ember)
+    /// Kept as a name the rest of the app already uses. In this system "live"
+    /// is carried by the lime, not by a third hue.
+    static let orbitLive = Color.orbit(light: OrbitToken.limeDeep, dark: OrbitToken.lime)
 
-    /// Ring colour per domain, matching `Domain` in `src/core/types.ts`.
+    static let orbitInk = Color.orbit(light: OrbitToken.inkLight, dark: OrbitToken.inkDark)
+    static let orbitInkSoft = Color.orbit(light: OrbitToken.ink2Light, dark: OrbitToken.ink2Dark)
+    static let orbitInkFaint = Color.orbit(light: OrbitToken.ink3Light, dark: OrbitToken.ink3Dark)
+
+    /// Ring and spine colour per domain, matching `Domain` in `src/core/types.ts`.
     static func orbitDomain(_ domain: String) -> Color {
         switch domain {
-        case "learn": return .orbitAccent
-        case "build": return .orbitLive
-        case "body":  return .orbitUrgent
-        case "life":  return .orbit(light: OrbitToken.tealInk, dark: OrbitToken.teal)
+        case "learn": return .orbit(light: OrbitToken.limeDeep, dark: OrbitToken.lime)
+        case "build": return .orbit(light: OrbitToken.emberDeep, dark: OrbitToken.ember)
+        case "body":  return .orbit(light: OrbitToken.tealDeep, dark: OrbitToken.teal)
+        case "life":  return .orbit(light: OrbitToken.roseDeep, dark: OrbitToken.rose)
         default:      return .orbitInkSoft
         }
     }
@@ -95,60 +127,77 @@ extension Color {
 // MARK: - Gradients
 
 extension LinearGradient {
-    /// Primary call to action.
+    /// Primary call to action: flat lime, a whisper of a sheen. Homely's
+    /// buttons are flat; the gradient exists only so the capsule does not look
+    /// like a sticker.
     static let orbitAccent = LinearGradient(
-        colors: [Color(hex: OrbitToken.indigo), Color(hex: OrbitToken.nebula)],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
+        colors: [Color(hex: OrbitToken.lime), Color(hex: 0xC3E43A)],
+        startPoint: .top,
+        endPoint: .bottom
     )
 
-    /// The one-pixel lit edge that makes a flat card read as glass. Cheaper
-    /// than a shadow and it does not rasterise offscreen.
+    /// The one-pixel lit edge that lifts a tile off a black ground.
     static let orbitEdge = LinearGradient(
-        colors: [Color.white.opacity(0.28), Color.white.opacity(0.04)],
+        colors: [Color.white.opacity(0.16), Color.white.opacity(0.03)],
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
 
-    static func orbitDomainEdge(_ domain: String) -> LinearGradient {
+    static func tintedEdge(_ tint: Color) -> LinearGradient {
         LinearGradient(
-            colors: [Color.orbitDomain(domain).opacity(0.55), Color.orbitDomain(domain).opacity(0.08)],
+            colors: [tint.opacity(0.50), tint.opacity(0.06)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
     }
 
-    /// The same lit edge in an arbitrary colour, for a card that is carrying a
-    /// status colour rather than a domain colour.
-    static func tintedEdge(_ tint: Color) -> LinearGradient {
-        LinearGradient(
-            colors: [tint.opacity(0.55), tint.opacity(0.08)],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+    static func orbitDomainEdge(_ domain: String) -> LinearGradient {
+        tintedEdge(Color.orbitDomain(domain))
     }
 }
 
 // MARK: - Type scale
 
 extension Font {
-    /// Rounded system faces throughout; all of these scale with Dynamic Type
-    /// because they are built from text styles, not fixed point sizes.
-    static let orbitDisplay = Font.system(.largeTitle, design: .rounded, weight: .bold)
-    static let orbitTitle = Font.system(.title2, design: .rounded, weight: .bold)
-    static let orbitHeadline = Font.system(.headline, design: .rounded, weight: .semibold)
-    static let orbitBody = Font.system(.subheadline, design: .rounded, weight: .medium)
-    static let orbitCaption = Font.system(.caption, design: .rounded, weight: .semibold)
-    /// Clock faces and minute counts: monospaced digits so a ticking number
-    /// does not shuffle the layout sideways every refresh.
-    static let orbitNumeric = Font.system(.title3, design: .rounded, weight: .bold).monospacedDigit()
+    /// A grotesque, not a rounded face: SF Pro's default design is the system's
+    /// closest relative to the Helvetica-Now-ish face the reference uses.
+    /// Everything is built from a text style, so Dynamic Type still scales it.
+    static let orbitDisplay = Font.system(.largeTitle, design: .default, weight: .bold)
+    static let orbitTitle = Font.system(.title2, design: .default, weight: .semibold)
+    static let orbitHeadline = Font.system(.headline, design: .default, weight: .semibold)
+    static let orbitBody = Font.system(.subheadline, design: .default, weight: .regular)
+    /// Eyebrow labels: small, uppercase, widely tracked. Applied with
+    /// `.orbitEyebrow()` so the tracking travels with the size.
+    static let orbitCaption = Font.system(.caption, design: .default, weight: .medium)
+    /// Clock faces and minute counts.
+    static let orbitNumeric = Font.system(.title3, design: .default, weight: .semibold).monospacedDigit()
+}
+
+extension View {
+    /// The wide-tracked uppercase label the reference puts at the top of every
+    /// section. Tracking, not `kerning`, so it scales with Dynamic Type.
+    func orbitEyebrow() -> some View {
+        self.font(.system(.caption2, design: .default, weight: .semibold))
+            .textCase(.uppercase)
+            .tracking(1.3)
+    }
+
+    /// Display copy in the reference is set tight. At large sizes the system
+    /// default is a touch loose for this look.
+    func orbitTightDisplay() -> some View {
+        self.tracking(-0.8)
+    }
 }
 
 // MARK: - Metrics
 
 enum OrbitMetric {
-    static let cardRadius: CGFloat = 20
+    /// Homely's tiles are noticeably rounder than a standard iOS card.
+    static let tileRadius: CGFloat = 26
+    static let cardRadius: CGFloat = 26
+    static let chipRadius: CGFloat = 18
     static let cardPadding: CGFloat = 16
-    static let deckCardWidth: CGFloat = 228
-    static let stackSpacing: CGFloat = 12
+    static let tileHeight: CGFloat = 148
+    static let deckCardWidth: CGFloat = 214
+    static let stackSpacing: CGFloat = 10
 }

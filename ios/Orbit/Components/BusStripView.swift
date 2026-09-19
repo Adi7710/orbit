@@ -1,16 +1,22 @@
 import SwiftUI
 
-/// "Leave by 13:16 - 71B live". Every string here was composed by the server,
-/// by the same buildJourney() the map screen uses, so the strip and the map
-/// can never disagree about when to stand up.
+/// "Leave by 19:32". Every string here was composed by the server, by the same
+/// buildJourney() the map screen uses, so the strip and the map can never
+/// disagree about when to stand up.
+///
+/// Neutral unless the margin is thin. Ember is the only colour that appears
+/// here, and only when you are actually about to miss something — in this
+/// system a warm colour is information, never decoration.
 struct BusStripView: View {
     let bus: Today.Bus
+    var index: Int = 0
 
-    private var tint: Color {
-        guard let verdict = bus.verdict else { return .orbitAccent }
-        if !verdict.makesIt { return .orbitUrgent }
-        return verdict.marginMin < 5 ? .orbitUrgent : .orbitAccent
+    private var isTight: Bool {
+        guard let verdict = bus.verdict else { return false }
+        return !verdict.makesIt || verdict.marginMin < 5
     }
+
+    private var tint: Color { isTight ? .orbitUrgent : .orbitInkSoft }
 
     private var routeTag: String {
         if bus.live { return "\(bus.route) live" }
@@ -21,33 +27,32 @@ struct BusStripView: View {
     var body: some View {
         HStack(spacing: 14) {
             ZStack {
-                Circle().fill(tint.opacity(0.15))
+                Circle().fill(Color.orbitSurfaceInset)
                 Image(systemName: "bus.fill")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(tint)
             }
-            .frame(width: 42, height: 42)
+            .frame(width: 44, height: 44)
 
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
                     Text("Leave by \(bus.leaveByText)")
                         .font(.orbitHeadline)
                         .monospacedDigit()
                         .foregroundStyle(Color.orbitInk)
                     GradientTagView(
                         text: routeTag,
-                        tint: bus.live ? .orbitLive : .orbitInkSoft,
-                        systemImage: bus.live ? "dot.radiowaves.up.forward" : nil,
-                        filled: bus.live
+                        tint: bus.live ? .orbitAccentInk : .orbitInkFaint,
+                        systemImage: bus.live ? "dot.radiowaves.up.forward" : nil
                     )
                 }
                 Text("\(bus.walkToStop) min walk to \(bus.stopName), \(bus.rideMinutes) min ride, \(bus.why)")
-                    .font(.orbitCaption)
-                    .foregroundStyle(Color.orbitInkSoft)
+                    .font(.orbitBody)
+                    .foregroundStyle(Color.orbitInkFaint)
                     .lineLimit(2)
                 if let verdict = bus.verdict, let at = bus.classAtText {
                     Text(verdictText(verdict, at: at))
-                        .font(.orbitCaption)
+                        .orbitEyebrow()
                         .foregroundStyle(tint)
                 }
             }
@@ -56,12 +61,13 @@ struct BusStripView: View {
         .padding(OrbitMetric.cardPadding)
         .background {
             RoundedRectangle(cornerRadius: OrbitMetric.cardRadius, style: .continuous)
-                .fill(Color.orbitSurface.shadow(.drop(color: .black.opacity(0.14), radius: 8, y: 4)))
+                .fill(Color.orbitSurface)
                 .overlay(
                     RoundedRectangle(cornerRadius: OrbitMetric.cardRadius, style: .continuous)
-                        .strokeBorder(tint.opacity(0.28), lineWidth: 1)
+                        .strokeBorder(isTight ? Color.orbitUrgent.opacity(0.35) : Color.orbitHairline, lineWidth: 1)
                 )
         }
+        .orbitAppear(index)
     }
 
     private func verdictText(_ verdict: Today.Bus.Verdict, at: String) -> String {

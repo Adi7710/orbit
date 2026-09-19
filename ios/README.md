@@ -25,11 +25,14 @@ The SwiftUI client. It renders; it never computes a time. Every number comes fro
 - `JourneyMapView.swift` — the map and the bottom sheet. MapKit, no key, no billing. Polls every 15 seconds while visible, stops when it disappears. Route polyline in PRT's colour, dashed walk lines, a bus pill rotated to its heading that glides between refreshes, and a verdict chip that is green, amber under five minutes of margin, red when you miss it.
 - `OrbitAPI+Today.swift` — the Today half of the API: `/api/today`, `/api/plan`, `/api/proposals/{id}`, `/api/complete`, `/api/mode`. Separate file from `OrbitAPI.swift` so the map and Today can be edited by two people without colliding.
 - `Models/Today.swift` — one `Codable` mirroring `GET /api/today`. Only the fields the app renders are declared; unknown keys decode fine, so the server may run ahead of the app.
-- `Theme/Color+Theme.swift` — every colour, type style and metric in the app. Dynamic light/dark tokens, no asset catalog. It deliberately does **not** match `docs/theme.md`, which the web app follows: iOS keeps the celestial palette (cosmic indigo, charcoal) by Adi's decision. Do not retune it without asking him.
+- `Theme/Color+Theme.swift` — every colour, type style and metric in the app. Dynamic light/dark tokens, no asset catalog. The look is derived from the Homely concept by Varti Studio: true near-black ground, warm bone light mode, one acid-lime accent, a tight grotesque rather than a rounded face. It deliberately does **not** match `docs/theme.md`, which the web app follows. Do not retune it without asking Adi.
+
+  **The accent budget.** Lime appears on exactly three things: the class happening now, the selected mode chip, and the primary action in the dock. That scarcity is the whole design. If you add a fourth, take it off one of the others.
 - `Today/ScheduleOverviewView.swift` — Today. Ledger header, the class deck, the real windows with swipe-to-done, bus strip, quests, pending proposals, friends, and the docked quick bar.
 - `Today/TodayStore.swift` — `@Observable` state: load, 30-second poll while visible, last-response cache with a visible banner when the server is unreachable, and the action calls.
 - `Today/ClassDetailView.swift`, `Today/CompleteSheet.swift` — the expanded class (matched geometry from its card) and the "how long did it actually take?" sheet.
-- `Components/` — `ClassCardView`, `TimelineHeaderView`, `GapCardRow`, `BusStripView`, `CircularProgressRing`, `GradientTagView`, `XPToastView`.
+- `Components/` — `ClassCardView`, `TimelineHeaderView`, `RadialDialView`, `GapCardRow`, `BusStripView`, `GradientTagView`, `XPToastView`.
+- `Theme/OrbitMotion.swift` — every spring, curve and stagger, plus the press style, the staggered entrance and the bloom. Reduce Motion is honoured here so no call site can forget it.
 - `PERFORMANCE.md` — where the frames go on this screen and what the code does about it. Read it before adding a blur or a shadow.
 
 ## Next screens (issue #13, #14)

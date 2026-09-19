@@ -14,18 +14,19 @@ The rule in this app: **materials only on surfaces that do not move.**
 
 | Surface | Treatment | Why |
 | --- | --- | --- |
-| Docked quick bar | `.ultraThinMaterial` | Fixed overlay, composited once |
-| Navigation bar | `.toolbarBackground(.ultraThinMaterial)` | Fixed |
+| Floating dock | `.ultraThinMaterial` | Fixed overlay, composited once |
 | XP toast | `.regularMaterial` | Fixed, on screen for seconds |
-| Expanded class detail | `.ultraThinMaterial` | Modal, nothing scrolls behind it |
-| In-progress class card | `.ultraThinMaterial` | **One** card, never more |
-| Every other card | Opaque fill + gradient + 1pt lit edge | Reads as glass, costs one blend |
+| In-progress class tile | **No blur at all** | A flat lime fill — the accent carries it |
+| Expanded class detail | Opaque surface | Flat paper; only the scrim composites |
+| Every other tile | Opaque fill + 1pt hairline | Costs one blend |
 
-`ClassCardView` also drops the material entirely when
-`accessibilityReduceTransparency` is on, which is both correct behaviour and a
-free win on older devices.
+There are exactly **two** materials in the whole app, and neither of them
+moves. Adopting the Homely look paid for itself here: the old design frosted
+the live card, which put a live blur inside a horizontally scrolling deck. The
+new one makes that card a solid lime fill, so the deck has no blur in it at
+all.
 
-If you profile a scroll stutter, this is the first place to look.
+If you profile a scroll stutter, this is still the first place to look.
 
 ## 2. Draw shadows in the shape, not around the view
 
@@ -80,11 +81,27 @@ Cheap (GPU, no layout pass): `opacity`, `scaleEffect`, `rotationEffect`,
 Expensive (re-runs layout on every frame): `frame`, `padding`, `spacing`,
 anything that changes the size of a view its siblings depend on.
 
-- `CircularProgressRing` animates a `trim`, not a frame.
+- `RadialDialView` draws all 56 ticks as one `Path` inside a single `Shape`, and animates through `animatableData` — SwiftUI interpolates the sweep on the render thread instead of re-running a body 56 times.
 - `.scrollTransition` in the deck animates opacity and scale only.
-- The pulsing "In Progress" glow is a `PhaseAnimator` on one shadow radius, it
-  exists on at most one card, and under Reduce Motion it is not built at all —
-  the modifier returns the plain content rather than a zero-duration animation.
+- `OrbitAppear` staggers entrances with opacity and a 14pt offset. Both are
+  composited, so a dozen tiles arriving in sequence is still one layout pass.
+- The bloom is a `PhaseAnimator` on one shadow radius. Spend it on one element
+  per screen; it is a shadow, and shadows are the other thing that rasterises.
+
+## 5a. Motion lives in one file
+
+Every spring, curve, stagger and delay is in `Theme/OrbitMotion.swift`. Two
+reasons, and the second is the important one:
+
+1. A motion language drifts if it is typed inline. Six `.spring(response:)`
+   calls become six different springs within a week.
+2. **Reduce Motion is honoured there, once.** `OrbitMotion.entrance(reduceMotion)`
+   returns `Animation?` — `nil` when the setting is on. A nil animation means
+   SwiftUI does not build an animation at all, which is meaningfully different
+   from building one with zero duration. `OrbitBloom` goes further and never
+   constructs the `PhaseAnimator` in the first place.
+
+No call site decides this for itself, so no call site can forget it.
 
 ## 6. Text: measure once
 

@@ -2,15 +2,19 @@ import SwiftUI
 
 /// Today. The whole demo lives on this screen.
 ///
-/// Layout notes for whoever edits this next:
+/// Notes for whoever edits this next:
 ///
 /// - It is a `List`, not a `ScrollView` + `LazyVStack`. List is lazy in the
 ///   same way, and it is the only container that gives real, system-tuned
 ///   swipe actions. The one place a `LazyHStack` is genuinely needed is the
 ///   horizontal deck, and that is what the deck uses.
 /// - Nothing in this file works out a time, a duration, an XP value or a
-///   status. Those all arrive from `GET /api/today` already computed, which is
+///   status. Those arrive from `GET /api/today` already computed, which is
 ///   what stops the phone and the web page ever disagreeing on screen.
+/// - The accent budget: lime appears on the class that is happening now, on
+///   the selected mode chip, and on the primary action in the docked bar.
+///   Nowhere else. If you are adding a fourth, something else has to give it
+///   up.
 struct ScheduleOverviewView: View {
 
     @State private var store = TodayStore()
@@ -29,33 +33,27 @@ struct ScheduleOverviewView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack(alignment: .bottom) {
-                Color.orbitBackground.ignoresSafeArea()
+        ZStack(alignment: .bottom) {
+            Color.orbitBackground.ignoresSafeArea()
 
-                switch store.phase {
-                case .idle, .loading:
-                    ProgressView("Working out your real day")
-                        .font(.orbitBody)
-                        .tint(.orbitAccent)
-                case .failed(let message):
-                    failure(message)
-                case .ready:
-                    if let day = store.day { dayList(day) }
-                }
-
-                quickBar
+            switch store.phase {
+            case .idle, .loading:
+                ProgressView()
+                    .tint(.orbitAccentInk)
+            case .failed(let message):
+                failure(message)
+            case .ready:
+                if let day = store.day { dayList(day) }
             }
-            .navigationTitle("Orbit")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+
+            dock
         }
-        // A tap on a card grows it into the detail. The geometry match is
+        // A tap on a tile grows it into the detail; the geometry match is
         // anchored here so both ends share one coordinate space.
         .overlay {
             if let block = expanded {
                 ClassDetailView(block: block, namespace: deck) {
-                    withAnimation(reduceMotion ? .none : .snappy(duration: 0.34)) { expanded = nil }
+                    withAnimation(OrbitMotion.hero(reduceMotion)) { expanded = nil }
                 }
                 .zIndex(2)
             }
@@ -63,13 +61,14 @@ struct ScheduleOverviewView: View {
         .overlay(alignment: .bottom) {
             if let toast = store.toast {
                 XPToastView(toast: toast) {
-                    withAnimation(.snappy) { store.clearToast() }
+                    withAnimation(OrbitMotion.entrance(reduceMotion)) { store.clearToast() }
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 96)
+                .padding(.bottom, 104)
                 .zIndex(3)
             }
         }
+        .animation(OrbitMotion.entrance(reduceMotion), value: store.toast?.id)
         .sensoryFeedback(.success, trigger: store.toast?.id)
         .sensoryFeedback(.impact(weight: .light), trigger: expanded?.id)
         .task { await store.refresh(showSpinner: true) }
@@ -88,10 +87,10 @@ struct ScheduleOverviewView: View {
         List {
             if let banner = store.staleBanner {
                 plainRow {
-                    Label(banner, systemImage: "wifi.exclamationmark")
-                        .font(.orbitCaption)
+                    Text(banner)
+                        .orbitEyebrow()
                         .foregroundStyle(Color.orbitUrgent)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 6)
                 }
             }
 
@@ -105,6 +104,7 @@ struct ScheduleOverviewView: View {
                 ) { newMode in
                     Task { await store.setMode(newMode) }
                 }
+                .padding(.top, 8)
             }
 
             timelineSection(day)
@@ -120,9 +120,9 @@ struct ScheduleOverviewView: View {
             proposalsSection(day)
             friendsSection(day)
 
-            // Room for the docked bar, so the last card is never trapped under it.
+            // Room for the dock, so the last card is never trapped under it.
             Color.clear
-                .frame(height: 76)
+                .frame(height: 104)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
         }
@@ -139,27 +139,28 @@ struct ScheduleOverviewView: View {
                 plainRow {
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(spacing: OrbitMetric.stackSpacing) {
-                            ForEach(blocks) { block in
+                            ForEach(Array(blocks.enumerated()), id: \.element.id) { pair in
                                 ClassCardView(
-                                    block: block,
+                                    block: pair.element,
                                     namespace: deck,
-                                    isSource: expanded?.id != block.id
+                                    isSource: expanded?.id != pair.element.id,
+                                    index: pair.offset
                                 ) {
-                                    withAnimation(reduceMotion ? .none : .snappy(duration: 0.34)) {
-                                        expanded = block
+                                    withAnimation(OrbitMotion.hero(reduceMotion)) {
+                                        expanded = pair.element
                                     }
                                 }
                                 .scrollTransition(.interactive, axis: .horizontal) { view, phase in
                                     // Opacity and scale are composited; neither
-                                    // one re-lays-out the card as it slides.
-                                    view.opacity(phase.isIdentity ? 1 : 0.82)
-                                        .scaleEffect(phase.isIdentity ? 1 : 0.96)
+                                    // re-lays-out the tile as it slides.
+                                    view.opacity(phase.isIdentity ? 1 : 0.7)
+                                        .scaleEffect(phase.isIdentity ? 1 : 0.94)
                                 }
                             }
                         }
                         .scrollTargetLayout()
                         .padding(.horizontal, 2)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 10)
                     }
                     .scrollTargetBehavior(.viewAligned)
                     .scrollClipDisabled()
@@ -181,27 +182,31 @@ struct ScheduleOverviewView: View {
                         .padding(.vertical, 10)
                 }
             } else {
-                ForEach(windows) { gap in
-                    GapCardRow(gap: gap, domain: domain(of: gap, in: day)) { startCompleting(gap) }
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                ForEach(Array(windows.enumerated()), id: \.element.id) { pair in
+                    GapCardRow(
+                        gap: pair.element,
+                        domain: domain(of: pair.element, in: day),
+                        index: pair.offset
+                    ) { startCompleting(pair.element) }
+                        .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                            if gap.pick != nil {
-                                Button { startCompleting(gap) } label: {
-                                    Label("Done", systemImage: "checkmark.circle.fill")
+                            if pair.element.pick != nil {
+                                Button { startCompleting(pair.element) } label: {
+                                    Label("Done", systemImage: "checkmark")
                                 }
-                                .tint(.orbitAccent)
+                                .tint(.orbitAccentInk)
                             }
                         }
                         .swipeActions(edge: .trailing) {
                             // Local only. No endpoint dismisses a pick, and
                             // faking one would put the phone and the web page
                             // in disagreement. Pull to refresh brings it back.
-                            Button { store.dismissGap(gap.id) } label: {
+                            Button { store.dismissGap(pair.element.id) } label: {
                                 Label("Not now", systemImage: "eye.slash")
                             }
-                            .tint(.orbitInkSoft)
+                            .tint(.orbitInkFaint)
                         }
                 }
             }
@@ -215,8 +220,8 @@ struct ScheduleOverviewView: View {
                 plainRow {
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(spacing: 10) {
-                            ForEach(day.quests) { quest in
-                                QuestChip(quest: quest)
+                            ForEach(Array(day.quests.enumerated()), id: \.element.id) { pair in
+                                QuestChip(quest: pair.element).orbitAppear(pair.offset)
                             }
                         }
                         .padding(.vertical, 6)
@@ -232,11 +237,12 @@ struct ScheduleOverviewView: View {
         let pending = day.pendingProposals
         if !pending.isEmpty {
             section("Waiting on you") {
-                ForEach(pending) { item in
-                    ProposalRow(proposal: item) { approve in
-                        Task { await store.decide(proposalId: item.id, approve: approve) }
+                ForEach(Array(pending.enumerated()), id: \.element.id) { pair in
+                    ProposalRow(proposal: pair.element) { approve in
+                        Task { await store.decide(proposalId: pair.element.id, approve: approve) }
                     }
-                    .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
+                    .orbitAppear(pair.offset)
+                    .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                 }
@@ -252,7 +258,7 @@ struct ScheduleOverviewView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         LazyHStack(spacing: 8) {
                             ForEach(Array(day.shared.enumerated()), id: \.offset) { pair in
-                                FriendChip(window: pair.element)
+                                FriendChip(window: pair.element).orbitAppear(pair.offset)
                             }
                         }
                         .padding(.vertical, 4)
@@ -263,58 +269,82 @@ struct ScheduleOverviewView: View {
         }
     }
 
-    // MARK: - Docked quick actions
+    // MARK: - The dock
 
-    private var quickBar: some View {
-        HStack(spacing: 12) {
+    /// A floating bar rather than a full-width strip: the reference's tab bar
+    /// hovers over the content with the page visible either side of it. This
+    /// is the second of the two materials on the screen, and it does not move.
+    private var dock: some View {
+        HStack(spacing: 10) {
             Button {
                 Task { await store.planMyDay() }
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "sparkles")
+                        .font(.system(size: 14, weight: .semibold))
                     Text("Plan my day").font(.orbitHeadline)
                 }
+                .foregroundStyle(Color.orbitOnAccent)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+                .padding(.vertical, 15)
                 .background(LinearGradient.orbitAccent, in: Capsule())
-                .foregroundStyle(.white)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.orbitTile)
             .disabled(store.isWorking)
+            .orbitBloom(.orbitAccent, active: !store.isWorking, radius: 18)
 
             Button {
                 Task { await store.refresh() }
             } label: {
                 Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(Color.orbitAccent)
-                    .frame(width: 50, height: 50)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.orbitInk)
+                    .frame(width: 52, height: 52)
                     .background(Circle().fill(Color.orbitSurface))
                     .overlay(Circle().strokeBorder(Color.orbitHairline, lineWidth: 1))
+                    .rotationEffect(.degrees(store.isWorking && !reduceMotion ? 360 : 0))
+                    .animation(
+                        store.isWorking && !reduceMotion
+                            ? .linear(duration: 0.9).repeatForever(autoreverses: false)
+                            : .default,
+                        value: store.isWorking
+                    )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.orbitTile)
             .accessibilityLabel("Refresh")
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .background {
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .overlay(Capsule().strokeBorder(Color.orbitHairline, lineWidth: 1))
+        }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        // Fixed overlay: this is where a material belongs.
-        .background(.ultraThinMaterial)
-        .overlay(alignment: .top) { Divider().opacity(0.4) }
-        .sensoryFeedback(.impact(weight: .light), trigger: store.isWorking)
+        .padding(.bottom, 6)
     }
 
     private func failure(_ message: String) -> some View {
-        VStack(spacing: 14) {
-            Image(systemName: "antenna.radiowaves.left.and.right.slash")
-                .font(.system(size: 30))
-                .foregroundStyle(Color.orbitUrgent)
+        VStack(spacing: 16) {
+            Text("No signal")
+                .font(.orbitTitle)
+                .orbitTightDisplay()
+                .foregroundStyle(Color.orbitInk)
             Text(message)
                 .font(.orbitBody)
                 .foregroundStyle(Color.orbitInkSoft)
                 .multilineTextAlignment(.center)
-            Button("Try again") { Task { await store.refresh(showSpinner: true) } }
-                .buttonStyle(.borderedProminent)
-                .tint(.orbitAccent)
+            Button {
+                Task { await store.refresh(showSpinner: true) }
+            } label: {
+                Text("Try again")
+                    .font(.orbitHeadline)
+                    .foregroundStyle(Color.orbitOnAccent)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 13)
+                    .background(Capsule().fill(Color.orbitAccent))
+            }
+            .buttonStyle(.orbitTile)
         }
         .padding(32)
     }
@@ -322,7 +352,7 @@ struct ScheduleOverviewView: View {
     // MARK: - Helpers
 
     /// The domain of the task the server picked for this window, used only to
-    /// colour the card. Nil is fine and falls back to the accent.
+    /// colour the spine. Nil is fine.
     private func domain(of gap: Today.Gap, in day: Today) -> String? {
         guard let pick = gap.pick else { return nil }
         return day.tasks.first { $0.id == pick.id }?.domain
@@ -346,9 +376,10 @@ struct ScheduleOverviewView: View {
             content()
         } header: {
             Text(title)
-                .font(.orbitCaption)
+                .orbitEyebrow()
                 .foregroundStyle(Color.orbitInkFaint)
                 .textCase(nil)
+                .padding(.top, 10)
         }
         .listRowBackground(Color.clear)
     }
@@ -360,24 +391,27 @@ private struct QuestChip: View {
     let quest: Today.Quest
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            GradientTagView(text: "+\(quest.xp) XP", tint: .orbitUrgent, filled: true)
+        VStack(alignment: .leading, spacing: 8) {
+            Text("+\(quest.xp) XP")
+                .orbitEyebrow()
+                .foregroundStyle(Color.orbitAccentInk)
             Text(quest.title)
                 .font(.orbitBody)
                 .foregroundStyle(Color.orbitInk)
                 .lineLimit(2)
+            Spacer(minLength: 0)
             Text("until \(quest.expiresText)")
-                .font(.orbitCaption)
+                .orbitEyebrow()
                 .monospacedDigit()
                 .foregroundStyle(Color.orbitInkFaint)
         }
-        .padding(14)
-        .frame(width: 190, alignment: .leading)
+        .padding(15)
+        .frame(width: 186, height: 118, alignment: .leading)
         .background {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: OrbitMetric.chipRadius, style: .continuous)
                 .fill(Color.orbitSurface)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    RoundedRectangle(cornerRadius: OrbitMetric.chipRadius, style: .continuous)
                         .strokeBorder(Color.orbitHairline, lineWidth: 1)
                 )
         }
@@ -388,17 +422,17 @@ private struct FriendChip: View {
     let window: Today.SharedWindow
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 3) {
             Text(window.names.joined(separator: ", "))
                 .font(.orbitBody)
                 .foregroundStyle(Color.orbitInk)
-            Text("\(window.startText)-\(window.endText), \(window.minutes) min")
-                .font(.orbitCaption)
+            Text("\(window.startText)–\(window.endText), \(window.minutes) min")
+                .orbitEyebrow()
                 .monospacedDigit()
                 .foregroundStyle(Color.orbitInkFaint)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 11)
         .background(Capsule().fill(Color.orbitSurface))
         .overlay(Capsule().strokeBorder(Color.orbitHairline, lineWidth: 1))
     }
@@ -415,8 +449,10 @@ private struct ProposalRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            GradientTagView(text: kindLabel, tint: .orbitLive)
+        VStack(alignment: .leading, spacing: 12) {
+            Text(kindLabel)
+                .orbitEyebrow()
+                .foregroundStyle(Color.orbitInkFaint)
             Text(proposal.proposal.reason)
                 .font(.orbitBody)
                 .foregroundStyle(Color.orbitInk)
@@ -426,21 +462,35 @@ private struct ProposalRow: View {
                 Text(draft)
                     .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(Color.orbitInkSoft)
-                    .padding(10)
+                    .padding(12)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(Color.orbitHairline))
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.orbitSurfaceInset)
+                    )
             }
 
             HStack(spacing: 10) {
-                Button("Approve") { onDecide(true) }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.orbitAccent)
-                Button("Decline") { onDecide(false) }
-                    .buttonStyle(.bordered)
-                    .tint(.orbitInkSoft)
+                Button { onDecide(true) } label: {
+                    Text("Approve")
+                        .orbitEyebrow()
+                        .foregroundStyle(Color.orbitOnAccent)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(Color.orbitAccent))
+                }
+                .buttonStyle(.orbitTile)
+
+                Button { onDecide(false) } label: {
+                    Text("Decline")
+                        .orbitEyebrow()
+                        .foregroundStyle(Color.orbitInkSoft)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 10)
+                        .background(Capsule().strokeBorder(Color.orbitHairline, lineWidth: 1))
+                }
+                .buttonStyle(.orbitTile)
             }
-            .font(.orbitCaption)
-            .buttonBorderShape(.capsule)
         }
         .padding(OrbitMetric.cardPadding)
         .background {
@@ -448,7 +498,7 @@ private struct ProposalRow: View {
                 .fill(Color.orbitSurface)
                 .overlay(
                     RoundedRectangle(cornerRadius: OrbitMetric.cardRadius, style: .continuous)
-                        .strokeBorder(Color.orbitLive.opacity(0.28), lineWidth: 1)
+                        .strokeBorder(Color.orbitHairline, lineWidth: 1)
                 )
         }
     }

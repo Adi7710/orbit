@@ -1,71 +1,64 @@
 import SwiftUI
 
-/// One class in the day deck.
+/// One class, as a tile.
 ///
-/// Three performance decisions worth knowing before editing this file:
+/// The accent rule this design runs on: **one lime element per screen.** The
+/// class that is happening right now is that element — it is a solid lime tile
+/// with near-black text, breathing gently. Every other tile is the plain
+/// surface. That is what makes the live one findable in a glance, and it is
+/// why the lime is never spent on a heading or a label elsewhere.
 ///
-/// 1. The frosted material is applied to **one** card — the one in progress —
-///    and only when the system is not asking for reduced transparency. Every
-///    other card gets an opaque fill. A material is a live blur of whatever is
-///    behind it, re-sampled as the deck scrolls; a dozen of them is how a
-///    120Hz list becomes a 40Hz list.
-/// 2. Shadows are drawn as `ShapeStyle.shadow(.drop)` / `.shadow(.inner)` on
-///    the fill rather than as a `.shadow()` view modifier. The shape renderer
-///    draws these inline; the view modifier renders the subtree offscreen
-///    first.
-/// 3. The pulsing glow is a `PhaseAnimator` that exists only on the in-progress
-///    card, and not at all under Reduce Motion.
+/// It also happens to be free. The previous version frosted the live card with
+/// `.ultraThinMaterial`, which is a blur re-sampled on every frame of a scroll.
+/// A flat lime fill is one blend, so the deck now has no blur in it at all.
 struct ClassCardView: View {
     let block: Today.DayBlock
-    /// Shared with the detail view so the card becomes the sheet rather than
+    /// Shared with the detail view so the tile becomes the sheet rather than
     /// cross-fading into one.
     let namespace: Namespace.ID
-    /// True while this card is the one expanded into the detail view; its
+    /// True while this tile is the one expanded into the detail view; its
     /// contents step aside so the geometry match has something to fly from.
     var isSource: Bool = true
+    /// Position in the deck, for the staggered entrance.
+    var index: Int = 0
     var onTap: () -> Void = {}
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private var isLive: Bool { block.status == .now }
     private var isDone: Bool { block.status == .done }
 
-    private var tint: Color {
-        switch block.status {
-        case .now:   return .orbitLive
-        case .next:  return .orbitAccent
-        case .done:  return .orbitInkFaint
-        case .later: return .orbitInkSoft
-        }
-    }
+    /// Ink that sits on this tile: near-black on lime, normal ink elsewhere.
+    private var ink: Color { isLive ? .orbitOnAccent : .orbitInk }
+    private var inkSoft: Color { isLive ? Color.orbitOnAccent.opacity(0.62) : .orbitInkFaint }
 
-    private var badge: (text: String, icon: String)? {
+    private var statusLabel: String? {
         switch block.status {
-        case .now:   return ("In Progress", "dot.radiowaves.left.and.right")
-        case .next:  return ("Up Next", "arrow.forward")
-        case .done:  return ("Finished", "checkmark")
+        case .now:   return "In progress"
+        case .next:  return "Up next"
+        case .done:  return "Finished"
         case .later: return nil
         }
     }
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: 10) {
+            // Status at the top, identity at the bottom — the reference puts
+            // the glyph in one corner and the name against the floor.
+            VStack(alignment: .leading, spacing: 8) {
                 header
-                title
-                Spacer(minLength: 0)
+                Spacer(minLength: 8)
+                titleBlock
                 footer
             }
             .padding(OrbitMetric.cardPadding)
-            .frame(width: OrbitMetric.deckCardWidth, height: 168, alignment: .leading)
-            .background(cardBackground)
-            .overlay(alignment: .leading) { domainSpine }
-            .clipShape(RoundedRectangle(cornerRadius: OrbitMetric.cardRadius, style: .continuous))
-            .opacity(isDone ? 0.55 : 1)
+            .frame(width: OrbitMetric.deckCardWidth, height: 172, alignment: .leading)
+            .background(tileBackground)
+            .clipShape(RoundedRectangle(cornerRadius: OrbitMetric.tileRadius, style: .continuous))
+            .orbitBloom(.orbitAccent, active: isLive, radius: 18)
+            .opacity(isDone ? 0.45 : 1)
             .opacity(isSource ? 1 : 0)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.orbitTile)
+        .orbitAppear(index)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText)
         .accessibilityAddTraits(.isButton)
@@ -75,34 +68,36 @@ struct ClassCardView: View {
 
     private var header: some View {
         HStack(alignment: .top) {
-            if let badge {
-                GradientTagView(text: badge.text, tint: tint, systemImage: badge.icon, filled: isLive)
-                    .modifier(PulseModifier(active: isLive && !reduceMotion, tint: tint))
+            if let statusLabel {
+                Text(statusLabel)
+                    .orbitEyebrow()
+                    .foregroundStyle(inkSoft)
             }
             Spacer(minLength: 4)
             if isLive, let progress = block.progress {
-                CircularProgressRing(progress: progress, tint: tint, lineWidth: 4) {
+                RadialDialView(progress: progress, tint: .orbitOnAccent, tickCount: 24, lineWidth: 1.6, tickLength: 5) {
                     // Server-computed. The phone never counts a minute down.
                     Text("\(block.remainingMinutes ?? 0)")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .font(.system(size: 13, weight: .semibold))
                         .monospacedDigit()
-                        .foregroundStyle(Color.orbitInk)
+                        .foregroundStyle(Color.orbitOnAccent)
                 }
-                .frame(width: 34, height: 34)
+                .frame(width: 40, height: 40)
             }
         }
     }
 
-    private var title: some View {
-        VStack(alignment: .leading, spacing: 3) {
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: 4) {
             if let code = block.courseCode {
                 Text(code)
-                    .font(.orbitCaption)
-                    .foregroundStyle(tint)
+                    .orbitEyebrow()
+                    .foregroundStyle(isLive ? Color.orbitOnAccent.opacity(0.72) : .orbitAccentInk)
             }
             Text(block.title)
                 .font(.orbitHeadline)
-                .foregroundStyle(Color.orbitInk)
+                .orbitTightDisplay()
+                .foregroundStyle(ink)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
                 .matchedGeometryEffect(id: "title-\(block.id)", in: namespace, isSource: isSource)
@@ -110,52 +105,31 @@ struct ClassCardView: View {
     }
 
     private var footer: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 5) {
             Text("\(block.startText)–\(block.endText)")
                 .font(.orbitBody)
                 .monospacedDigit()
-                .foregroundStyle(Color.orbitInkSoft)
             if let place = block.place {
-                Text("·").foregroundStyle(Color.orbitInkFaint)
-                Text(place)
-                    .font(.orbitBody)
-                    .foregroundStyle(Color.orbitInkSoft)
-                    .lineLimit(1)
+                Text("·")
+                Text(place).font(.orbitBody).lineLimit(1)
             }
         }
-    }
-
-    /// A four-point bar of the course's colour. Cheaper than a tinted card and
-    /// it survives being 55% transparent when the class is over.
-    private var domainSpine: some View {
-        Capsule()
-            .fill(LinearGradient(colors: [tint, tint.opacity(0.25)], startPoint: .top, endPoint: .bottom))
-            .frame(width: 4)
-            .padding(.vertical, 14)
-            .padding(.leading, 5)
-            .opacity(isDone ? 0.4 : 1)
+        .font(.orbitBody)
+        .foregroundStyle(inkSoft)
     }
 
     @ViewBuilder
-    private var cardBackground: some View {
-        let shape = RoundedRectangle(cornerRadius: OrbitMetric.cardRadius, style: .continuous)
+    private var tileBackground: some View {
+        let shape = RoundedRectangle(cornerRadius: OrbitMetric.tileRadius, style: .continuous)
         ZStack {
-            if isLive && !reduceTransparency {
-                // The single blurred surface on this screen's scrolling content.
-                shape.fill(.ultraThinMaterial)
-                shape.fill(tint.opacity(0.10))
+            if isLive {
+                shape.fill(LinearGradient.orbitAccent)
             } else {
-                shape.fill(
-                    Color.orbitSurface
-                        .shadow(.drop(color: .black.opacity(0.18), radius: 10, y: 6))
-                        .shadow(.inner(color: .white.opacity(0.06), radius: 1, y: 1))
-                )
+                shape.fill(Color.orbitSurface)
+                shape.strokeBorder(Color.orbitHairline, lineWidth: 1)
             }
-            shape.strokeBorder(
-                isLive ? LinearGradient.tintedEdge(tint) : LinearGradient.orbitEdge,
-                lineWidth: 1
-            )
         }
+        // The anchor the detail view grows from.
         .matchedGeometryEffect(id: "card-\(block.id)", in: namespace, isSource: isSource)
     }
 
@@ -170,27 +144,5 @@ struct ClassCardView: View {
         case .later: break
         }
         return parts.joined(separator: ", ")
-    }
-}
-
-/// The "it is happening right now" glow.
-///
-/// A two-phase `PhaseAnimator` driving one shadow radius. It is a modifier so
-/// the animation can be switched off entirely — under Reduce Motion the
-/// animator is never built, rather than built and set to zero duration.
-private struct PulseModifier: ViewModifier {
-    let active: Bool
-    let tint: Color
-
-    func body(content: Content) -> some View {
-        if active {
-            content.phaseAnimator([false, true]) { view, lit in
-                view.shadow(color: tint.opacity(lit ? 0.75 : 0.15), radius: lit ? 9 : 3)
-            } animation: { _ in
-                .easeInOut(duration: 1.3)
-            }
-        } else {
-            content
-        }
     }
 }
