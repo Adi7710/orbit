@@ -5,6 +5,7 @@ const base: Snapshot = {
   at: 0,
   gapIds: ["g665", "g950"],
   gapMinutes: { g665: 196, g950: 474 },
+  inProgress: [],
   picks: { g665: "ps4", g950: "essay" },
   slack: 165,
   overCommitted: false,
@@ -63,5 +64,33 @@ describe("what the Watcher notices", () => {
     expect(e.evidence).toContain("196");
     expect(e.evidence).toContain("765");
     expect(e.gapId).toBe("g665");
+  });
+});
+
+describe("the clock moving is not an event", () => {
+  it("does not report a window shrinking just because time passed", () => {
+    // A window already under way loses a minute every minute. Before this, the
+    // Watcher announced "your window lost 6 minutes" roughly every six
+    // minutes, for ever, which is both wrong and the fastest way to make
+    // someone stop reading the trace.
+    const before: Snapshot = { ...base, at: 0, inProgress: ["g950"], gapMinutes: { g665: 196, g950: 474 } };
+    const after: Snapshot = { ...before, at: 10 * 60_000, gapMinutes: { g665: 196, g950: 464 } };
+    expect(diff(before, after).filter((e) => e.kind === "gap_shrank")).toHaveLength(0);
+  });
+
+  it("still reports a real loss on top of the drift", () => {
+    // Ten minutes passed, but the window lost forty: a class landed in it.
+    const before: Snapshot = { ...base, at: 0, inProgress: ["g950"], gapMinutes: { g665: 196, g950: 474 } };
+    const after: Snapshot = { ...before, at: 10 * 60_000, gapMinutes: { g665: 196, g950: 434 } };
+    const [e] = diff(before, after).filter((x) => x.kind === "gap_shrank");
+    expect(e).toBeDefined();
+    expect(e.headline).toContain("30");            // 40 lost, 10 of it the clock
+    expect(e.evidence).toContain("just time passing");
+  });
+
+  it("does not apply drift to a window that has not started", () => {
+    const before: Snapshot = { ...base, at: 0, inProgress: [], gapMinutes: { g665: 196, g950: 474 } };
+    const after: Snapshot = { ...before, at: 10 * 60_000, gapMinutes: { g665: 196, g950: 464 } };
+    expect(diff(before, after).filter((e) => e.kind === "gap_shrank")).toHaveLength(1);
   });
 });

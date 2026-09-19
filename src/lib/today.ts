@@ -28,8 +28,13 @@ export async function buildToday() {
     return true;
   });
 
+  // Resolved before the windows are built, because a plan written at wake and
+  // never moved will still be offering this morning's window at seven at night.
+  const c = clock();
+  const nowMin = Math.floor(c.sec / 60);
+
   const ledger = computeLedger(s.blocks, s.profile, s.travel, liveTasks, s.estimator);
-  const gaps = findGaps(s.blocks, s.profile, s.travel);
+  const gaps = findGaps(s.blocks, s.profile, s.travel, nowMin);
   const picks = new Map(gaps.map((g) => [g.id, bestFit(g, liveTasks, s.estimator)] as const));
   const seen = new Set<string>();
   for (const [id, task] of picks) {
@@ -39,8 +44,6 @@ export async function buildToday() {
 
   // Which leg matters right now: getting to the next class, or getting home
   // after the last one.
-  const c = clock();
-  const nowMin = Math.floor(c.sec / 60);
   const ordered = [...s.blocks].sort((a, b) => a.start - b.start);
   const nextClass = ordered.find((b) => b.start > nowMin && isPlace(b.place));
   const lastClass = [...ordered].reverse().find((b) => isPlace(b.place));

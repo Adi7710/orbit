@@ -34,6 +34,8 @@ export interface Snapshot {
   at: number;
   gapIds: string[];
   gapMinutes: Record<string, number>;
+  /** Windows already under way, whose usable minutes fall as the clock moves. */
+  inProgress: string[];
   picks: Record<string, string | undefined>;
   slack: number;
   overCommitted: boolean;
@@ -112,6 +114,7 @@ export async function snapshot(): Promise<Snapshot> {
     at: now,
     gapIds: t.gaps.map((x) => x.id),
     gapMinutes: Object.fromEntries(t.gaps.map((x) => [x.id, x.usable])),
+    inProgress: t.gaps.filter((x) => x.inProgress).map((x) => x.id),
     picks: Object.fromEntries(t.gaps.map((x) => [x.id, x.pick?.id])),
     slack: t.ledger.slack,
     overCommitted: t.ledger.overCommitted,
@@ -138,10 +141,18 @@ export function diff(prev: Snapshot, next: Snapshot): WatcherEvent[] {
     const after = next.gapMinutes[id];
     if (before === undefined) {
       out.push({ kind: "gap_opened", headline: `A ${after}-minute window opened up`, evidence: `${id} was not there on the last look`, gapId: id, minutes: after });
-    } else if (after < before - 5) {
-      out.push({ kind: "gap_shrank", headline: `Your window lost ${before - after} minutes`, evidence: `${id} went from ${before} to ${after} usable minutes`, gapId: id, minutes: after });
-    } else if (after > before + 5) {
-      out.push({ kind: "gap_grew", headline: `Your window grew by ${after - before} minutes`, evidence: `${id} went from ${before} to ${after} usable minutes`, gapId: id, minutes: after });
+    } else {
+      // A window already under way loses a minute every minute, and the clock
+      // moving is not an event. Without this the Watcher announces "your
+      // window lost 6 minutes" roughly every six minutes, for ever, which is
+      // both wrong and the fastest way to make a student stop reading it.
+      const drift = next.inProgress?.includes(id) ? Math.max(0, Math.round((next.at - prev.at) / 60000)) : 0;
+      const adjusted = after + drift;
+      if (adjusted < before - 5) {
+        out.push({ kind: "gap_shrank", headline: `Your window lost ${before - adjusted} minutes`, evidence: `${id} went from ${before} to ${after} usable minutes${drift ? `, ${drift} of which is just time passing` : ""}`, gapId: id, minutes: after });
+      } else if (adjusted > before + 5) {
+        out.push({ kind: "gap_grew", headline: `Your window grew by ${adjusted - before} minutes`, evidence: `${id} went from ${before} to ${after} usable minutes`, gapId: id, minutes: after });
+      }
     }
   }
   for (const id of prev.gapIds) {

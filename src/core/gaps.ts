@@ -10,6 +10,14 @@ export interface Gap {
   toPlace?: PlaceId;
   usable: number;
   isEvening: boolean;
+  /**
+   * Where the window began before the clock ate into it, kept because the id
+   * is derived from it. Only differs from `start` for a window already under
+   * way.
+   */
+  plannedStart?: number;
+  /** True when the window is running right now. */
+  inProgress?: boolean;
 }
 
 export const SETTLE_MINUTES = 5;
@@ -25,7 +33,11 @@ export const MIN_USABLE = 25;
 export const gapId = (startMinutes: number) => `g${startMinutes}`;
 
 /** Between-commitment holes with the walk and the settle-in already removed. */
-export function findGaps(blocks: FixedBlock[], profile: DayProfile, travel: TravelGraph): Gap[] {
+/**
+ * @param now Minutes from midnight. When given, windows already past are
+ *   dropped and one under way is shortened to what is actually left.
+ */
+export function findGaps(blocks: FixedBlock[], profile: DayProfile, travel: TravelGraph, now?: number): Gap[] {
   const dayStart = profile.wake + profile.morningRoutineMinutes;
   const dayEnd = profile.sleepStart - profile.windDownMinutes;
   const ordered = [...blocks].sort((a, b) => a.start - b.start);
@@ -56,6 +68,32 @@ export function findGaps(blocks: FixedBlock[], profile: DayProfile, travel: Trav
   const tailEnd = dayEnd - walkHome;
   if (tailEnd - tailStart >= MIN_USABLE) {
     out.push({ id: gapId(tailStart), start: tailStart, end: tailEnd, fromPlace: cursorPlace, toPlace: profile.home, usable: tailEnd - tailStart, isEvening: true });
+  }
+  return now === undefined ? out : clipToNow(out, now);
+}
+
+/**
+ * Drop what has already gone, and shorten what is under way.
+ *
+ * Without this the plan is written at wake and never moves, so at seven in the
+ * evening Orbit still offers "your best window is eleven oh five, three hours
+ * sixteen" -- a window that closed five hours ago. Every number was correct
+ * this morning, which is the worst kind of wrong: it looks exactly like the
+ * truth.
+ *
+ * The id keeps coming from the *planned* start, not the clipped one. A window
+ * that shrinks by a minute every minute is still the same window, and if its
+ * id moved with the clock the Watcher would see one close and another open on
+ * every single tick.
+ */
+export function clipToNow(gaps: Gap[], now: number): Gap[] {
+  const out: Gap[] = [];
+  for (const g of gaps) {
+    if (g.end <= now) continue;                       // already gone
+    if (g.start >= now) { out.push(g); continue; }    // still ahead, untouched
+    const usable = g.end - now;
+    if (usable < MIN_USABLE) continue;                // what is left is a coffee
+    out.push({ ...g, start: now, usable, plannedStart: g.start, inProgress: true });
   }
   return out;
 }

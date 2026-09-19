@@ -7,12 +7,12 @@ import CoreLocation
 actor OrbitAPI {
     static let shared = OrbitAPI()
 
-    private let base: URL = {
+    let base: URL = {
         let s = Bundle.main.object(forInfoDictionaryKey: "ORBIT_API_BASE") as? String
         return URL(string: s?.isEmpty == false ? s! : "http://localhost:3123")!
     }()
 
-    private let decoder = JSONDecoder()
+    let decoder = JSONDecoder()
 
     func journey(from: String, to: String, arriveBy: String? = nil, origin: CLLocationCoordinate2D? = nil) async throws -> Journey {
         var c = URLComponents(url: base.appendingPathComponent("api/transit/journey"), resolvingAgainstBaseURL: false)!
