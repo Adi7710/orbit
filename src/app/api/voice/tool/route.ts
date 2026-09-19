@@ -4,13 +4,15 @@ import { handleVoiceTool, type VoiceRequest } from "@/agents/voiceTools";
 export const dynamic = "force-dynamic";
 
 /**
- * The single webhook every ElevenLabs server tool points at. Configure four
+ * The single webhook every ElevenLabs server tool points at. Configure the
  * tools in the agent dashboard, all POSTing here with a `tool` field:
  *
  *   get_today                                 -> the ledger, the best gap
  *   log_actual  { task, minutes }             -> completes it, awards XP
  *   set_mode    { mode }                      -> normal | crisis | chill
  *   get_bus     { destination? }              -> leave-by, live status, verdict
+ *   get_estimate { task }                     -> how long this will take this student, and where it fits
+ *   get_coach                                 -> what the student's own history says (Nemotron-worded, code-verified)
  *
  * Header `x-orbit-secret` must equal VOICE_TOOL_SECRET. The response is always
  * `{ text }`, a finished sentence the agent reads aloud; it never returns raw
