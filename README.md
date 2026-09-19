@@ -42,7 +42,7 @@ Invariants: only `/api/proposals/[id]` turns a proposal into an action; agents h
 
 ## Transit data
 
-Pittsburgh Regional Transit publishes its timetable (GTFS) and realtime trip updates openly under its Developer License Agreement. `scripts/gtfs-extract.mjs` downloads the current GTFS zip and writes the Oakland / Squirrel Hill slice to `data/prt-oakland.json` (10 stops, 16 routes, about 17,000 departures). At runtime the app reads that file for scheduled departures and overlays the live feed at `https://truetime.portauthority.org/gtfsrt-bus/trips` (cached 30 seconds). A trip that should already be on the road but is missing from the live feed is shown as a ghost. Set `DEMO_CLOCK=2026-09-22T13:10` to plan against a weekday timetable during weekend judging.
+Pittsburgh Regional Transit publishes its timetable (GTFS) and realtime trip updates openly under its Developer License Agreement. `scripts/gtfs-extract.mjs` downloads the current GTFS zip and writes the Oakland / Squirrel Hill slice to `data/prt-oakland.json` (10 stops, 16 routes, about 17,000 departures). At runtime the app reads that file for scheduled departures and overlays the live feed at `https://truetime.portauthority.org/gtfsrt-bus/trips` (cached 30 seconds). A trip that should already be on the road but is missing from the live feed is shown as a ghost. Set `DEMO_CLOCK=2026-09-22T13:10` to plan against a weekday timetable during weekend judging. `GET /api/transit/journey?from=Home&to=Cathedral&lat=..&lon=..` returns everything the bus map draws: walk legs, the next four buses with live predictions and live vehicle positions, the ride, the arrival, and the verdict against the class start (spec in `docs/bus-map.md`).
 
 ## Run
 

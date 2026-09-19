@@ -14,7 +14,17 @@ interface Schedule {
   calendarDates: CalendarDate[];
   stops: Record<string, { id: string; name: string; lat: number; lon: number; role: string; area: string }>;
   routes: { id: string; short: string; long: string; color: string }[];
+  shapes?: Record<string, [number, number][]>;
   departures: Departure[];
+}
+
+/** Canonical polyline for a route and direction (61/71 family), [lat, lon] pairs, or [] if not extracted. */
+export function routeShape(route: string, dir: number): [number, number][] {
+  return data.shapes?.[`${route}|${dir}`] ?? [];
+}
+
+export function routeColor(route: string): string | undefined {
+  return data.routes.find((r) => r.short === route)?.color;
 }
 
 const data = schedule as unknown as Schedule;
