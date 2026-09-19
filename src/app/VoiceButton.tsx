@@ -33,7 +33,15 @@ export default function VoiceButton({ onChange }: { onChange?: () => void }) {
   const [briefing, setBriefing] = useState("");
   const [handsFree, setHandsFree] = useState(false);
   const [micOpen, setMicOpen] = useState(false);
+  // Orbit is an iOS app first, so the spacebar is a desktop convenience, not
+  // the affordance. Only offer it where a keyboard actually exists, and never
+  // let the on-screen copy tell a phone user to hold a key they do not have.
+  const [hasKeyboard, setHasKeyboard] = useState(false);
   const conv = useRef<Conv | null>(null);
+
+  useEffect(() => {
+    setHasKeyboard(window.matchMedia("(pointer: fine)").matches);
+  }, []);
 
   useEffect(() => {
     fetch("/api/voice/token")
@@ -95,7 +103,7 @@ export default function VoiceButton({ onChange }: { onChange?: () => void }) {
 
   // Spacebar is the same button. Held, not toggled, and ignored while typing.
   useEffect(() => {
-    if (!live || handsFree) return;
+    if (!live || handsFree || !hasKeyboard) return;
     const typing = (t: EventTarget | null) => t instanceof HTMLElement && /^(INPUT|TEXTAREA)$/.test(t.tagName);
     const down = (e: KeyboardEvent) => { if (e.code === "Space" && !e.repeat && !typing(e.target)) { e.preventDefault(); setMic(true); } };
     const up = (e: KeyboardEvent) => { if (e.code === "Space" && !typing(e.target)) { e.preventDefault(); setMic(false); } };
@@ -105,7 +113,20 @@ export default function VoiceButton({ onChange }: { onChange?: () => void }) {
     const blur = () => setMic(false);
     window.addEventListener("blur", blur);
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); window.removeEventListener("blur", blur); };
-  }, [live, handsFree, setMic]);
+  }, [live, handsFree, hasKeyboard, setMic]);
+
+  // Always-on safety close, phone included. The blur handler above only exists
+  // where there is a keyboard, so without this a call that backgrounds mid-hold
+  // on iOS -- a notification, the lock button, switching apps -- would come back
+  // with the mic still open. Runs in hands-free too: leaving the app is a clear
+  // signal to stop listening.
+  useEffect(() => {
+    if (!live) return;
+    const close = () => { if (document.visibilityState === "hidden") setMic(false); };
+    document.addEventListener("visibilitychange", close);
+    window.addEventListener("pagehide", () => setMic(false));
+    return () => { document.removeEventListener("visibilitychange", close); };
+  }, [live, setMic]);
 
   const toggleHandsFree = () => {
     const next = !handsFree;
@@ -129,15 +150,23 @@ export default function VoiceButton({ onChange }: { onChange?: () => void }) {
 
         {live && !handsFree && (
           <button
-            onPointerDown={(e) => { e.preventDefault(); setMic(true); }}
+            onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); setMic(true); }}
             onPointerUp={() => setMic(false)}
+            // iOS fires pointercancel when the system takes the touch away --
+            // a scroll, a notification, the app backgrounding. Without this the
+            // mic stays open with the button looking idle, which is the exact
+            // always-listening behaviour push-to-talk exists to remove.
+            onPointerCancel={() => setMic(false)}
             onPointerLeave={() => micOpen && setMic(false)}
             onContextMenu={(e) => e.preventDefault()}
-            className={`select-none rounded-full px-5 py-2 text-sm font-medium transition ${
+            // touch-action stops the hold turning into a page scroll, and the
+            // callout/selection rules stop iOS offering to copy the label.
+            style={{ touchAction: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
+            className={`select-none rounded-full px-6 py-3 text-sm font-medium transition ${
               micOpen ? "bg-emerald-600 text-white shadow-inner" : "border border-zinc-300 text-zinc-700 hover:border-zinc-400"
             }`}
           >
-            {micOpen ? "Listening — release to send" : "Hold to talk  (or hold space)"}
+            {micOpen ? "Listening — release to send" : hasKeyboard ? "Hold to talk  (or hold space)" : "Hold to talk"}
           </button>
         )}
 
