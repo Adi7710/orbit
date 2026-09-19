@@ -92,6 +92,10 @@ export async function nemotronJson<T>(system: string, user: string, schema: obje
     const data = await attempt(true);
     return { data, provider: "nemotron-hosted", model, latencyMs: Date.now() - started };
   } catch (e1) {
+    // Only retry when the endpoint rejected the schema. A timeout means the
+    // endpoint is slow, and retrying doubles the wait for the same answer:
+    // that is what produced the 30 s worst case in the first eval run.
+    if (isTimeout(e1)) return { data: fallback(), provider: "heuristic", model, latencyMs: Date.now() - started, error: `timeout after ${timeoutMs}ms` };
     try {
       const data = await attempt(false);
       return { data, provider: "nemotron-hosted", model, latencyMs: Date.now() - started };
@@ -99,4 +103,9 @@ export async function nemotronJson<T>(system: string, user: string, schema: obje
       return { data: fallback(), provider: "heuristic", model, latencyMs: Date.now() - started, error: `${(e1 as Error).message} | ${(e2 as Error).message}` };
     }
   }
+}
+
+function isTimeout(e: unknown): boolean {
+  const name = (e as { name?: string })?.name ?? "";
+  return name === "AbortError" || name === "TimeoutError" || /abort|timeout/i.test(String((e as Error)?.message ?? ""));
 }

@@ -3,11 +3,25 @@ import { NVIDIA_BASE, NEMOTRON_PARSE_CANDIDATES, nvidiaKey, pickModel } from "./
 /**
  * Nemotron Parse via NVIDIA's hosted API. Input: one page image (PNG/JPEG as
  * base64). Output: markdown plus per-element bounding boxes and classes.
- * The hosted endpoint follows the nemoretriever-parse convention: an image in
- * the user message and a tool selecting the output mode. If the deployment
- * rejects the tools parameter we retry without it and parse whatever comes.
+ *
+ * Response shape, verified against the hosted endpoint on 2026-09-19 (#6):
+ *   tool_calls[0].function.arguments is a JSON **array of arrays** - one inner
+ *   array per image in the request - and each element is
+ *   { type, text, bbox: { xmin, ymin, xmax, ymax } } with the box **normalized
+ *   0..1**, not pixels. Tables come back as LaTeX tabular text inside `text`.
+ *   Checkbox glyphs are dropped by the model.
+ *
+ * Clients multiply bbox by the rendered image size to draw. Keeping 0..1 here
+ * means the same numbers work for the web panel, the iOS overlay, and any
+ * render resolution.
  */
-export interface ParsedElement { type: string; text: string; bbox: [number, number, number, number]; page: number }
+export interface ParsedElement {
+  type: string;
+  text: string;
+  /** [xmin, ymin, xmax, ymax], normalized 0..1 relative to the page image. */
+  bbox: [number, number, number, number];
+  page: number;
+}
 export interface ParsedPage { page: number; markdown: string; elements: ParsedElement[]; model?: string; raw?: unknown; error?: string }
 
 export async function parsePageImage(base64Png: string, page = 1, mime = "image/png"): Promise<ParsedPage> {
@@ -26,6 +40,7 @@ export async function parsePageImage(base64Png: string, page = 1, mime = "image/
         max_tokens: 3000,
         temperature: 0,
       }),
+      signal: AbortSignal.timeout(45000),
     });
     const text = await res.text();
     if (!res.ok) throw new Error(`${res.status} ${text.slice(0, 300)}`);
@@ -45,24 +60,42 @@ export async function parsePageImage(base64Png: string, page = 1, mime = "image/
   return { page, ...normalize(body, page), model, raw: body };
 }
 
-/** Accepts either tool_calls with a JSON array of {type,text,bbox} or plain markdown content. */
-function normalize(body: unknown, page: number): { markdown: string; elements: ParsedElement[] } {
+type RawBox = { xmin: number; ymin: number; xmax: number; ymax: number } | number[];
+type RawElement = { type?: string; text?: string; bbox?: RawBox };
+
+function toBox(bb: RawBox | undefined): [number, number, number, number] {
+  if (Array.isArray(bb)) return [bb[0] ?? 0, bb[1] ?? 0, bb[2] ?? 0, bb[3] ?? 0];
+  if (bb) return [bb.xmin, bb.ymin, bb.xmax, bb.ymax];
+  return [0, 0, 0, 0];
+}
+
+/**
+ * Accepts the array-of-arrays the hosted model returns, a flat array, or plain
+ * markdown content. Flattening one level is the fix for #6: reading the outer
+ * array as elements produced a single empty element and lost every box.
+ */
+export function normalize(body: unknown, page: number): { markdown: string; elements: ParsedElement[] } {
   const b = body as { choices?: { message?: { content?: string; tool_calls?: { function?: { arguments?: string } }[] } }[] };
   const msg = b.choices?.[0]?.message;
-  const elements: ParsedElement[] = [];
   let markdown = msg?.content ?? "";
+  const elements: ParsedElement[] = [];
   const args = msg?.tool_calls?.[0]?.function?.arguments;
+
   if (args) {
     try {
-      const arr = JSON.parse(args) as { type?: string; text?: string; bbox?: { xmin: number; ymin: number; xmax: number; ymax: number } | number[] }[];
-      for (const el of Array.isArray(arr) ? arr : []) {
-        const bb = el.bbox;
-        const box: [number, number, number, number] = Array.isArray(bb) ? [bb[0], bb[1], bb[2], bb[3]] : bb ? [bb.xmin, bb.ymin, bb.xmax, bb.ymax] : [0, 0, 0, 0];
-        elements.push({ type: el.type ?? "Text", text: el.text ?? "", bbox: box, page });
+      const parsed: unknown = JSON.parse(args);
+      const flat: RawElement[] = Array.isArray(parsed)
+        ? (parsed as unknown[]).flatMap((x) => (Array.isArray(x) ? (x as RawElement[]) : [x as RawElement]))
+        : [];
+      for (const el of flat) {
+        if (!el || typeof el !== "object") continue;
+        const text = (el.text ?? "").trim();
+        if (!text) continue;
+        elements.push({ type: el.type ?? "Text", text, bbox: toBox(el.bbox), page });
       }
       if (!markdown) markdown = elements.map((e) => e.text).join("\n");
     } catch {
-      /* fall through with markdown only */
+      /* keep whatever markdown we have */
     }
   }
   return { markdown, elements };
