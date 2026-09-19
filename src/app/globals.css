@@ -1,8 +1,17 @@
 @import "tailwindcss";
 
+/**
+ * Orbit is a light surface on purpose: every card is dark text on paper.
+ *
+ * The starter template flipped --background to near-black under
+ * prefers-color-scheme: dark, which left the whole app dark text on a dark
+ * page and looked like a hang. A proper dark theme is a real piece of work
+ * (see docs/theme.md); pinning the surface is the honest interim.
+ */
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #18181b;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -12,15 +21,19 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html,
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

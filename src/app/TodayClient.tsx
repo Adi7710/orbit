@@ -31,15 +31,34 @@ export default function TodayClient() {
   const [board, setBoard] = useState<{ rank: number; name: string; xpWeek: number; streakWeeks: number; group?: string }[]>([]);
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [timetableUrl, setTimetableUrl] = useState("");
   const [canvasUrl, setCanvasUrl] = useState("");
   const [importing, setImporting] = useState(false);
   const [importNote, setImportNote] = useState("");
 
+  /**
+   * The day and the board are fetched independently: a board that fails must
+   * never leave the whole screen on "Loading your day…" forever, which is
+   * exactly what a single Promise.all with no catch used to do.
+   */
   const refresh = useCallback(async () => {
-    const [a, b] = await Promise.all([fetch("/api/today").then((r) => r.json()), fetch("/api/leaderboard?group=Tower%20A").then((r) => r.json())]);
-    setT(a);
-    setBoard(b.rows);
+    const get = async (url: string) => {
+      const r = await fetch(url, { signal: AbortSignal.timeout(20000) });
+      if (!r.ok) throw new Error(`${url} returned ${r.status}`);
+      return r.json();
+    };
+    try {
+      setT(await get("/api/today"));
+      setLoadError("");
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : String(e));
+    }
+    try {
+      setBoard((await get("/api/leaderboard?group=Tower%20A")).rows);
+    } catch {
+      /* the board is decoration; the day is not */
+    }
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
@@ -95,7 +114,20 @@ export default function TodayClient() {
     refresh();
   };
 
-  if (!t) return <main className="p-8 text-zinc-400">Loading your day…</main>;
+  if (!t)
+    return (
+      <main className="mx-auto max-w-lg p-8">
+        {loadError ? (
+          <>
+            <h1 className="text-lg font-semibold">Could not load your day</h1>
+            <p className="mt-2 text-sm text-zinc-600">{loadError}</p>
+            <button onClick={refresh} className="mt-4 rounded-full bg-zinc-900 px-4 py-2 text-sm text-white">Try again</button>
+          </>
+        ) : (
+          <p className="text-zinc-500">Loading your day…</p>
+        )}
+      </main>
+    );
   const lost = t.ledger.naiveFree - t.ledger.usable;
 
   return (
