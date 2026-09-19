@@ -8,6 +8,7 @@ import { Estimator } from "@/core/estimator";
 import { t } from "@/core/time";
 import type { HabitRecord } from "@/core/habits";
 import { syntheticHistory } from "@/core/habitSeed";
+import type { Contact } from "@/core/contacts";
 
 /**
  * In-memory store for the hackathon. Swap for Postgres (drizzle) by keeping
@@ -30,6 +31,8 @@ interface Store {
   friends: FriendGaps[];
   board: LeaderRow[];
   instructors: Record<string, string>;
+  /** Instructor addresses the student corrected at runtime. Never persisted; the shipped roster stays synthetic. */
+  contacts: Contact[];
   /** Completed sessions the Patterns card learns from. Seeded with synthetic history; real completions append. */
   habits: HabitRecord[];
 }
@@ -64,6 +67,7 @@ function seed(): Store {
     ],
     habits: syntheticHistory(new Date()),
     instructors: { "MATH 0220": "prof.lee@pitt.edu", "CS 0441": "prof.chen@pitt.edu", "ENGCMP 0200": "prof.ortiz@pitt.edu" },
+    contacts: [],
   };
 }
 

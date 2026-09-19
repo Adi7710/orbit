@@ -324,3 +324,19 @@ Affects: docs/email.md, docs/future-signals.md.
 Decision: classify() also matches until/by + a weekday or date.
 Why: Caught by a test, not by reading the code. The keyword list had extend, extension, more time, push back, deadline — and none of them appear in the most natural way a student actually asks, which was being filed as a general question and producing the wrong letter entirely.
 Affects: src/core/emailDraft.ts.
+
+## 2026-09-19 18:55 ET · Adi + lead Claude · The draft opens as a window, is fully editable, and goes to Outlook
+Decision: src/app/EmailModal.tsx opens by itself the moment the Email Agent writes something. To, subject and body are all editable. Two send buttons: "Open in Outlook" (outlook.office.com compose deeplink, prefilled, in the tab the student is already in) and "Open in mail app" (mailto). Edits are sent with the approval so the log records what was actually sent, not what we suggested. While a call is live TodayClient polls every 2.5 s so the window is open before the agent stops speaking.
+Why: Adi's feedback — he could not edit the draft at all, and after talking he had to scroll to find the thing he had just asked for. A letter to your professor is not a notification, and the agent's draft is a starting point, not a finished document with his name on the bottom of it.
+Affects: src/app/EmailModal.tsx, src/app/TodayClient.tsx, src/app/VoiceButton.tsx, src/app/api/proposals/[id]/route.ts.
+
+## 2026-09-19 18:55 ET · Adi + lead Claude · Real instructor addresses are typed in, never shipped
+Decision: POST /api/email/roster saves one instructor's address at runtime, held in memory only. mergeRoster layers it over the synthetic sample, and the draft window has a "Remember for this course" button. The shipped roster stays entirely on example.edu, which cannot deliver. The modal warns in amber whenever the recipient is still a sample address.
+Why: Adi asked for real professor data for the demo. Scraping a staff directory into a public repo is a different kind of problem from the one we are solving, and committing real addresses is not something to undo later. Typing one in at runtime gets the same demo, with nothing to leak: the address never reaches disk or git. The salutation is derived from the name so a real address does not produce "Dear Your instructor,".
+Still true: Orbit holds no mailbox credential and cannot send. Both buttons hand the message to the student's own client, from their own address, with Send theirs to press. Direct sending needs Microsoft Graph and tenant admin consent, per docs/email.md.
+Affects: src/core/contacts.ts, src/app/api/email/roster/route.ts, src/lib/store.ts, src/app/EmailModal.tsx.
+
+## 2026-09-19 18:55 ET · lead Claude · A new store field must never 500 the route that reads it
+Decision: mergeRoster accepts undefined, and the roster route does s.contacts ??= [].
+Why: The store is a module-level object that survives hot reload, so adding `contacts` to its type did not add it to the object already in memory: every call 500'd with "s.contacts is not iterable" until a restart. A restart would also have wiped the imported Canvas data, which is exactly the moment you do not want to be forced into one.
+Affects: src/core/contacts.ts, src/app/api/email/roster/route.ts.

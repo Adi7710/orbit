@@ -9,7 +9,7 @@ import { buildHabitProfile, type TimeBucket } from "@/core/habits";
 import { habitInsightsCached, peekInsights } from "./habitAgent";
 import { recordHabit } from "@/lib/habitLog";
 import { randomUUID } from "node:crypto";
-import { findContact, resolveCourse, SAMPLE_ROSTER } from "@/core/contacts";
+import { findContact, mergeRoster, resolveCourse, SAMPLE_ROSTER } from "@/core/contacts";
 import { draftEmail } from "./emailAgent";
 
 /**
@@ -276,9 +276,10 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
       const said = (req.said ?? req.task ?? "").trim();
       if (!said) return { ok: false, text: "Tell me what you want to say to them and I will write it." };
 
-      let contact = findContact(SAMPLE_ROSTER, req.course);
+      const roster = mergeRoster(SAMPLE_ROSTER, s.contacts);
+      let contact = findContact(roster, req.course);
       if (!contact && req.course) {
-        const hits = resolveCourse(SAMPLE_ROSTER, req.course);
+        const hits = resolveCourse(roster, req.course);
         if (hits.length === 1) contact = hits[0];
         else if (hits.length > 1) return { ok: false, text: `Which course: ${hits.map((h) => h.courseCode).join(", ")}?` };
       }

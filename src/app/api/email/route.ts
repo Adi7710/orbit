@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { draftEmail } from "@/agents/emailAgent";
-import { findContact, resolveCourse, SAMPLE_ROSTER, mailtoUrl } from "@/core/contacts";
+import { findContact, mergeRoster, resolveCourse, SAMPLE_ROSTER, mailtoUrl, outlookWebUrl } from "@/core/contacts";
 import { log, store } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   if (!said) return NextResponse.json({ ok: false, error: "say what you want to tell them" }, { status: 400 });
 
   const s = store();
-  const roster = SAMPLE_ROSTER;
+  const roster = mergeRoster(SAMPLE_ROSTER, s.contacts);
 
   // Resolve the course from whatever they said: "MGT 808", "consulting", or
   // nothing at all, in which case we ask rather than guess a recipient.
@@ -69,6 +69,7 @@ export async function POST(req: Request) {
     subject: draft.subject,
     body: draft.body,
     mailto: mailtoUrl(draft),
+    outlook: outlookWebUrl(draft),
     synthetic: contact.synthetic,
   });
 }

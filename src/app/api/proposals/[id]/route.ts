@@ -6,10 +6,20 @@ export const dynamic = "force-dynamic";
 /** The only place a proposal becomes an action. Agents never reach this. */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { decision } = (await req.json()) as { decision: "approve" | "decline" };
+  const { decision, edit } = (await req.json()) as { decision: "approve" | "decline"; edit?: { to?: string; subject?: string; body?: string } };
   const s = store();
   const p = s.proposals.find((x) => x.id === id);
   if (!p || p.status !== "pending") return NextResponse.json({ ok: false, error: "not pending" }, { status: 409 });
+
+  // The student's edits replace the agent's draft before anything is recorded,
+  // so the log reflects what they actually sent and not what we suggested.
+  // Only an email can be edited: the others are structured actions, not prose.
+  if (edit && p.proposal.kind === "send_email") {
+    if (edit.to?.trim()) p.proposal.to = edit.to.trim();
+    if (edit.subject?.trim()) p.proposal.subject = edit.subject.trim();
+    if (edit.body?.trim()) p.proposal.body = edit.body;
+    log("user", "email_edited", { proposalId: id, edited: Object.keys(edit) });
+  }
   p.status = decision === "approve" ? "approved" : "declined";
   p.resolvedAt = new Date().toISOString();
   log("user", `proposal_${p.status}`, p.proposal);

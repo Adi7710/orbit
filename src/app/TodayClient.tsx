@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import LedgerReveal from "./LedgerReveal";
 import WatcherPanel from "./WatcherPanel";
 import VoiceButton from "./VoiceButton";
+import EmailModal from "./EmailModal";
 
 type Today = {
   mode: "normal" | "crisis" | "chill";
@@ -19,7 +20,7 @@ type Today = {
   tasks: { id: string; title: string; planningMinutes: number; estimateMinutes: number; courseCode?: string; dueAt?: string }[];
   cuts: { task: { title: string }; minutesSaved: number; reason: string }[];
   calibration: { key: string; samples: number; multiplier: number }[];
-  proposals: { id: string; status: string; proposal: { kind: string; reason: string; body?: string; to?: string; building?: string; message?: string } }[];
+  proposals: { id: string; status: string; proposal: { kind: string; reason: string; body?: string; to?: string; subject?: string; courseCode?: string; building?: string; message?: string } }[];
   events: { seq: number; ts: string; actor: string; type: string; payload: unknown }[];
 };
 
@@ -32,6 +33,7 @@ export default function TodayClient() {
   const [toast, setToast] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState("");
+  const [voiceLive, setVoiceLive] = useState(false);
   const [timetableUrl, setTimetableUrl] = useState("");
   const [canvasUrl, setCanvasUrl] = useState("");
   const [importing, setImporting] = useState(false);
@@ -62,6 +64,16 @@ export default function TodayClient() {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // While a call is live, poll. The agent can write an email at any point in
+  // a conversation, and the draft window has to be open by the time it stops
+  // speaking -- waiting for the next message callback is a second or two too
+  // late and leaves the student looking at nothing.
+  useEffect(() => {
+    if (!voiceLive) return;
+    const id = setInterval(() => refresh(), 2500);
+    return () => clearInterval(id);
+  }, [voiceLive, refresh]);
 
   const say = (m: string) => { setToast(m); setTimeout(() => setToast(""), 3500); };
 
@@ -145,7 +157,12 @@ export default function TodayClient() {
         </div>
       </header>
 
-      <VoiceButton onChange={refresh} />
+      <EmailModal
+        pending={t.proposals.find((p) => p.status === "pending" && p.proposal.kind === "send_email") as never}
+        onDone={refresh}
+      />
+
+      <VoiceButton onChange={refresh} voiceActive={setVoiceLive} />
 
       <WatcherPanel onChange={refresh} />
 

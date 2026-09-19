@@ -26,7 +26,7 @@ type Conv = { endSession: () => Promise<void>; setMicMuted: (muted: boolean) => 
  * just a chatbot: when the student says "I'm in crisis mode", the cards behind
  * this have to change while the agent is still speaking.
  */
-export default function VoiceButton({ onChange }: { onChange?: () => void }) {
+export default function VoiceButton({ onChange, voiceActive }: { onChange?: () => void; voiceActive?: (live: boolean) => void }) {
   const [state, setState] = useState<"idle" | "connecting" | "live" | "unavailable">("idle");
   const [lines, setLines] = useState<Line[]>([]);
   const [note, setNote] = useState("");
@@ -63,8 +63,9 @@ export default function VoiceButton({ onChange }: { onChange?: () => void }) {
     conv.current = null;
     setMicOpen(false);
     setState("idle");
+    voiceActive?.(false);
     onChange?.();
-  }, [onChange]);
+  }, [onChange, voiceActive]);
 
   const start = useCallback(async () => {
     setState("connecting");
@@ -81,11 +82,14 @@ export default function VoiceButton({ onChange }: { onChange?: () => void }) {
         connectionType: "webrtc",
         onConnect: () => {
           setState("live");
+          // The page polls for a drafted email while a call is live, so it can
+          // open the draft window before the agent has finished speaking.
+          voiceActive?.(true);
           // Muted the moment we are connected, before anyone says anything near it.
           if (!handsFree) { try { conv.current?.setMicMuted(true); } catch {} setMicOpen(false); }
           else setMicOpen(true);
         },
-        onDisconnect: () => { setState("idle"); setMicOpen(false); onChange?.(); },
+        onDisconnect: () => { setState("idle"); setMicOpen(false); voiceActive?.(false); onChange?.(); },
         onError: (e: unknown) => { setNote(String(e)); setState("idle"); },
         onMessage: ({ message, source }: { message: string; source: string }) => {
           setLines((l) => [...l.slice(-8), { role: source === "user" ? "you" : "orbit", text: message }]);
@@ -97,7 +101,7 @@ export default function VoiceButton({ onChange }: { onChange?: () => void }) {
       setState("idle");
       setNote(e instanceof DOMException ? "microphone permission denied" : String(e));
     }
-  }, [onChange, handsFree]);
+  }, [onChange, handsFree, voiceActive]);
 
   const live = state === "live";
 

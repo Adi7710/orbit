@@ -38,6 +38,26 @@ export const SAMPLE_ROSTER: Contact[] = [
   { courseCode: "ENGCMP 0200", courseName: "Seminar in Composition", name: "Dr. Tomas Beck", email: "t.beck@example.edu", salutation: "Professor Beck", synthetic: true },
 ];
 
+/**
+ * The student's own corrections win over the sample.
+ *
+ * This is how a real address gets in without one ever being committed: the
+ * roster ships synthetic, and anything the student types in the draft window
+ * is layered on top at runtime, in memory. Nothing here is persisted to disk.
+ */
+export function mergeRoster(base: Contact[], overrides?: Contact[] | null): Contact[] {
+  const out = base.map((c) => ({ ...c }));
+  // Tolerate a missing list: the store is an in-memory object that survives
+  // hot reloads, so a field added after it was created is simply absent until
+  // the server restarts. A new field must never 500 the route that reads it.
+  for (const o of overrides ?? []) {
+    const i = out.findIndex((c) => normaliseCode(c.courseCode) === normaliseCode(o.courseCode));
+    if (i >= 0) out[i] = { ...out[i], ...o, synthetic: false };
+    else out.push({ ...o, synthetic: false });
+  }
+  return out;
+}
+
 /** Case- and spacing-insensitive lookup: "mgt808" and "MGT 808" are the same course. */
 export const normaliseCode = (code: string) => code.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
@@ -90,4 +110,19 @@ export interface Draft {
 export function mailtoUrl(d: Draft): string {
   const enc = (s: string) => encodeURIComponent(s).replace(/%0A/g, "%0D%0A");
   return `mailto:${encodeURIComponent(d.to)}?subject=${enc(d.subject)}&body=${enc(d.body)}`;
+}
+
+/**
+ * Open the message in Outlook on the web, already filled in, in the tab the
+ * student is already looking at. `outlook.office.com` is the school/Microsoft
+ * 365 host; `outlook.live.com` is the personal one.
+ *
+ * This is as close to "send from Outlook" as anything can get without holding
+ * a mailbox credential: it is genuinely Outlook, genuinely their account, and
+ * genuinely their address in the From line. They press Send there.
+ */
+export function outlookWebUrl(d: Draft, host: "school" | "personal" = "school"): string {
+  const base = host === "school" ? "https://outlook.office.com/mail/deeplink/compose" : "https://outlook.live.com/mail/0/deeplink/compose";
+  const q = new URLSearchParams({ to: d.to, subject: d.subject, body: d.body });
+  return `${base}?${q.toString()}`;
 }
