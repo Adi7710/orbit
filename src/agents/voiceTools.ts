@@ -8,6 +8,9 @@ import type { Mode, Task } from "@/core/types";
 import { buildHabitProfile, type TimeBucket } from "@/core/habits";
 import { habitInsightsCached, peekInsights } from "./habitAgent";
 import { recordHabit } from "@/lib/habitLog";
+import { randomUUID } from "node:crypto";
+import { findContact, resolveCourse, SAMPLE_ROSTER } from "@/core/contacts";
+import { draftEmail } from "./emailAgent";
 
 /**
  * The voice tool surface.
@@ -132,9 +135,9 @@ export function asSentence(text: string): string {
 
 // MARK: - The tools
 
-export type VoiceTool = "get_today" | "log_actual" | "set_mode" | "get_bus" | "get_estimate" | "get_coach";
+export type VoiceTool = "get_today" | "log_actual" | "set_mode" | "get_bus" | "get_estimate" | "get_coach" | "draft_email";
 
-export interface VoiceRequest { tool: VoiceTool | string; task?: string; minutes?: number; mode?: string; destination?: string }
+export interface VoiceRequest { tool: VoiceTool | string; task?: string; minutes?: number; mode?: string; destination?: string; said?: string; course?: string; newDate?: string }
 
 export async function handleVoiceTool(req: VoiceRequest): Promise<{ text: string; ok: boolean; data?: unknown }> {
   const r = await route(req);
@@ -267,6 +270,41 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
       if (second) said.push(speakNumbers(second.text));
       log("voice", "voice_get_coach", { source: result.provider, insights: result.insights.length });
       return { ok: true, text: said.join(" "), data: { provider: result.provider, kinds: result.insights.map((i) => i.kind) } };
+    }
+
+    case "draft_email": {
+      const said = (req.said ?? req.task ?? "").trim();
+      if (!said) return { ok: false, text: "Tell me what you want to say to them and I will write it." };
+
+      let contact = findContact(SAMPLE_ROSTER, req.course);
+      if (!contact && req.course) {
+        const hits = resolveCourse(SAMPLE_ROSTER, req.course);
+        if (hits.length === 1) contact = hits[0];
+        else if (hits.length > 1) return { ok: false, text: `Which course: ${hits.map((h) => h.courseCode).join(", ")}?` };
+      }
+      if (!contact) {
+        const codes = [...new Set(s.tasks.map((t) => t.courseCode).filter(Boolean))].slice(0, 4);
+        return { ok: false, text: codes.length ? `Which course is that for? ${codes.join(", ")}.` : "Which course is that for?" };
+      }
+
+      const draft = await draftEmail(said, contact, {
+        task: req.task && req.task !== said ? req.task : undefined,
+        newDate: req.newDate,
+        when: new Date().toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", timeZone: "America/New_York" }),
+      });
+
+      const id = randomUUID();
+      s.proposals.push({ id, proposal: { kind: "send_email", to: draft.to, subject: draft.subject, body: draft.body, courseCode: contact.courseCode, reason: `${draft.intent} email to ${contact.salutation}` }, status: "pending", createdAt: new Date().toISOString() });
+      log("agent", "voice_draft_email", { intent: draft.intent, provider: draft.provider, rejected: draft.rejected });
+
+      // Read the letter back. It is going to another human being, so the
+      // student hears every word before they are asked to approve it, and
+      // the tool says plainly that nothing has been sent.
+      return {
+        ok: true,
+        text: `I have written it to ${contact.salutation}. Subject: ${draft.subject}. It reads: ${draft.body.replace(/\n+/g, " ")} Nothing is sent. It is waiting for you to approve it on screen.`,
+        data: { proposalId: id, intent: draft.intent },
+      };
     }
 
     default:

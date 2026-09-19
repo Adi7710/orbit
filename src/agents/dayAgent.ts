@@ -17,7 +17,11 @@ export type Proposal =
   | { kind: "book_room"; gapId: string; building: string; reason: string }
   | { kind: "move_task"; taskId: string; gapId: string; reason: string }
   | { kind: "draft_extension"; taskId: string; newDate: string; to: string; subject: string; body: string; reason: string }
-  | { kind: "notify_friends"; gapId: string; userIds: string[]; message: string; reason: string };
+  | { kind: "notify_friends"; gapId: string; userIds: string[]; message: string; reason: string }
+  // Written by the Email Agent, never by the Day Agent -- it is not in the
+  // tool list below on purpose. The only agent allowed to write to another
+  // human has its own prompt, its own validation and its own blast radius.
+  | { kind: "send_email"; to: string; subject: string; body: string; courseCode: string; reason: string };
 
 const tools: import("@anthropic-ai/sdk").Anthropic.Tool[] = [
   { name: "book_room", description: "Propose reserving a study room for a gap. Use when a gap is >= 60 minutes and the best-fit task needs focus.", input_schema: { type: "object", properties: { gapId: { type: "string" }, building: { type: "string" }, reason: { type: "string" } }, required: ["gapId", "building", "reason"] } },

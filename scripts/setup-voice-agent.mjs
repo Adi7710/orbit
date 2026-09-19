@@ -91,6 +91,18 @@ const TOOLS = [
       "Tell the student what their own history says about how they work: when they are fastest, which kinds of work take longer than they guess, and how close to deadlines they finish. Call this for 'how am I doing', 'when do I work best', 'what should I change', or 'any tips'. Takes no arguments.",
     body: {},
   },
+  {
+    name: "draft_email",
+    description:
+      "Write a formal email to one of the student's instructors and queue it for their approval. Call this whenever they want to tell a professor something: they are unwell and need to miss a class, they need an extension, they have a question about an assignment, or they want to arrange a meeting. Pass their own words verbatim in `said` -- do not tidy them up, the email agent does that. NOTHING IS SENT: this only writes a draft that the student must approve on screen, so you never need to ask them to confirm before calling it.",
+    body: {
+      said: { type: "string", description: "What the student said, in their own words, for example 'I am not feeling good today, can I take a leave'." },
+      course: { type: "string", description: "The course, however they said it: a code like 'MGT 808' or a name like 'consulting'. Leave empty if they did not say and the server will ask." },
+      task: { type: "string", description: "Optional assignment the email is about." },
+      newDate: { type: "string", description: "Optional date being requested, for an extension." },
+    },
+    required: ["said"],
+  },
 ];
 
 const LLM_CANDIDATES = ["claude-sonnet-4-5", "claude-3-7-sonnet", "claude-3-5-sonnet", "gemini-2.5-flash", "gpt-4o"];

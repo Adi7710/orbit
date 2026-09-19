@@ -29,6 +29,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       case "notify_friends":
         effect = `Invited ${p.proposal.userIds.join(", ")} (mock push)`;
         break;
+      // Approval does not send. Orbit holds no mailbox credential and has no
+      // way to send on the student's behalf; it hands the finished message to
+      // their own mail client, from their own address, and they press send.
+      // The last approval is a human one that nobody can accidentally skip.
+      case "send_email":
+        effect = `Opening your mail client with the message to ${p.proposal.to} ready to send`;
+        break;
     }
     log("rules", "action_executed", { proposalId: id, effect });
   }
