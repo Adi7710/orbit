@@ -68,3 +68,13 @@ Affects: scripts/gtfs-extract.mjs, data/prt-oakland.json (14 stops, 20 shapes, 2
 Decision: Added `leaflet` (npm) for the web map at /map with CARTO Voyager raster tiles (OpenStreetMap data, no key). iOS uses MapKit (no key, no billing). Google Maps stays optional and only changes tile look and the walking-leg source.
 Why: Zero keys, zero billing, works offline-ish for judging; one contract feeds both clients.
 Affects: package.json, src/app/map/*, ios/Orbit/*.
+
+## 2026-09-19 14:50 ET · lead Claude · Voice agent: the server writes the sentence, the model delivers it
+Decision: Every voice tool returns a finished spoken sentence in a `text` field, composed server-side from the deterministic core. The ElevenLabs agent reads it verbatim and never computes a number. Tier 1 tools: get_today, log_actual, set_mode, get_bus. Voice may approve only move_task and book_room proposals; draft_extension and notify_friends require a tap because they reach another person. Full plan in docs/voice.md.
+Why: A voice agent that generates numbers will eventually say a wrong XP total or bus time out loud, which is worse than a wrong pixel. This makes hallucinated facts structurally impossible and keeps the LLM to intent recognition only.
+Affects: src/app/api/voice/tool/route.ts, src/agents/voice.ts, issue #7, #8, TodayClient mic button, ios voice button.
+
+## 2026-09-19 14:50 ET · lead Claude · Voice needs a public URL before anything else
+Decision: ElevenLabs server tools call our webhook from their cloud, so localhost cannot work. Deploying to Vercel (or an ngrok tunnel) is step 1 of the voice build and blocks steps 2 through 6. The agent's LLM is ElevenLabs' native Claude Sonnet 5, billed from ElevenLabs credits, so voice does not spend our $25 Anthropic budget.
+Why: This is the step teams discover three hours in.
+Affects: issue #7, deployment, .env.local.
