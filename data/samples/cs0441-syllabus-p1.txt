@@ -1,0 +1,21 @@
+CS 0441  Discrete Structures for Computer Science
+Fall 2026  |  Instructor: Dr. A. Example  |  Synthetic sample syllabus
+
+GRADING
+Homework 30%   Midterm 25%   Final 30%   Project 15%
+
+SCHEDULE AND DEADLINES
+
+Week   Date          Item                          Due
+----   -----------   ---------------------------   ---------------
+3      Sept 15       Homework 1: Logic             Sept 22, 11:59 PM
+5      Sept 29       Homework 2: Proofs            Oct 6, 11:59 PM
+7      Oct 13        Midterm exam (in class)       Oct 15, 2:00 PM
+9      Oct 27        Project proposal              Oct 30, 5:00 PM
+12     Nov 17        Homework 4: Graphs            Nov 24, 11:59 PM
+15     Dec 8         Final exam                    Dec 12, 9:00 AM
+
+[ ] Read Chapter 3 before the first lecture of Week 4
+[x] Buy the course textbook
+
+Late work loses 10% per day. Week 10 has no deadlines.
