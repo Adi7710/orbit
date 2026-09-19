@@ -32,8 +32,12 @@ const STOPS = {
   "7126": { role: "home-outbound", area: "Squirrel Hill", note: "Forbes Ave + Murray Ave, 61A/B/C/D outbound; alight here going home" },
   "1171": { role: "campus-inbound", area: "Bellefield", note: "Fifth Ave + Bellefield, westbound" },
   "2568": { role: "campus-outbound", area: "Bellefield", note: "Forbes Ave + Bellefield NS, eastbound" },
+  "8650": { role: "dorm-outbound", area: "Upper campus", note: "Allequippa St + Sutherland (Petersen Center): Sutherland/Panther Hall dorms, 81/83 down the hill" },
+  "18894": { role: "dorm-outbound", area: "Upper campus", note: "Terrace St + Sutherland Dr" },
+  "22747": { role: "campus-inbound", area: "West campus", note: "Fifth Ave at Robinson St FS: alight here from the 81/83, walk to the Cathedral" },
+  "9028": { role: "campus-outbound", area: "DeSoto", note: "DeSoto St + OHara, 81/83 back up the hill" },
 };
-const ROUTES = new Set(["61A", "61B", "61C", "61D", "71A", "71B", "71C", "71D", "P3", "75", "67", "69", "58", "93", "54", "28X"]);
+const ROUTES = new Set(["61A", "61B", "61C", "61D", "71A", "71B", "71C", "71D", "P3", "75", "67", "69", "58", "93", "54", "28X", "81", "83"]);
 
 function parseCsvLine(line) {
   const out = [];
@@ -125,7 +129,7 @@ for (const d of departures) d.tripStart = trips[d.trip].start;
 departures.sort((a, b) => a.stop.localeCompare(b.stop) || a.sec - b.sec);
 
 // Route shapes for the map: the most common shape per route+direction on weekday service, thinned to every 4th point.
-const MAP_ROUTES = new Set(["61A", "61B", "61C", "61D", "71A", "71B", "71C", "71D"]);
+const MAP_ROUTES = new Set(["61A", "61B", "61C", "61D", "71A", "71B", "71C", "71D", "81", "83"]);
 const shapeVotes = {};
 for await (const r of rows(path.join(dir, "trips.txt"))) {
   const route = routes[r.route_id]?.short;
