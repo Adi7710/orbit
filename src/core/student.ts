@@ -81,6 +81,24 @@ export const LEGS = [
   { from: "Sennott", to: "Posvar", planned: 11, difficulty: 1, fromWeek: 5 },
 ] as const;
 export const legId = (from: string, to: string) => `${from}->${to}`;
+/**
+ * One assessment and how the studying for it was really distributed. Orbit's
+ * question is not how many minutes of revision there were, it is how many of
+ * them landed in the last night, and whether that night had room for them.
+ */
+export interface ExamRecord {
+  week: number;
+  kind: "quiz" | "midterm";
+  course: string;
+  totalStudyMinutes: number;
+  /** Of that total, the minutes done in the final 24 hours. */
+  cramMinutes: number;
+  cramShare: number;
+  /** Usable gap the student actually had on the last evening. */
+  lastNightGapMinutes: number;
+  synthetic: true;
+}
+
 export interface OverheadRecord { week: number; kind: "settle" | "meal"; plannedMinutes: number; actualMinutes: number; synthetic: true }
 export interface SyntheticStudent {
   name: string;
@@ -89,6 +107,7 @@ export interface SyntheticStudent {
   sessions: HabitRecord[];
   walks: WalkRecord[];
   overheads: OverheadRecord[];
+  exams: ExamRecord[];
 }
 
 /** Monday of week 1. */
@@ -118,6 +137,7 @@ export function syntheticStudent(weeks = 8, traits: StudentTraits = TRAITS, seed
   const sessions: HabitRecord[] = [];
   const walks: WalkRecord[] = [];
   const overheads: OverheadRecord[] = [];
+  const exams: ExamRecord[] = [];
   let n = 0;
 
   const add = (w: number, dayOffset: number, startMin: number, title: string, course: string, estimate: number, opts: { lead?: number } = {}) => {
@@ -151,6 +171,20 @@ export function syntheticStudent(weeks = 8, traits: StudentTraits = TRAITS, seed
       const kind = taskKind(s.title(w), s.estimate);
       add(w, s.day, s.start, s.title(w), s.course, s.estimate, s.due ? { lead: traits.assignmentLeadHours * (traits.leadFactor[kind] ?? 1) * jitter(0.35) } : {});
     }
+    // A quiz every week, a midterm twice a term. The quiz is the one that gets
+    // crammed hardest: it is small enough to feel survivable the night before.
+    for (const e of [{ kind: "quiz" as const, course: "CS 0441", total: 120, mult: 1.35 }, ...(EXAM_WEEKS.includes(w) ? [{ kind: "midterm" as const, course: "MATH 0220", total: 360, mult: 1 }] : [])]) {
+      const share = Math.min(0.98, traits.examCramShare * e.mult * jitterWalk(0.12));
+      const total = Math.round(e.total * jitterWalk(0.15));
+      exams.push({
+        week: w, kind: e.kind, course: e.course,
+        totalStudyMinutes: total,
+        cramMinutes: Math.round(total * share),
+        cramShare: Math.round(share * 1000) / 1000,
+        lastNightGapMinutes: Math.round(120 * jitterWalk(0.45)),
+        synthetic: true,
+      });
+    }
     if (EXAM_WEEKS.includes(w)) {
       // Cramming: most of the studying lands in the last day before the exam.
       add(w, 4, at(16), "Midterm review (first pass)", "MATH 0220", 180, { lead: 52 });
@@ -168,5 +202,5 @@ export function syntheticStudent(weeks = 8, traits: StudentTraits = TRAITS, seed
   }
 
   sessions.sort((a, b) => a.completedAt.getTime() - b.completedAt.getTime());
-  return { name, traits, weeks, sessions, walks, overheads };
+  return { name, traits, weeks, sessions, walks, overheads, exams };
 }

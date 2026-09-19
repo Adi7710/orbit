@@ -22,7 +22,10 @@ const CUMULATIVE: Arm[] = ["rules", "nemotron"];
 /** How much headroom the buffered baseline adds over the observed median. */
 export const BUFFER = 1.15;
 
-export type Aspect = "assignments" | "walking" | "procrastination";
+export type Aspect = "assignments" | "walking" | "procrastination" | "exams";
+
+/** What the app assumes today: that revision is spread evenly over the three days before an assessment. */
+export const DEFAULT_CRAM_SHARE = 1 / 3;
 
 /** What the app assumes today: that work gets started the evening before it is due. */
 export const DEFAULT_LEAD_HOURS = 12;
@@ -66,11 +69,28 @@ export const ASPECTS: Record<Aspect, AspectSpec & { label: string; unit: string 
     // 0.15 of the app's assumption, far below the usual rail.
     clamp: { min: 0.05, max: 4 },
   },
+  exams: {
+    id: "exams",
+    label: "Exam studying: how much of the revision really lands in the last night",
+    unit: "share",
+    categoryNoun: "kind of assessment",
+    baselineNoun: "the even third of revision the app currently assumes falls in the last 24 hours",
+    brief:
+      "You decide what share of this student's revision Orbit should expect to land in the final 24 hours before each kind of assessment. This is not about how many minutes they revise, it is about when those minutes happen. If they really cram and Orbit spreads the plan over a week, the early sessions never happen and the last night is asked to hold more than it can.",
+    categories: ["quiz", "midterm"],
+    categoryLabel: { quiz: "quizzes", midterm: "midterms" },
+    clamp: { min: 0.3, max: 3 },
+  },
 };
 
 /** The answer key the learner never sees: what the multiplier for a category truly is. */
 function trueMultiplier(aspect: Aspect, category: string, student: SyntheticStudent): number {
   if (aspect === "assignments") return student.traits.factor[category as TaskKind];
+  if (aspect === "exams") {
+    const mult = category === "quiz" ? 1.35 : 1;
+    const share = Math.min(0.98, student.traits.examCramShare * mult);
+    return Math.round((share / DEFAULT_CRAM_SHARE) * 1000) / 1000;
+  }
   if (aspect === "procrastination") {
     const lead = student.traits.assignmentLeadHours * (student.traits.leadFactor[category as TaskKind] ?? 1);
     return Math.round((lead / DEFAULT_LEAD_HOURS) * 1000) / 1000;
@@ -90,6 +110,15 @@ function observationsByWeek(aspect: Aspect, student: SyntheticStudent): Map<numb
     }
   } else if (aspect === "walking") {
     for (const w of student.walks) push(w.week, { label: `${w.from} to ${w.to}`, category: w.leg, estimate: w.plannedMinutes, actual: w.actualMinutes });
+  } else if (aspect === "exams") {
+    for (const e of student.exams) {
+      push(e.week, {
+        label: `${e.kind} in ${e.course}`, category: e.kind,
+        estimate: DEFAULT_CRAM_SHARE, actual: e.cramShare,
+        // Scoring needs the night itself; the model is only shown the share.
+        meta: { total: e.totalStudyMinutes, cram: e.cramMinutes, gap: e.lastNightGapMinutes },
+      });
+    }
   } else {
     for (const r of student.sessions) {
       const kind = kindOf(r);
@@ -210,6 +239,18 @@ export async function runExperiment(aspect: Aspect, arms: Arm[], opts: { weeks?:
         : o.estimate;
       const pairs = week.map((o) => ({ plan: planOf(o), actual: o.actual }));
       for (const o of week) transferPairs.push({ category: o.category, week: w, plan: planOf(o), actual: o.actual });
+      if (aspect === "exams" && w >= 2) {
+        for (const o of week) {
+          const m = o.meta;
+          if (!m) continue;
+          risk.deadlines++;
+          // The night really was too small when the crammed minutes did not fit.
+          const reallyShort = m.cram > m.gap;
+          const predicted = m.total * planOf(o) > m.gap;
+          if (reallyShort) { risk.blown++; if (predicted) risk.caught++; else risk.missed++; }
+          else if (predicted) risk.falseAlarms++;
+        }
+      }
       if (aspect === "procrastination" && w >= 2) {
         for (const o of week) {
           const m = o.meta;
@@ -259,6 +300,7 @@ export async function runExperiment(aspect: Aspect, arms: Arm[], opts: { weeks?:
       story,
     };
     if (aspect === "procrastination") { res.risk = risk; res.riskNaive = riskNaive; }
+    if (aspect === "exams") res.risk = risk;
     if (late) {
       const [cat, from] = late;
       const pairs = transferPairs.filter((p) => p.category === cat && p.week < from + 2);

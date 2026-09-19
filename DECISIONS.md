@@ -298,3 +298,18 @@ Affects: weeklyLearner.ts, and any plan to surface learning through the voice ag
 Decision: Noted as a limitation of the current design. Nemotron put the held-out student's big assignments at 0.07 against a truth of 0.183, and that bias is why it catches 7 of 8 blown deadlines while also raising 2 false alarms. On the other student it wandered (0.55, 0.44, 0.75, 0.50, 0.35, 0.25, 0.35, 0.30) rather than settling, where the running average was steadier.
 Why: Catching risk through a uniformly gloomy average is not the same as predicting well. The honest version predicts the spread ("usually 2.2 hours, sometimes 1.4") and warns on the bad tail, instead of moving the mean.
 Affects: a future revision of the procrastination aspect; nothing ships from it yet.
+
+## 2026-09-20 01:10 ET · Jatin · Aspect 4 (exam studying): predict the cram share, warn when the last night cannot hold it
+Decision: Added the exams aspect. The learner predicts what share of revision lands in the final 24 hours per kind of assessment, against the app's assumption of an even third, and is scored on whether it can see in advance that the last night has less usable gap than the cram needs. The synthetic student now sits a weekly quiz plus two midterms, and quizzes get crammed hardest.
+Why: Fourth and last item on the owner's list, and the only one where the target is a distribution rather than a quantity. The useful output is the warning, so the metric is under-capacity nights caught.
+Affects: student.ts (ExamRecord, weekly quizzes), learningExperiment.ts, docs/learning/04-exam-studying.md.
+
+## 2026-09-20 01:10 ET · Jatin · Aspect 4 goes to the running average, not Nemotron
+Decision: Use the running average for exam cramming. Both catch every under-capacity night (2 of 2 for Maya, 4 of 4 for the held-out student) and both reach the same mean error, but Nemotron's learned values are clearly worse: quizzes 1.96 against a truth of 2.94 and midterms left at 1.00 against 2.40. It jumped to 3.0 for quizzes in week 1, pulled back to 1.96 in week 2, then did not move for six weeks while remaining wrong, and never learned midterms at all because they occur twice in eight weeks and the evidence threshold never cleared.
+Why: It reaches the right warning through a wrong number, which holds only while the gap between the cram and the night is wide. The running average is more accurate, learns the sparse category, and costs nothing.
+Affects: docs/learning/04-exam-studying.md. The warning itself is worth building regardless of which produces the number.
+
+## 2026-09-20 01:10 ET · Jatin · All four aspects measured: where a model earns its place
+Decision: Of the owner's four aspects, Nemotron earns its place on two. Assignment length: 3.9 min mean error against the code baseline's 6.8, and it learns nearly the whole pattern from one week. Procrastination: 7 of 8 blown deadlines caught against the baseline's 2. Walking: the travel-graph median is more accurate on well-travelled legs, but only the model produces a transferable pace and a reason ("a hill or slow lift"), so use both. Exam cramming: a tie on the outcome and worse numbers, so use the running average.
+Why: The pattern across all four is that the model pays off where the signal is sparse, noisy and not already modelled, and where the useful output is a judgement or an explanation rather than an average. Where the quantity is frequent, tight, or already has a mechanism, code matches or beats it.
+Affects: what should be wired into live planning, and the case to make for the NVIDIA track.
