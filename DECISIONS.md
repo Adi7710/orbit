@@ -198,3 +198,14 @@ Affects: src/agents/critic.ts, src/agents/watcher.ts, src/app/api/critic, src/ap
 Decision: The deterministic rubric no longer treats clock times as unsupported quantity claims (11:05 was being read as an invented "11"), and /api/demo restore is idempotent so putting a class back after a reset cannot add a second copy.
 Why: Both were found by running the loop and reading the output rather than trusting the tests.
 Affects: src/agents/critic.ts, src/app/api/demo/route.ts.
+
+## 2026-09-19 16:25 ET · lead Claude · The voice tools follow the tunnel automatically
+Decision: New scripts/repoint-voice.mjs PATCHes api_schema.url in place on the four registered ElevenLabs tools, matched by name. scripts/tunnel.mjs calls it the moment it detects a new quick-tunnel URL, so a rotation repairs itself. Tool ids, tool_ids on the agent and ELEVENLABS_AGENT_ID are all unchanged, so nothing restarts. A failure to re-point is logged loudly with the exact command to run and never takes the tunnel down with it.
+Why: A quick tunnel is ephemeral — ours was revoked about an hour after it started — and setup-voice-agent.mjs is the wrong tool for the repair because it deletes the tools, creates a *new* agent and writes a new agent id that only takes effect after a dev-server restart. That is fine once, at the start; it is not something you can do while a judge is holding the microphone. The failure this prevents is worse than an outage: with stale URLs the agent calls a dead webhook, gets nothing, and improvises around the missing numbers. Inventing a number is precisely what the server-composes-the-sentence design exists to prevent, so a rotated tunnel would have turned beat 4 into a live demonstration of the failure we told judges we had engineered away.
+Verified: rotated the tunnel deliberately. The new URL was minted, all four tools re-pointed within seconds with their ids unchanged, the agent still referenced all four, and all four answered through the new public URL with finished spoken sentences; a wrong secret still gets 401.
+Affects: scripts/repoint-voice.mjs, scripts/tunnel.mjs, docs/voice.md, issue #23.
+
+## 2026-09-19 16:25 ET · lead Claude · ANTHROPIC_API_KEY and NVIDIA_API_KEY are present as empty lines, not as keys
+Decision: Recording this because it reads as done and is not. Both variables exist in .env.local with nothing after the `=`, so /api/nvidia reports keyPresent:false, the Day Agent serves deterministic proposals and the Critic runs its rule-based rubric. Nothing is broken — every one of those paths is a designed fallback and the demo holds without a key — but beat 2 speaks in the canned voice and beat 5 has no model evidence behind it until they land.
+Why: A present-but-empty variable is the failure that looks like success. The restart I did to pick up "the new keys" changed nothing, and only /api/nvidia's explicit keyPresent flag showed it.
+Affects: beat 2 (Plan my day), beat 5 (the eval table), issue #4.

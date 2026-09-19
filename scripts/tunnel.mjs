@@ -8,14 +8,20 @@
  * team always has somewhere to point.
  *
  * A changing URL is fine for browsing and for the iOS simulator. It is NOT
- * fine for the ElevenLabs webhook, which has to be re-pasted every time the
- * URL changes. Deploy to Vercel before wiring the voice agent for real.
+ * fine for the ElevenLabs webhook: the four registered tools keep pointing at
+ * a host that no longer resolves, and the agent does not fail loudly in that
+ * state -- it calls a dead webhook, gets nothing back, and improvises around
+ * the missing numbers, which is the one behaviour the whole voice design
+ * exists to prevent. So every time the URL changes we re-point the tools in
+ * place, before anybody notices. Tool ids and the agent id do not change, so
+ * nothing has to restart.
  *
  *   node scripts/tunnel.mjs [port]
  */
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { repoint } from "./repoint-voice.mjs";
 
 const PORT = process.argv[2] ?? "3123";
 const URL_FILE = ".tunnel-url.txt";
@@ -31,6 +37,21 @@ const BIN = CANDIDATES.find((p) => p === "cloudflared" || fs.existsSync(path.nor
 
 let current = "";
 
+/**
+ * Point the voice tools at the URL we just got. Never let this kill the
+ * tunnel: a browsable URL with stale voice tools is much better than no URL
+ * at all, so a failure here is loud in the log and otherwise ignored.
+ */
+async function follow(url) {
+  try {
+    const { changed, checked } = await repoint(url, (l) => console.log(l));
+    console.log(changed ? `>>> voice tools re-pointed (${changed}/${checked})\n` : `>>> voice tools already correct (${checked})\n`);
+  } catch (e) {
+    console.error(`>>> could not re-point voice tools: ${e.message}`);
+    console.error(`>>> voice will be dead until you run: node scripts/repoint-voice.mjs\n`);
+  }
+}
+
 function start() {
   console.log(`starting ${BIN} -> http://localhost:${PORT}`);
   const p = spawn(BIN, ["tunnel", "--url", `http://localhost:${PORT}`, "--no-autoupdate"], { stdio: ["ignore", "pipe", "pipe"] });
@@ -43,6 +64,7 @@ function start() {
       current = m[0];
       fs.writeFileSync(URL_FILE, current + "\n");
       console.log(`\n>>> PUBLIC URL: ${current}\n>>> written to ${URL_FILE}\n`);
+      follow(current);
     }
   };
 
