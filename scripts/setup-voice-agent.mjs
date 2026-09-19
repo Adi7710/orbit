@@ -125,8 +125,16 @@ async function main() {
   for (const t of existing.tools ?? []) {
     const name = t.tool_config?.name ?? t.name;
     if (TOOLS.some((x) => x.name === name)) {
-      await call(`/convai/tools/${t.id}`, { method: "DELETE" }).catch(() => {});
-      console.log(`  removed old tool ${name}`);
+      // force=true is required, not optional. A tool attached to an agent --
+      // or, worse, to a *branch* of an agent that has already been deleted --
+      // returns 409 and stays. The original code swallowed that error and
+      // printed "removed" anyway, so every re-run silently doubled the
+      // registry: ten tools with duplicate names, four of them pointing at
+      // nothing. Report what actually happened instead of what we intended.
+      const res = await call(`/convai/tools/${t.id}?force=true`, { method: "DELETE" })
+        .then(() => "removed")
+        .catch((e) => `COULD NOT REMOVE (${String(e.message).slice(-60)})`);
+      console.log(`  ${res} old tool ${name}`);
     }
   }
 

@@ -28,7 +28,16 @@ import fs from "node:fs";
 
 const API = "https://api.elevenlabs.io/v1";
 const ENV = ".env.local";
-const NAMES = ["get_today", "log_actual", "set_mode", "get_bus"];
+
+/**
+ * How we recognise our own tools. Deliberately *not* a list of names: this
+ * script was written against four tools and get_estimate and get_coach landed
+ * within two hours, which would have left them pointing at a dead host after
+ * the next rotation while the other four quietly healed -- the worst kind of
+ * partial failure, because voice would still mostly work. Anything registered
+ * against our webhook path is ours, however many there turn out to be.
+ */
+const OURS = /\/api\/voice\/tool\?tool=([a-z_]+)/;
 
 function env(key) {
   if (!fs.existsSync(ENV)) return "";
@@ -63,13 +72,15 @@ export async function repoint(base, log = console.log) {
   if (!BASE.startsWith("https://")) throw new Error(`webhook base must be https, got ${BASE}`);
 
   const existing = await call("/convai/tools");
-  const mine = (existing.tools ?? []).filter((t) => NAMES.includes(t.tool_config?.name ?? t.name));
+  const mine = (existing.tools ?? []).filter((t) => OURS.test(t.tool_config?.api_schema?.url ?? ""));
   if (mine.length === 0) throw new Error("no Orbit tools registered; run setup-voice-agent.mjs first");
 
   let changed = 0;
   for (const t of mine) {
     const cfg = t.tool_config ?? {};
-    const name = cfg.name ?? t.name;
+    // Take the tool name from the URL we registered, not from the display
+    // name, so a renamed tool still re-points to the handler it already used.
+    const name = (cfg.api_schema.url.match(OURS) ?? [])[1] ?? cfg.name ?? t.name;
     const want = `${BASE}/api/voice/tool?tool=${name}`;
     if (cfg.api_schema?.url === want) { log(`  ${name} already correct`); continue; }
 
