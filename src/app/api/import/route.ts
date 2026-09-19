@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { blocksOn, parseIcs, taskFromEvent } from "@/core/ics";
+import { blocksOn, isClassMeeting, parseIcs, resolveCourseCodes, taskFromEvent } from "@/core/ics";
 import type { Task } from "@/core/types";
 import { fetchIcs, IcsFetchError } from "@/services/ics";
 import { clock } from "@/services/prt";
@@ -83,9 +83,17 @@ export async function POST(req: Request) {
       const horizon = Math.min(Math.max(Math.round(body.horizonDays ?? 14), 1), 120);
       const dayStart = new Date(`${iso}T00:00:00-04:00`).getTime();
       const dayEnd = dayStart + (horizon + 1) * 864e5;
-      let added = 0, updated = 0, skippedPast = 0, skippedFar = 0;
+      let added = 0, updated = 0, skippedPast = 0, skippedFar = 0, skippedMeetings = 0;
+      // Learn course codes across the whole feed first. Canvas writes the code
+      // on class meetings and the course name on everything, so one pass up
+      // front lets every assignment borrow its own code.
+      const codes = resolveCourseCodes(events.map((x) => x.summary));
       for (const e of events) {
-        const task = taskFromEvent(e, TZ);
+        // A class meeting is not a piece of work. Importing it as a task
+        // invents coursework nobody has to do, inflates the capacity ledger,
+        // and then feeds that fiction into the habit history.
+        if (isClassMeeting(e.summary)) { skippedMeetings++; continue; }
+        const task = taskFromEvent(e, TZ, codes);
         const due = task.dueAt!.getTime();
         if (due < dayStart) { skippedPast++; continue; }
         if (due >= dayEnd) { skippedFar++; continue; }
@@ -103,7 +111,7 @@ export async function POST(req: Request) {
         }
       }
       log("user", "canvas_imported", { source: canvasSrc, events: events.length, added, updated, skippedPast, skippedFar });
-      out.canvas = { source: canvasSrc, events: events.length, added, updated, skippedPast, skippedFar, horizonDays: horizon };
+      out.canvas = { source: canvasSrc, events: events.length, added, updated, skippedPast, skippedFar, skippedMeetings, horizonDays: horizon };
     } catch (e) {
       errors.canvas = e instanceof IcsFetchError ? e.message : "could not read that Canvas feed";
     }

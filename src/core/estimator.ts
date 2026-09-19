@@ -52,16 +52,36 @@ export class Estimator {
   }
 }
 
-/** Title heuristics for a first estimate before any samples exist. */
+/**
+ * Title heuristics for a first estimate before any samples exist.
+ *
+ * The specific rules below the original ones come from reading a real Canvas
+ * feed rather than from imagination. On that feed 50 of 59 imported tasks fell
+ * through to the default 60, which makes the capacity ledger meaningless: a
+ * weekly discussion post and a full case study cannot both be an hour. Every
+ * pattern here was seen in that feed.
+ *
+ * Order matters. The narrowest, most confident rules go first, because
+ * "Attendance Quiz - Week 1" must not be read as an exam and "Case Study:
+ * Performance Improvement Consulting" must not be read as a project.
+ */
 export function heuristicMinutes(title: string): number {
   const s = title.toLowerCase();
+  // Checks and administrivia: short, and the most commonly mis-sized upward.
+  if (/(attendance|sign.?up|survey|evaluation|introduce yourself|student (video )?introduction)/.test(s)) return 15;
+  if (/(certification|articles?|templates?)\b/.test(s)) return 45;
+  // Weekly posts. On this feed "Week N - Consulting Legend - <person>" is a
+  // recurring discussion post, not a piece of research.
+  if (/^week\s*\d+\b/.test(s) || /(discussion|post|reflection)/.test(s)) return 30;
+  if (/(quiz)/.test(s)) return 45;
+  if (/(case stud|case analysis)/.test(s)) return 120;
+  if (/(simulation|module|workshop|coach)/.test(s)) return 75;
+  if (/(presentation|slide deck|pitch)/.test(s)) return 120;
   if (/(exam|midterm|final)/.test(s)) return 240;
   if (/(project|paper|essay|report)/.test(s)) return 180;
   if (/(problem set|pset|homework|hw|assignment)/.test(s)) return 90;
   if (/(lab)/.test(s)) return 120;
-  if (/(quiz)/.test(s)) return 45;
   if (/(reading|read|chapter)/.test(s)) return 40;
-  if (/(discussion|post|reflection)/.test(s)) return 30;
   return 60;
 }
 

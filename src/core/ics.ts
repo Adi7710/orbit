@@ -166,9 +166,69 @@ export function occursOn(ev: IcsEvent, day: Date, tz?: string): boolean {
 }
 
 /** "CMPSC 0441 - Discrete Structures" or "Problem Set 4 [MATH 0220]" -> course code. */
-export function courseCode(summary: string): string | undefined {
+/** The `[Course Name]` suffix Canvas appends to every event in a feed. */
+export function bracketName(summary: string): string | undefined {
   const m = summary.match(/\[([^\]]+)\]\s*$/);
-  if (m) return m[1].trim();
+  return m ? m[1].trim() : undefined;
+}
+
+/**
+ * "2026F MGT 808-WS Tuesday Class" -> "MGT 808". Looks anywhere in the string,
+ * so it also finds the code Canvas tucks inside parentheses part-way through a
+ * title, and steps over the term prefix because "2026F" is not two letters.
+ */
+export function codeFromText(text: string): string | undefined {
+  // Three or four digits: Stevens writes FE 570, Pitt writes CS 0441. Pinning
+  // this at three silently dropped every Pitt code, which is the campus the
+  // rest of the app is built around.
+  const m = text.match(/\b([A-Z]{2,6})\s*(\d{3,4})\b/);
+  return m ? `${m[1]} ${m[2]}` : undefined;
+}
+
+/**
+ * A class meeting, not a piece of work: "2026F FE 570-A", "2025S MGT 808-WS1
+ * FUNDAMENTALS OF CONSULTING". Canvas publishes these into the same feed as
+ * assignments, and importing them as tasks invents hours of coursework that
+ * nobody has to do -- and then feeds that fiction into the habit history.
+ */
+export function isClassMeeting(summary: string): boolean {
+  return /^\s*\d{4}[A-Z]\s+[A-Z]{2,6}\s*\d{3,4}\b/.test(summary.replace(/\s*\[[^\]]+\]\s*$/, ""));
+}
+
+/**
+ * Learns "Fundamentals of Consulting" -> "MGT 808" from the events that happen
+ * to carry both, then lets every other event in that course borrow it.
+ *
+ * Canvas puts the course *code* only on class meetings and the odd title, and
+ * the course *name* on everything. Without this the estimator keys 37 tasks
+ * under "Fundamentals of Consulting" and 13 under "MGT 808" as if they were
+ * different courses, so neither bucket ever reaches the five samples it needs
+ * and the agent can never say "your MGT 808 estimates are 1.6x what you guess".
+ */
+export function resolveCourseCodes(summaries: string[]): Map<string, string> {
+  const votes = new Map<string, Map<string, number>>();
+  for (const s of summaries) {
+    const name = bracketName(s);
+    const code = codeFromText(s);
+    if (!name || !code) continue;
+    const m = votes.get(name) ?? new Map<string, number>();
+    m.set(code, (m.get(code) ?? 0) + 1);
+    votes.set(name, m);
+  }
+  const out = new Map<string, string>();
+  for (const [name, m] of votes) {
+    // A course can be renumbered between terms; take the code seen most often.
+    out.set(name, [...m.entries()].sort((a, b) => b[1] - a[1])[0][0]);
+  }
+  return out;
+}
+
+export function courseCode(summary: string, codes?: Map<string, string>): string | undefined {
+  // A code written in the title always wins: it is the most specific thing there.
+  const inTitle = codeFromText(summary.replace(/\s*\[[^\]]+\]\s*$/, ""));
+  if (inTitle) return inTitle;
+  const name = bracketName(summary);
+  if (name) return codes?.get(name) ?? name;
   const parts = summary.split(/\s+/);
   if (parts.length >= 2 && /^[A-Z]{2,}$/.test(parts[0]) && /^\d+[A-Z]?$/.test(parts[1].replace(/[,:-]+$/, ""))) {
     return `${parts[0]} ${parts[1].replace(/[,:-]+$/, "")}`;
@@ -203,7 +263,7 @@ export function blocksOn(day: Date, events: IcsEvent[], tz?: string): FixedBlock
 }
 
 /** Canvas assignments become tasks carrying their real due time. Date-only events are due at 23:59 in `tz` (server-local when omitted). */
-export function taskFromEvent(e: IcsEvent, tz?: string): Task {
+export function taskFromEvent(e: IcsEvent, tz?: string, codes?: Map<string, string>): Task {
   let due = e.start;
   if (e.allDay) {
     const wall = new Date(Date.UTC(e.start.getFullYear(), e.start.getMonth(), e.start.getDate(), 23, 59));
@@ -216,7 +276,7 @@ export function taskFromEvent(e: IcsEvent, tz?: string): Task {
     domain: "build",
     estimateMinutes: heuristicMinutes(title),
     dueAt: due,
-    courseCode: courseCode(e.summary),
+    courseCode: courseCode(e.summary, codes),
     source: "canvas",
     evidence: { kind: "ics", uid: e.uid },
   };
