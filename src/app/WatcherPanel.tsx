@@ -1,0 +1,178 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+
+type Trace = {
+  seq: number;
+  at: string;
+  event: { kind: string; headline: string; evidence: string };
+  tier: "A" | "B";
+  action: string;
+  reasoning: string;
+  applied: boolean;
+  proposalId?: string;
+  score?: number;
+  scores?: { grounded: number; tierCorrect: number; useful: number; voice: number };
+  verdict?: "keep" | "demote" | "suppress";
+  critique?: string;
+  judgedBy?: string;
+};
+type Kind = { kind: string; n: number; mean: number; grounded: number; tierCorrect: number; useful: number; voice: number; muted: boolean };
+type Status = { state: "running" | "paused" | "killed"; ticks: number; lastTickText?: string; trace: Trace[]; watching: string[]; fired?: Trace[] };
+
+/**
+ * The Watcher, made visible. A judge should be able to cancel a class and see
+ * the afternoon reorganise itself, with the reason for every move.
+ */
+export default function WatcherPanel({ onChange }: { onChange?: () => void }) {
+  const [s, setS] = useState<Status | null>(null);
+  const [busy, setBusy] = useState("");
+  const [flash, setFlash] = useState<number[]>([]);
+  const [ledger, setLedger] = useState<Kind[]>([]);
+  const [showLedger, setShowLedger] = useState(false);
+
+  const tick = useCallback(async (action?: string) => {
+    const r = await fetch("/api/watcher", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: action ?? "tick" }),
+    }).then((x) => x.json());
+    setS(r);
+    fetch("/api/critic").then((x) => x.json()).then((l) => setLedger(l.kinds ?? [])).catch(() => {});
+    if (r.fired?.length) {
+      setFlash(r.fired.map((f: Trace) => f.seq));
+      setTimeout(() => setFlash([]), 4000);
+      onChange?.();
+    }
+    return r;
+  }, [onChange]);
+
+  // Heartbeat. The Watcher is server-side; this just gives it a pulse while
+  // someone is looking, and a cron could do the same when nobody is.
+  useEffect(() => {
+    tick();
+    const id = setInterval(() => tick(), 6000);
+    return () => clearInterval(id);
+  }, [tick]);
+
+  const demo = async (action: string) => {
+    setBusy(action);
+    await fetch("/api/demo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+    await tick();
+    onChange?.();
+    setBusy("");
+  };
+
+  if (!s) return null;
+  const dot = s.state === "running" ? "bg-emerald-500" : s.state === "paused" ? "bg-amber-500" : "bg-zinc-400";
+
+  return (
+    <section className="rounded-2xl border p-5 md:col-span-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className={`h-2 w-2 rounded-full ${dot} ${s.state === "running" ? "animate-pulse" : ""}`} />
+          <h2 className="text-sm font-medium text-zinc-700">
+            The Watcher{" "}
+            <span className="font-normal text-zinc-400">
+              {s.state === "running" ? `is watching · ${s.ticks} checks` : s.state === "paused" ? "is paused" : "is off"}
+            </span>
+          </h2>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="hidden text-zinc-400 sm:inline">{s.lastTickText}</span>
+          {s.state === "running" ? (
+            <button onClick={() => tick("pause")} className="rounded-full border px-3 py-1 hover:border-zinc-400">Pause</button>
+          ) : (
+            <button onClick={() => tick("resume")} className="rounded-full border px-3 py-1 hover:border-zinc-400">Resume</button>
+          )}
+          <button onClick={() => tick("kill")} className="rounded-full border border-red-200 px-3 py-1 text-red-600 hover:bg-red-50">Kill</button>
+        </div>
+      </div>
+
+      <p className="mt-2 text-xs text-zinc-500">
+        Watching {s.watching.join(" · ")}. It changes your own screen on its own and asks before anything leaves the app.
+        Every decision is graded by a second model before you see it, and that grader can only ever make it quieter.
+      </p>
+
+      {ledger.length > 0 && (
+        <div className="mt-3">
+          <button onClick={() => setShowLedger((v) => !v)} className="text-xs font-medium text-zinc-500 hover:text-zinc-900">
+            {showLedger ? "Hide" : "Show"} how its behaviours are scoring ({ledger.length})
+          </button>
+          {showLedger && (
+            <table className="mt-2 w-full text-left text-xs">
+              <thead className="text-zinc-400">
+                <tr><th className="py-1 font-normal">behaviour</th><th className="font-normal">seen</th><th className="font-normal">score</th><th className="font-normal">grounded</th><th className="font-normal">right to ask</th><th className="font-normal">useful</th><th className="font-normal">voice</th></tr>
+              </thead>
+              <tbody>
+                {ledger.map((k) => (
+                  <tr key={k.kind} className={k.muted ? "text-zinc-400 line-through" : ""}>
+                    <td className="py-0.5">{k.kind.replace(/_/g, " ")}{k.muted && <span className="ml-1 no-underline">muted</span>}</td>
+                    <td className="tabular-nums">{k.n}</td>
+                    <td className={`tabular-nums font-medium ${k.mean < 2.5 ? "text-red-600" : k.mean < 3.5 ? "text-amber-600" : "text-emerald-700"}`}>{k.mean}</td>
+                    <td className="tabular-nums">{k.grounded}</td><td className="tabular-nums">{k.tierCorrect}</td><td className="tabular-nums">{k.useful}</td><td className="tabular-nums">{k.voice}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button disabled={!!busy} onClick={() => demo("cancel_class")} className="rounded-full bg-zinc-900 px-3 py-1.5 text-xs text-white disabled:opacity-50">
+          {busy === "cancel_class" ? "…" : "Cancel a class"}
+        </button>
+        <button disabled={!!busy} onClick={() => demo("overload")} className="rounded-full border px-3 py-1.5 text-xs hover:border-zinc-400">
+          {busy === "overload" ? "…" : "Drop a 7-hour deliverable on me"}
+        </button>
+        <button disabled={!!busy} onClick={() => demo("restore")} className="rounded-full border px-3 py-1.5 text-xs text-zinc-500 hover:border-zinc-400">
+          Put it back
+        </button>
+      </div>
+
+      {s.trace.length === 0 ? (
+        <p className="mt-4 text-sm text-zinc-400">Nothing has changed since it started looking.</p>
+      ) : (
+        <ol className="mt-4 space-y-2">
+          {s.trace.map((t) => (
+            <li
+              key={t.seq}
+              className={`rounded-xl border p-3 transition-colors duration-1000 ${flash.includes(t.seq) ? "border-amber-300 bg-amber-50" : "border-zinc-100 bg-zinc-50/60"}`}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${t.tier === "A" ? "bg-zinc-200 text-zinc-700" : "bg-amber-200 text-amber-900"}`}>
+                  {t.tier === "A" ? "ACTED" : "ASKING"}
+                </span>
+                <span className="text-sm font-medium text-zinc-800">{t.event.headline}</span>
+                {t.score !== undefined && (
+                  <span
+                    title={t.scores ? `grounded ${t.scores.grounded}/5 · right to ask ${t.scores.tierCorrect}/5 · useful ${t.scores.useful}/5 · voice ${t.scores.voice}/5 · judged by ${t.judgedBy}` : ""}
+                    className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${t.verdict === "suppress" ? "bg-red-100 text-red-700" : t.verdict === "demote" ? "bg-zinc-200 text-zinc-600" : "bg-emerald-100 text-emerald-800"}`}
+                  >
+                    {t.score}/5
+                  </span>
+                )}
+                <span className="ml-auto text-[10px] text-zinc-400">{new Date(t.at).toLocaleTimeString()}</span>
+              </div>
+              <div className="mt-1.5 grid gap-1 text-xs text-zinc-600 sm:grid-cols-[auto_1fr] sm:gap-x-3">
+                <span className="text-zinc-400">noticed</span><span>{t.event.evidence}</span>
+                <span className="text-zinc-400">did</span><span className="font-medium text-zinc-800">{t.action}</span>
+                <span className="text-zinc-400">because</span><span>{t.reasoning}</span>
+              </div>
+              {t.critique && t.critique !== "checked without a model" && (
+                <div className="mt-1 text-xs text-zinc-500">grader: {t.critique}</div>
+              )}
+              {t.verdict === "suppress" ? (
+                <div className="mt-1.5 text-xs font-medium text-red-700">Held back: it did not pass the grader, so you were never shown it.</div>
+              ) : (
+                !t.applied && t.tier === "B" && <div className="mt-1.5 text-xs font-medium text-amber-700">Waiting for you in Proposals below.</div>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}

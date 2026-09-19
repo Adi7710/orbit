@@ -56,7 +56,31 @@ Browser mic  ──WebRTC──▶  ElevenLabs Agent  ──HTTPS webhook──�
                           /api/voice/token  (mints it, plus the opening briefing)
 ```
 
-The agent lives in ElevenLabs' cloud, so **its webhooks must reach a public URL**. Localhost does not work. That makes the deploy or an ngrok tunnel the first blocking step, not an afterthought.
+The agent lives in ElevenLabs' cloud, so **its webhooks must reach a public URL**. Localhost does not work. That makes the deploy or a tunnel the first blocking step, not an afterthought.
+
+### When the tunnel rotates, the tools follow it
+
+A Cloudflare quick tunnel is ephemeral; ours was revoked about an hour after it started. When the URL changes, the four registered tools keep pointing at a host that no longer resolves, and **this failure is silent in the worst possible way**: the agent calls a dead webhook, gets nothing back, and improvises around the missing numbers. Inventing a number is the single thing the whole server-composes-the-sentence design exists to prevent, so a rotated tunnel does not merely break voice, it turns voice into the failure mode we promised judges we had engineered away.
+
+So the URL follows the tunnel automatically. `scripts/tunnel.mjs` now calls `repoint()` the moment it sees a new URL:
+
+```
+>>> PUBLIC URL: https://departmental-discussion-inf-whats.trycloudflare.com
+  get_bus -> …/api/voice/tool?tool=get_bus
+  …
+>>> voice tools re-pointed (4/4)
+```
+
+`scripts/repoint-voice.mjs` **PATCHes `api_schema.url` in place** on the four tools it recognises by name. This is deliberately not `setup-voice-agent.mjs`, which deletes the tools, recreates them, creates a *new* agent and writes a new `ELEVENLABS_AGENT_ID` that only takes effect after a dev-server restart. That is fine once, at the start; it is not something you can do while a judge is holding the microphone. Because only the URL changes, tool ids stay valid, `ELEVENLABS_AGENT_ID` stays the same, and nothing restarts.
+
+Run it by hand if you ever need to, including to point the agent at a Vercel deployment:
+
+```
+node scripts/repoint-voice.mjs                        # uses .tunnel-url.txt
+node scripts/repoint-voice.mjs https://your.vercel.app
+```
+
+If re-pointing fails, the tunnel still comes up and the log says exactly what to run. A browsable URL with stale voice tools beats no URL at all.
 
 Latency budget per turn: about 150 ms speech to text, a few hundred milliseconds for Claude with a tool call, 75 ms text to speech, plus roughly half a second of player buffer. Call it one to two seconds from the end of your sentence to the first word back. Any tool slower than 400 ms gets a spoken filler first ("let me check").
 

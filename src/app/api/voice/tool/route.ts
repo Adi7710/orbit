@@ -21,14 +21,13 @@ export async function POST(req: Request) {
   if (secret && req.headers.get("x-orbit-secret") !== secret) {
     return NextResponse.json({ text: "I am not allowed to reach your schedule." }, { status: 401 });
   }
-  let body: VoiceRequest;
+  // The tool name lives in the URL, not the body. Each registered tool has its
+  // own fixed URL and supplies only arguments, so the model cannot pick the
+  // wrong tool by mis-filling a field.
+  const tool = new URL(req.url).searchParams.get("tool");
+  const body = (await req.json().catch(() => ({}))) as VoiceRequest;
   try {
-    body = (await req.json()) as VoiceRequest;
-  } catch {
-    return NextResponse.json({ text: "I did not catch that." }, { status: 400 });
-  }
-  try {
-    const r = await handleVoiceTool(body);
+    const r = await handleVoiceTool({ ...body, tool: tool ?? body.tool });
     return NextResponse.json({ text: r.text, ok: r.ok, ...(r.data ? { data: r.data } : {}) });
   } catch (e) {
     return NextResponse.json({ text: "I cannot reach your schedule right now.", ok: false, error: (e as Error).message }, { status: 500 });

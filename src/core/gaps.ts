@@ -16,6 +16,14 @@ export const SETTLE_MINUTES = 5;
 /** Below this a gap is a coffee, not a work session. */
 export const MIN_USABLE = 25;
 
+/**
+ * A window is identified by the minute it starts, not by its position in the
+ * list. Positional ids ("gap-0") silently re-label a different window whenever
+ * a class is added or cancelled, which makes any diff between two versions of
+ * the day meaningless.
+ */
+export const gapId = (startMinutes: number) => `g${startMinutes}`;
+
 /** Between-commitment holes with the walk and the settle-in already removed. */
 export function findGaps(blocks: FixedBlock[], profile: DayProfile, travel: TravelGraph): Gap[] {
   const dayStart = profile.wake + profile.morningRoutineMinutes;
@@ -24,7 +32,6 @@ export function findGaps(blocks: FixedBlock[], profile: DayProfile, travel: Trav
   const out: Gap[] = [];
   let cursor = dayStart;
   let cursorPlace: PlaceId | undefined = profile.home;
-  let i = 0;
 
   for (const b of ordered) {
     if (b.start <= cursor) {
@@ -38,7 +45,7 @@ export function findGaps(blocks: FixedBlock[], profile: DayProfile, travel: Trav
     const wStart = cursor === dayStart ? cursor : cursor + SETTLE_MINUTES;
     const wEnd = b.start - walk;
     if (wEnd - wStart >= MIN_USABLE) {
-      out.push({ id: `gap-${i++}`, start: wStart, end: wEnd, fromPlace: cursorPlace, toPlace: b.place, usable: wEnd - wStart, isEvening: false });
+      out.push({ id: gapId(wStart), start: wStart, end: wEnd, fromPlace: cursorPlace, toPlace: b.place, usable: wEnd - wStart, isEvening: false });
     }
     cursor = b.end;
     cursorPlace = b.place;
@@ -48,7 +55,7 @@ export function findGaps(blocks: FixedBlock[], profile: DayProfile, travel: Trav
   const tailStart = cursor === dayStart ? cursor : cursor + SETTLE_MINUTES;
   const tailEnd = dayEnd - walkHome;
   if (tailEnd - tailStart >= MIN_USABLE) {
-    out.push({ id: `gap-${i}`, start: tailStart, end: tailEnd, fromPlace: cursorPlace, toPlace: profile.home, usable: tailEnd - tailStart, isEvening: true });
+    out.push({ id: gapId(tailStart), start: tailStart, end: tailEnd, fromPlace: cursorPlace, toPlace: profile.home, usable: tailEnd - tailStart, isEvening: true });
   }
   return out;
 }
