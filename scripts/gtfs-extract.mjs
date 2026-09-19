@@ -32,8 +32,12 @@ const STOPS = {
   "7126": { role: "home-outbound", area: "Squirrel Hill", note: "Forbes Ave + Murray Ave, 61A/B/C/D outbound; alight here going home" },
   "1171": { role: "campus-inbound", area: "Bellefield", note: "Fifth Ave + Bellefield, westbound" },
   "2568": { role: "campus-outbound", area: "Bellefield", note: "Forbes Ave + Bellefield NS, eastbound" },
+  "8650": { role: "dorm-outbound", area: "Upper campus", note: "Allequippa St + Sutherland (Petersen Center): Sutherland/Panther Hall dorms, 81/83 down the hill" },
+  "18894": { role: "dorm-outbound", area: "Upper campus", note: "Terrace St + Sutherland Dr" },
+  "22747": { role: "campus-inbound", area: "West campus", note: "Fifth Ave at Robinson St FS: alight here from the 81/83, walk to the Cathedral" },
+  "9028": { role: "campus-outbound", area: "DeSoto", note: "DeSoto St + OHara, 81/83 back up the hill" },
 };
-const ROUTES = new Set(["61A", "61B", "61C", "61D", "71A", "71B", "71C", "71D", "P3", "75", "67", "69", "58", "93", "54", "28X"]);
+const ROUTES = new Set(["61A", "61B", "61C", "61D", "71A", "71B", "71C", "71D", "P3", "75", "67", "69", "58", "93", "54", "28X", "81", "83"]);
 
 function parseCsvLine(line) {
   const out = [];
@@ -124,6 +128,33 @@ for await (const r of rows(path.join(dir, "stop_times.txt"))) {
 for (const d of departures) d.tripStart = trips[d.trip].start;
 departures.sort((a, b) => a.stop.localeCompare(b.stop) || a.sec - b.sec);
 
+// Route shapes for the map: the most common shape per route+direction on weekday service, thinned to every 4th point.
+const MAP_ROUTES = new Set(["61A", "61B", "61C", "61D", "71A", "71B", "71C", "71D", "81", "83"]);
+const shapeVotes = {};
+for await (const r of rows(path.join(dir, "trips.txt"))) {
+  const route = routes[r.route_id]?.short;
+  if (!route || !MAP_ROUTES.has(route) || r.service_id !== "2") continue;
+  const k = `${route}|${r.direction_id}`;
+  shapeVotes[k] ??= {};
+  shapeVotes[k][r.shape_id] = (shapeVotes[k][r.shape_id] ?? 0) + 1;
+}
+const wantedShapes = {};
+for (const [k, votes] of Object.entries(shapeVotes)) {
+  const best = Object.entries(votes).sort((a, b) => b[1] - a[1])[0][0];
+  wantedShapes[best] = k;
+}
+const shapePts = {};
+for await (const r of rows(path.join(dir, "shapes.txt"))) {
+  const k = wantedShapes[r.shape_id];
+  if (!k) continue;
+  (shapePts[k] ??= []).push([+r.shape_pt_sequence, +(+r.shape_pt_lat).toFixed(5), +(+r.shape_pt_lon).toFixed(5)]);
+}
+const shapes = {};
+for (const [k, pts] of Object.entries(shapePts)) {
+  pts.sort((a, b) => a[0] - b[0]);
+  shapes[k] = pts.filter((_, i) => i % 4 === 0 || i === pts.length - 1).map(([, lat, lon]) => [lat, lon]);
+}
+
 const out = {
   generatedAt: new Date().toISOString(),
   source: GTFS_URL,
@@ -132,6 +163,7 @@ const out = {
   calendarDates: calendarDates.map((c) => ({ id: c.service_id, date: c.date, type: +c.exception_type })),
   stops,
   routes: Object.values(routes),
+  shapes,
   departures,
 };
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
