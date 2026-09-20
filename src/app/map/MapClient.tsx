@@ -39,6 +39,8 @@ export default function MapClient() {
   const layers = useRef<L.LayerGroup | null>(null);
   const Lref = useRef<typeof L | null>(null);
   const [j, setJ] = useState<Journey | null>(null);
+  // Mirrors `j` for the poll timer, so the interval never depends on state it sets.
+  const latest = useRef<Journey | null>(null);
   const [sel, setSel] = useState(0);
   // Deep link: the Today bus card links here with the exact leg it is showing,
   // so the two screens never open on different journeys.
@@ -58,6 +60,7 @@ export default function MapClient() {
       if (data.error) { setErr(data.error); return; }
       setErr("");
       setJ(data);
+      latest.current = data;
       setUpdatedAgo(0);
       setSel((s) => Math.min(s, Math.max(0, data.options.length - 1)));
     } catch (e) {
@@ -65,7 +68,47 @@ export default function MapClient() {
     }
   }, [from, to, arriveBy]);
 
-  useEffect(() => { load(); const t = setInterval(load, REFRESH_MS); return () => clearInterval(t); }, [load]);
+  /**
+   * Polling that matches how fast the answer actually changes.
+   *
+   * A fixed fifteen seconds burned three PRT feeds a minute whether or not the
+   * page was on screen and whether or not anything was live -- including in a
+   * background tab nobody was looking at. A timetable-only departure an hour
+   * out does not change every fifteen seconds, and a hidden tab changes
+   * nothing at all.
+   */
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    let stopped = false;
+
+    const period = () => {
+      if (document.visibilityState === "hidden") return null;      // nobody is looking
+      // Read the latest journey from a ref, not from the closure. Depending on
+      // `j` here would tear down and rebuild this timer on every single fetch,
+      // because load() sets it.
+      const cur = latest.current;
+      const anyLive = cur?.options.some((o) => o.status === "live" && o.vehicle);
+      const soonest = cur?.options[0] ? (cur.options[0].departsSec - cur.clock.sec) / 60 : 99;
+      if (anyLive && soonest <= 20) return REFRESH_MS;             // a bus is moving and it is close
+      if (anyLive) return REFRESH_MS * 2;
+      return REFRESH_MS * 4;                                        // timetable only: nothing to refresh
+    };
+
+    const tick = async () => {
+      if (stopped) return;
+      const ms = period();
+      if (ms !== null) await load();
+      if (!stopped) timer = setTimeout(tick, ms ?? REFRESH_MS);
+    };
+
+    load();
+    timer = setTimeout(tick, period() ?? REFRESH_MS);
+    // Catch up straight away when the tab comes back, rather than showing a
+    // stale bus until the next tick.
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { stopped = true; clearTimeout(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, [load]);
 
   useEffect(() => {
     const q = new URLSearchParams({ from, to });

@@ -1,4 +1,4 @@
-import { STOP, departuresAt, rideMinutes, stopInfo, routeShape, isFeedValid } from "@/services/schedule";
+import { STOP, bestStopPair, departuresAt, rideMinutes, stopInfo, routeShape, isFeedValid } from "@/services/schedule";
 import { clock, realtimeIndex, type Clock } from "@/services/prt";
 import { vehiclePositions, type VehiclePosition } from "@/services/vehicles";
 import { decodePolyline, haversineMeters, nearestIndex, pathMeters, walkMinutes, type LatLon } from "@/core/geo";
@@ -56,6 +56,8 @@ export interface BusOption {
   vehicle?: { id: string; lat: number; lon: number; bearing?: number; ageSec: number; metersToStop: number; stopsAway?: number };
   leaveBySec: number; leaveByText: string; rideMinutes: number; rideIsLive: boolean; confidence: Confidence; alightSec: number; arriveSec: number; arriveText: string;
   verdict: { makesIt: boolean; marginMin: number };
+  /** PRT says this route is out of service. Shown, never recommended. */
+  suspended?: boolean;
   shape: [number, number][]; // route polyline trimmed from the bus (or board stop) to the alight stop
 }
 
@@ -72,6 +74,12 @@ export interface Journey {
   feedValid: boolean;
   /** Live PRT service alerts touching these routes or stops, stop moves first. */
   alerts: ServiceAlert[];
+  /**
+   * True when no single trip runs between these stops. Orbit does not plan
+   * transfers, and saying "no bus" when the real answer is "no bus without
+   * changing" is the kind of wrong that sends somebody walking for an hour.
+   */
+  noDirectRoute: boolean;
 }
 
 /**
@@ -118,8 +126,18 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
   const c = opts.now ?? clock();
   const goingHome = opts.to === "Home";
   const fromB = BUILDINGS[opts.from], toB = BUILDINGS[opts.to];
-  const boardId = goingHome ? fromB.boardOutbound : BUILDINGS.Home.boardOutbound;
-  const alightId = goingHome ? BUILDINGS.Home.alightInbound : toB.alightInbound;
+  // Stops are chosen from the data, not from a table.
+  //
+  // The hardcoded board/alight per building meant a new location needed a code
+  // change, and "somewhere on campus" was not a question Orbit could answer.
+  // bestStopPair resolves any two coordinates to the pair a single trip
+  // actually serves in that order -- direction proved by the trip's own stop
+  // sequence rather than asserted by a stop's name. The old table stays as a
+  // fallback for the case where nothing is within walking distance.
+  const originPt = opts.origin ?? fromB;
+  const pair = bestStopPair(originPt, toB, c.ymd, Math.max(0, c.sec - 300));
+  const boardId = pair?.boardId ?? (goingHome ? fromB.boardOutbound : BUILDINGS.Home.boardOutbound);
+  const alightId = pair?.alightId ?? (goingHome ? BUILDINGS.Home.alightInbound : toB.alightInbound);
   if (!boardId || !alightId) return undefined;
   const bs = stopInfo(boardId), as = stopInfo(alightId);
   if (!bs || !as) return undefined;
@@ -129,7 +147,11 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
 
   const [walkToStop, walkToDest] = await Promise.all([walk(origin, boardStop), walk(alightStop, toB)]);
   const feedValid = isFeedValid(c.ymd);
-  const sched = feedValid ? departuresAt(boardId, c.ymd, c.sec - 60, 90 * 60, HOME_ROUTES) : [];
+  // Whatever actually serves this pair today, rather than a fixed 61x list --
+  // the hardcoded routes were right for Oakland to Squirrel Hill and wrong for
+  // every other pair of points on campus.
+  const usableRoutes = pair?.routes.length ? pair.routes : HOME_ROUTES;
+  const sched = feedValid ? departuresAt(boardId, c.ymd, c.sec - 60, 90 * 60, usableRoutes) : [];
   const ride = rideMinutes(boardId, alightId, c.ymd, c.sec) ?? 12;
   const live = c.simulated ? { index: new Map(), ok: false } : await realtimeIndex();
   const veh = c.simulated ? { byTrip: new Map<string, VehiclePosition>(), ok: false } : await vehiclePositions();
@@ -190,8 +212,23 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
       shape,
     });
   }
-  // Live delays reorder buses; sort by when they actually leave and keep the next four.
-  options.sort((a, b) => a.departsSec - b.departsSec);
+  // A route PRT says is out of service is demoted, not deleted.
+  //
+  // Deleting it means a student's usual bus silently vanishes with no reason
+  // given, and if the alert is wrong or stale they have lost a real option
+  // they could see with their own eyes at the stop. Demoting keeps it visible,
+  // keeps the reason attached, and makes sure it is never the one we
+  // recommend -- which is the part that actually matters.
+  const suspended = new Set(
+    alertsFor(alertFeed.alerts, [...new Set(options.map((o) => o.route))], [boardId, alightId])
+      .filter((a) => a.effect === "NO_SERVICE")
+      .flatMap((a) => a.routes),
+  );
+  for (const o of options) if (suspended.has(o.route)) o.suspended = true;
+
+  // Live delays reorder buses; sort by when they actually leave, with anything
+  // suspended pushed behind everything that is actually running.
+  options.sort((a, b) => Number(a.suspended ?? false) - Number(b.suspended ?? false) || a.departsSec - b.departsSec);
   options.splice(4);
 
   return {
@@ -202,5 +239,6 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
     realtime: { tripsOk: live.ok, vehiclesOk: veh.ok, alertsOk: alertFeed.ok },
     feedValid,
     alerts: alertsFor(alertFeed.alerts, [...new Set(options.map((o) => o.route))], [boardId, alightId]),
+    noDirectRoute: !pair && options.length === 0,
   };
 }
