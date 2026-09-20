@@ -13,9 +13,12 @@ final class JourneyModel {
     var error: String?
     var updatedAt: Date = .distantPast
 
+    // Jersey City to Stevens. These were "Cathedral" and "15:30", which are a
+    // building and a class in Pittsburgh. Babbio is where the three courses on
+    // the Canvas feed meet; 14:30 is the last of them.
     var from = "Home"
-    var to = "Cathedral"
-    var arriveBy = "15:30"
+    var to = "Babbio"
+    var arriveBy = "14:30"
 
     private var task: Task<Void, Never>?
 
@@ -56,6 +59,14 @@ struct JourneyMapView: View {
     // arrives; this is only what the map shows before it has one.
     @State private var camera: MapCameraPosition = .region(.init(center: .init(latitude: 40.7196, longitude: -74.0430), span: .init(latitudeDelta: 0.06, longitudeDelta: 0.06)))
     @State private var locationManager = CLLocationManager()
+
+    /// Sends the student back to Today. The tab bar owns the selection; this
+    /// screen only asks. Nil when the map is shown on its own.
+    var onHome: (() -> Void)?
+
+    init(onHome: (() -> Void)? = nil) {
+        self.onHome = onHome
+    }
 
     /// Seeded with the one place that exists in every region so the pickers
     /// are never empty on the first frame, then replaced by the server's list.
@@ -134,27 +145,63 @@ struct JourneyMapView: View {
 
     // MARK: - Pieces
 
+    /// A way back, the two places, and whether the times are live. The pickers
+    /// sit centred as a pair -- from, arrow, to -- each in its own capsule with
+    /// an eyebrow above, so the question the map answers reads as one phrase.
     private var header: some View {
-        HStack(spacing: 8) {
-            Picker("", selection: $model.from) { ForEach(places, id: \.self, content: Text.init) }
-                .labelsHidden()
-                .task {
-                    if let loaded = try? await OrbitAPI.shared.places(), !loaded.isEmpty {
-                        places = loaded.map(\.label)
+        VStack(spacing: 10) {
+            HStack {
+                if let onHome {
+                    Button(action: onHome) {
+                        Label("Today", systemImage: "chevron.left")
+                            .font(.system(size: 14, weight: .semibold))
                     }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.orbitAccentInk)
+                    .accessibilityLabel("Back to Today")
                 }
-            Image(systemName: "arrow.right").foregroundStyle(.secondary)
-            Picker("", selection: $model.to) { ForEach(places, id: \.self, content: Text.init) }.labelsHidden()
-            Spacer()
-            if let j = model.journey {
-                Text(j.clock.simulated ? "demo \(j.clock.text)" : j.realtime.tripsOk ? "live" : "timetable")
-                    .font(.caption2).foregroundStyle(.secondary)
+                Spacer()
+                if let j = model.journey {
+                    Text(j.clock.simulated ? "demo \(j.clock.text)" : j.realtime.tripsOk ? "live" : "timetable")
+                        .orbitEyebrow()
+                        .foregroundStyle(Color.orbitInkFaint)
+                }
+            }
+
+            HStack(spacing: 10) {
+                placePicker("From", selection: $model.from)
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.orbitInkFaint)
+                    .padding(.top, 14)
+                placePicker("To", selection: $model.to)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 10)
+        .background(.regularMaterial)
+        .task {
+            if let loaded = try? await OrbitAPI.shared.places(), !loaded.isEmpty {
+                places = loaded.map(\.label)
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
-        .background(.regularMaterial)
         .onChange(of: model.from) { Task { await model.load(origin: nil) } }
         .onChange(of: model.to) { Task { await model.load(origin: nil) } }
+    }
+
+    private func placePicker(_ label: String, selection: Binding<String>) -> some View {
+        VStack(spacing: 4) {
+            Text(label)
+                .orbitEyebrow()
+                .foregroundStyle(Color.orbitInkFaint)
+            Picker(label, selection: selection) { ForEach(places, id: \.self, content: Text.init) }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .tint(Color.orbitInk)
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .background(Capsule().fill(Color.orbitSurface))
+                .overlay(Capsule().strokeBorder(Color.orbitHairline, lineWidth: 1))
+        }
     }
 
     private var sheet: some View {

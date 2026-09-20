@@ -85,16 +85,18 @@ struct TimelineHeaderView: View {
             Text("your calendar says")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(OrbitClassic.inkSoft)
+            // No line through it, by Adi's call. The soft ink and the real
+            // number sitting large in the rings below are enough to say which
+            // one to believe.
             Text(hm(ledger.naiveFree))
                 .font(.system(size: 17, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(OrbitClassic.inkSoft)
-                .strikethrough(true, color: OrbitClassic.inkSoft)
                 .contentTransition(.numericText())
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Your calendar says \(hm(ledger.naiveFree)), which is not right.")
+        .accessibilityLabel("Your calendar says \(hm(ledger.naiveFree)).")
     }
 
     /// A segmented control, the way the design picks a mode: one strip, the

@@ -55,6 +55,7 @@ targets:
       - path: OrbitAPI.swift
       - path: OrbitAPI+Today.swift
       - path: OrbitAPI+Voice.swift
+      - path: OrbitAPI+Settings.swift
       - path: JourneyMapView.swift
     dependencies:
       - package: ElevenLabs
