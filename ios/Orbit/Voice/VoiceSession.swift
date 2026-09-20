@@ -53,7 +53,6 @@ final class VoiceSession {
     private(set) var briefing = ""
     private(set) var turn: Turn = .listening
     private(set) var micOpen = false
-    private(set) var isReading = false
     /// Non-fatal trouble, worded by whoever produced it.
     private(set) var note: String?
     /// 0...1, smoothed. Read by the orb and by nothing else.
@@ -69,17 +68,8 @@ final class VoiceSession {
     /// Fired after the agent has spoken, so the day behind the sheet catches up.
     var onAgentActed: (() -> Void)?
 
-    // None of these are state a view reads, so they stay out of observation.
-    // `lazy` is not an option here either: the macro rewrites a tracked
-    // property into a computed one, and `lazy` cannot be applied to that.
+    // Not state a view reads, so it stays out of observation.
     @ObservationIgnored private var conversation: Conversation?
-    @ObservationIgnored private let speech = AVSpeechSynthesizer()
-    @ObservationIgnored private let speechWatcher = SpeechWatcher()
-
-    init() {
-        speech.delegate = speechWatcher
-        speechWatcher.onStop = { [weak self] in self?.isReading = false }
-    }
 
     // MARK: - Opening
 
@@ -204,27 +194,21 @@ final class VoiceSession {
         setMic(open: false)
     }
 
-    // MARK: - The fallback
+    // MARK: - When there is no call to be had
 
-    /// Reads the briefing aloud on the device. Not a substitute for the agent —
-    /// it cannot answer anything — but it is the one thing voice was for that
-    /// still works with no keys, no signal and no minutes left.
-    func toggleReadBriefing() {
-        guard !briefing.isEmpty else { return }
-        if speech.isSpeaking {
-            speech.stopSpeaking(at: .immediate)
-            isReading = false
-            return
-        }
-        try? configureAudioSession(forPlaybackOnly: true)
-        let utterance = AVSpeechUtterance(string: briefing)
-        // The same 0.95 the agent's TTS runs at. Default rate reads a ledger
-        // like a disclaimer.
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.95
-        utterance.postUtteranceDelay = 0.2
-        speech.speak(utterance)
-        isReading = true
-    }
+    /// Deliberately absent: there is no device-side speech here any more.
+    ///
+    /// This used to read the briefing with `AVSpeechSynthesizer`, and that is
+    /// exactly where "robotic" came from. `OrbitVoice` plays audio the server
+    /// rendered in the same ElevenLabs voice the web agent uses, so the phone
+    /// and the browser sound like one person. `ios/Orbit/Voice/README.md` asks
+    /// for the synthesiser to be deleted wherever it is still called; this was
+    /// the last caller.
+    ///
+    /// The sheet drives `OrbitVoice.shared` directly, because it is an
+    /// `ObservableObject` and a view has to observe it to redraw while it
+    /// plays. Routing it through this type would hide those updates behind
+    /// `@Observable` and the caption would never appear.
 
     // MARK: - Internals
 
@@ -263,15 +247,11 @@ final class VoiceSession {
         return false
     }
 
-    private func configureAudioSession(forPlaybackOnly: Bool = false) throws {
+    private func configureAudioSession() throws {
         let session = AVAudioSession.sharedInstance()
-        if forPlaybackOnly {
-            try session.setCategory(.playback, mode: .spokenAudio, options: [])
-        } else {
-            // .voiceChat gives echo cancellation, which is what lets you hold
-            // the phone away from your face and still be understood.
-            try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetooth])
-        }
+        // .voiceChat gives echo cancellation, which is what lets you hold
+        // the phone away from your face and still be understood.
+        try AVAudioSession.sharedInstance().setCategory(.playAndRecord, mode: .voiceChat, options: [.defaultToSpeaker, .allowBluetooth])
         try session.setActive(true)
     }
 
@@ -309,16 +289,3 @@ final class VoiceSession {
     }
 }
 
-/// `AVSpeechSynthesizerDelegate` is an `NSObject` protocol and `VoiceSession`
-/// is not one, so the callback lands here and is forwarded.
-private final class SpeechWatcher: NSObject, AVSpeechSynthesizerDelegate {
-    var onStop: (@MainActor () -> Void)?
-
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.onStop?() }
-    }
-
-    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.onStop?() }
-    }
-}

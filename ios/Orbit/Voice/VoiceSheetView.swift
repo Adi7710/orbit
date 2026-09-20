@@ -17,6 +17,11 @@ struct VoiceSheetView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// Orbit speaking, for when there is no call to be had. Observed here
+    /// rather than through `session` because it is an `ObservableObject`: the
+    /// view has to watch it directly or the caption never appears.
+    @ObservedObject private var speaker = OrbitVoice.shared
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -132,41 +137,23 @@ struct VoiceSheetView: View {
             } else {
                 HStack(alignment: .top, spacing: 12) {
                     Capsule()
-                        .fill(Color.orbitHairline)
+                        .fill(speaker.isSpeaking ? Color.orbitAccentInk : Color.orbitHairline)
                         .frame(width: 2)
-                    // Composed by the server from the real ledger. Printed
-                    // verbatim — this is the sentence the agent would speak.
-                    Text(session.briefing)
+                    // Composed by the server from the real ledger, printed
+                    // verbatim. While Orbit is speaking this becomes the
+                    // caption instead: the words coming out of the speaker are
+                    // the authority on what is being said, and the briefing and
+                    // the spoken line are composed by different tools. Seeing
+                    // the sentence is how a student checks the number they
+                    // heard is the number on the screen behind this.
+                    Text(speaker.isSpeaking && !speaker.caption.isEmpty ? speaker.caption : session.briefing)
                         .font(.orbitBody)
-                        .foregroundStyle(Color.orbitInkSoft)
+                        .foregroundStyle(speaker.isSpeaking ? Color.orbitInk : Color.orbitInkSoft)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                .animation(OrbitMotion.snap(reduceMotion), value: speaker.isSpeaking)
             }
         }
-    }
-
-    /// The phone reading the briefing out. Not a substitute for the agent — it
-    /// answers nothing — but it is the one thing voice was for that survives
-    /// with no keys, no signal and no minutes left, and it is the reason the
-    /// "voice is off" state still has something to press.
-    private var readAloudButton: some View {
-        Button {
-            session.toggleReadBriefing()
-        } label: {
-            HStack(spacing: 7) {
-                Image(systemName: session.isReading ? "stop.fill" : "speaker.wave.2.fill")
-                    .font(.system(size: 11, weight: .semibold))
-                Text(session.isReading ? "Stop" : "Read it to me")
-            }
-            .orbitEyebrow()
-            .foregroundStyle(Color.orbitInk)
-            .padding(.horizontal, 22)
-            .padding(.vertical, 14)
-            .background(Capsule().fill(Color.orbitSurface))
-            .overlay(Capsule().strokeBorder(Color.orbitHairline, lineWidth: 1))
-        }
-        .buttonStyle(.orbitTile)
-        .disabled(session.briefing.isEmpty)
     }
 
     private func transcriptLine(_ line: VoiceSession.Line) -> some View {
@@ -189,8 +176,15 @@ struct VoiceSheetView: View {
         VStack(spacing: 10) {
             // With no token there is nothing to hold, so there is no orb to
             // hold it. A large dead circle reads as a button that ignores you.
+            // No token means there is nothing to hold, so there is no orb to
+            // hold — a large dead circle reads as a button that ignores you.
+            // What is left is still worth having: Orbit reading the day out in
+            // its own voice, rendered by the server. `SpeakButton` is that,
+            // with its caption suppressed because the sentence is already
+            // above.
             if case .unavailable = session.phase {
-                readAloudButton.padding(.vertical, 12)
+                SpeakButton(line: .today, label: "Hear your day", showsCaption: false)
+                    .padding(.vertical, 12)
             } else {
                 orb
             }
@@ -283,7 +277,16 @@ struct VoiceSheetView: View {
         case .connecting:
             return "Waking Orbit up."
         case .unavailable(let reason):
-            return "\(reason). The briefing above is the same text it would read."
+            // Deliberately does not repeat the failure: `SpeakButton` prints
+            // its own error directly under the button that failed, which is
+            // where it belongs. Saying it twice made the sheet look broken in
+            // a way the single sentence does not.
+            //
+            // Nor does it still claim the briefing is "the same text it would
+            // read" — that was true of the synthesiser reading this paragraph.
+            // Orbit now speaks a line the server composes, and the caption
+            // above becomes those words while it plays.
+            return "\(reason) — a conversation needs one. You can still hear your day."
         case .live:
             if session.handsFree {
                 return "Open mic. It hears everything in the room, including the next table."

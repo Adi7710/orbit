@@ -88,38 +88,41 @@ extension Color {
 
 // MARK: - Semantic colours
 
+// Repointed at `OrbitClassic` on 20 Sept. The names below are unchanged, so
+// every call site keeps working; what they resolve to is now the four-domain
+// palette on the system's own greys rather than the bone/obsidian ground.
+// Reverting is this one block. See DECISIONS.md, 20 Sept 01:20.
+
 extension Color {
-    static let orbitBackground = Color.orbit(light: OrbitToken.bone, dark: OrbitToken.obsidian)
-    /// The plate a card sits on. Opaque: an opaque fill is one blend, a
-    /// material is a blur pass.
-    static let orbitSurface = Color.orbit(light: OrbitToken.boneRaised, dark: OrbitToken.obsidianRaised)
+    static var orbitBackground: Color { OrbitClassic.ground }
+    /// The plate a card sits on.
+    static var orbitSurface: Color { OrbitClassic.surface }
     /// Wells, tracks, tab strips — a step *into* the page rather than out of it.
-    static let orbitSurfaceInset = Color.orbit(light: OrbitToken.boneInset, dark: OrbitToken.obsidianInset)
-    static let orbitHairline = Color.orbit(light: 0x111111, dark: 0xFFFFFF, opacity: 0.09)
+    static var orbitSurfaceInset: Color { OrbitClassic.surfaceDeep }
+    static var orbitHairline: Color { OrbitClassic.hairline }
 
-    /// The lime. A fill, spent once per screen. Pair with `orbitOnAccent`.
-    static let orbitAccent = Color(hex: OrbitToken.lime)
-    static let orbitOnAccent = Color(hex: OrbitToken.onLime)
+    /// The primary. A fill, carrying white.
+    static var orbitAccent: Color { Color(hex: OrbitClassic.primary) }
+    static var orbitOnAccent: Color { .white }
     /// The accent when it has to be text or a stroke rather than a fill.
-    static let orbitAccentInk = Color.orbit(light: OrbitToken.limeDeep, dark: OrbitToken.lime)
+    static var orbitAccentInk: Color { Color(hex: OrbitClassic.primary) }
 
-    static let orbitUrgent = Color.orbit(light: OrbitToken.emberDeep, dark: OrbitToken.ember)
-    /// Kept as a name the rest of the app already uses. In this system "live"
-    /// is carried by the lime, not by a third hue.
-    static let orbitLive = Color.orbit(light: OrbitToken.limeDeep, dark: OrbitToken.lime)
+    static var orbitUrgent: Color { Color(hex: OrbitClassic.crisis) }
+    /// Kept as a name the rest of the app already uses.
+    static var orbitLive: Color { Color(hex: OrbitClassic.primary) }
 
-    static let orbitInk = Color.orbit(light: OrbitToken.inkLight, dark: OrbitToken.inkDark)
-    static let orbitInkSoft = Color.orbit(light: OrbitToken.ink2Light, dark: OrbitToken.ink2Dark)
-    static let orbitInkFaint = Color.orbit(light: OrbitToken.ink3Light, dark: OrbitToken.ink3Dark)
+    static var orbitInk: Color { OrbitClassic.ink }
+    static var orbitInkSoft: Color { OrbitClassic.inkSoft }
+    static var orbitInkFaint: Color { OrbitClassic.inkFaint }
 
     /// Ring and spine colour per domain, matching `Domain` in `src/core/types.ts`.
     static func orbitDomain(_ domain: String) -> Color {
         switch domain {
-        case "learn": return .orbit(light: OrbitToken.limeDeep, dark: OrbitToken.lime)
-        case "build": return .orbit(light: OrbitToken.emberDeep, dark: OrbitToken.ember)
-        case "body":  return .orbit(light: OrbitToken.tealDeep, dark: OrbitToken.teal)
-        case "life":  return .orbit(light: OrbitToken.roseDeep, dark: OrbitToken.rose)
-        default:      return .orbitInkSoft
+        case "learn": return .classicLearn
+        case "build": return .classicBuild
+        case "body":  return .classicBody
+        case "life":  return .classicLife
+        default:      return OrbitClassic.inkSoft
         }
     }
 }
@@ -131,7 +134,7 @@ extension LinearGradient {
     /// buttons are flat; the gradient exists only so the capsule does not look
     /// like a sticker.
     static let orbitAccent = LinearGradient(
-        colors: [Color(hex: OrbitToken.lime), Color(hex: 0xC3E43A)],
+        colors: [Color(hex: OrbitClassic.primary), Color(hex: 0x2A62CC)],
         startPoint: .top,
         endPoint: .bottom
     )

@@ -48,6 +48,10 @@ targets:
       - path: Components
       - path: Today
       - path: Voice
+        # The folder carries its own README. Globbing the directory was
+        # bundling it into Orbit.app.
+        excludes:
+          - "README.md"
       - path: OrbitAPI.swift
       - path: OrbitAPI+Today.swift
       - path: OrbitAPI+Voice.swift
@@ -56,7 +60,7 @@ targets:
       - package: ElevenLabs
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.orbit.Orbit
+        PRODUCT_BUNDLE_IDENTIFIER: com.orbit.OrbitHacks
         PRODUCT_NAME: Orbit
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
@@ -65,7 +69,12 @@ targets:
         ENABLE_PREVIEWS: YES
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
-        CODE_SIGNING_ALLOWED: NO
+        # Set in Xcode on the Mac that runs the demo, and kept here so
+        # `xcodegen generate` cannot quietly throw it away again. A different
+        # team just changes this line. Simulator builds do not sign at all --
+        # the CLI passes CODE_SIGNING_ALLOWED=NO -- so this only matters for a
+        # real iPhone, which is exactly when you want it to be right.
+        DEVELOPMENT_TEAM: K9TDRPCGUS
     info:
       path: App/Info.plist
       properties:
@@ -100,9 +109,9 @@ targets:
       - target: Orbit
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.orbit.OrbitUITests
+        PRODUCT_BUNDLE_IDENTIFIER: com.orbit.OrbitHacksUITests
         TEST_TARGET_NAME: Orbit
-        CODE_SIGNING_ALLOWED: NO
+        DEVELOPMENT_TEAM: K9TDRPCGUS
 
 schemes:
   Orbit:

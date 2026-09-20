@@ -23,6 +23,15 @@ struct Today: Decodable {
     let tasks: [TaskItem]
     let transit: Transit
     let proposals: [Proposal]
+    /// What the weekly review has worked out about this student. Optional so a
+    /// build still decodes against a server deployed before the field existed;
+    /// empty renders nothing rather than an "all clear" card.
+    /// What to let go of when the day will not fit. Empty unless
+    /// `ledger.overCommitted`.
+    let cuts: [Cut]?
+    let learned: [LearnedFact]?
+    /// Deadlines the remaining work no longer fits in front of.
+    let atRisk: [AtRiskTask]?
 
     enum Mode: String, Decodable, CaseIterable {
         case normal, crisis, chill
@@ -45,6 +54,12 @@ struct Today: Decodable {
     struct Ledger: Decodable {
         let usable: Int
         let naiveFree: Int
+        /// Minutes between waking and sleeping. `fixed + travel + meals +
+        /// routines + usable` sums to exactly this, which is what makes it the
+        /// right whole for the ledger rings. `naiveFree` is NOT that whole —
+        /// it already has class taken out. Optional so a build still decodes
+        /// against a server deployed before the field existed.
+        let awake: Int?
         let travel: Int
         let meals: Int
         let routines: Int
@@ -151,6 +166,50 @@ struct Today: Decodable {
         let clockText: String
         let simulated: Bool
         let realtimeOk: Bool
+        /// Why there is nothing to catch. The server writes the sentence; the
+        /// app prints it. Present whenever `bus` is nil, which is most of the
+        /// day, and the reason "Getting there" is never an empty card.
+        let why: String?
+        /// The class a departure would be for, when one is still ahead.
+        let nextClass: NextClass?
+
+        struct NextClass: Decodable, Hashable {
+            let title: String
+            let startText: String
+            let minutesAway: Int
+        }
+    }
+
+    struct Cut: Decodable, Identifiable, Hashable {
+        let task: CutTask
+        let minutesSaved: Int
+
+        struct CutTask: Decodable, Hashable {
+            let title: String
+        }
+
+        var id: String { task.title }
+    }
+
+    struct LearnedFact: Decodable, Identifiable, Hashable {
+        let aspect: String
+        let label: String
+        /// Written by code on the server precisely so the words can never
+        /// disagree with the multiplier behind them. The app prints it and
+        /// never rephrases it. See DECISIONS, 20 Sept 03:05.
+        let sentence: String
+
+        /// One aspect can speak about several categories, so the sentence is
+        /// part of the identity.
+        var id: String { aspect + "::" + sentence }
+    }
+
+    struct AtRiskTask: Decodable, Identifiable, Hashable {
+        let taskId: String
+        let title: String
+        let needsMinutes: Int
+
+        var id: String { taskId }
     }
 
     struct Proposal: Decodable, Identifiable, Hashable {
