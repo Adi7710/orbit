@@ -18,60 +18,67 @@ export async function POST() {
   // start as "claude-sonnet-5" and be rewritten on failure, so a day with no
   // window -- where every tier returns nothing -- reported Claude with no
   // Anthropic key in the environment.
-  let provider = process.env.ANTHROPIC_API_KEY ? "" : "no ANTHROPIC_API_KEY";
+  //
+  // Order, by Adi's call: Nemotron first, Claude as the fallback, code last.
+  // Nemotron is the model this build is about; Claude is the stronger planner
+  // with the wider tool set (extension drafts, friend invites) and steps in
+  // when Nemotron cannot answer inside its budget. Either way, any window a
+  // model leaves empty gets the pick the Today screen already shows, so the
+  // demo never shows fewer proposals than the deterministic plan would have.
+  const missing: string[] = [];
+  if (!process.env.NVIDIA_API_KEY) missing.push("no NVIDIA_API_KEY");
+  if (!process.env.ANTHROPIC_API_KEY) missing.push("no ANTHROPIC_API_KEY");
+  let provider = missing.join(", ");
+  const ctx = { ledger: today.ledger, gaps: today.gaps, tasks: today.tasks, sharedWindows: today.shared, instructors: s.instructors, mode: s.mode };
 
-  if (process.env.ANTHROPIC_API_KEY) {
-    try {
-      const out = await planDay({
-        ledger: today.ledger,
-        gaps: today.gaps,
-        tasks: today.tasks,
-        sharedWindows: today.shared,
-        instructors: s.instructors,
-        mode: s.mode,
-      });
-      proposals = out.proposals;
-      narration = out.narration;
-      provider = "claude-sonnet-5";
-    } catch (e) {
-      provider = `claude failed (${(e as Error).message})`;
+  /** Fill windows the model skipped with the Today screen's own pick. Returns how many. */
+  const fillGaps = () => {
+    const taken = new Set(proposals.map((p) => ("gapId" in p ? p.gapId : undefined)));
+    let filled = 0;
+    for (const g of today.gaps) {
+      if (taken.has(g.id) || !g.pick) continue;
+      proposals.push({ kind: "move_task", taskId: g.pick.id, gapId: g.id, reason: `${g.pick.title} fits the ${g.usable}-minute window` });
+      filled++;
     }
-  }
+    return filled ? ` + code (${filled} window${filled === 1 ? "" : "s"} filled)` : "";
+  };
+  const note = (label: string) => { provider = provider ? `${provider}, ${label}` : label; };
 
-  // Nemotron is the second tier, not a consolation prize: with no Anthropic key
-  // it is what makes "Plan my day" a real agent call instead of a canned list.
-  // It may only propose moving a task or booking a room, and every id it
-  // returns is checked against the real gaps and tasks before anything is shown.
-  if (proposals.length === 0) {
-    const ctx = { ledger: today.ledger, gaps: today.gaps, tasks: today.tasks, sharedWindows: today.shared, instructors: s.instructors, mode: s.mode };
+  // Tier 1: Nemotron. move_task and book_room only; every id checked.
+  if (process.env.NVIDIA_API_KEY) {
     try {
       const out = await planDayWithNemotron(ctx, daySummary(ctx));
       if (out.proposals.length > 0) {
         proposals = out.proposals;
         narration = out.narration;
-        // The model proposes; code guarantees coverage. First live run with a
-        // key: one proposal, the gym into the midday window, and the problem
-        // set due in two days left out entirely -- a worse plan than the
-        // deterministic one. So any window the model leaves empty gets the
-        // same pick the Today screen already shows, and the provider says so.
-        // Proposal is a union and draft_extension carries no gapId.
-        const taken = new Set(proposals.map((p) => ("gapId" in p ? p.gapId : undefined)));
-        let filled = 0;
-        for (const g of today.gaps) {
-          if (taken.has(g.id) || !g.pick) continue;
-          proposals.push({ kind: "move_task", taskId: g.pick.id, gapId: g.id, reason: `${g.pick.title} fits the ${g.usable}-minute window` });
-          filled++;
-        }
-        provider = `nemotron-hosted${out.dropped ? ` (${out.dropped} dropped: bad ids)` : ""}${filled ? ` + code (${filled} window${filled === 1 ? "" : "s"} filled)` : ""}`;
+        provider = `nemotron-hosted${out.dropped ? ` (${out.dropped} dropped: bad ids)` : ""}${fillGaps()}`;
+      } else {
+        note("nemotron proposed nothing");
       }
     } catch (e) {
-      provider = `${provider}, nemotron ${(e as Error).message}`;
+      note(`nemotron ${(e as Error).message}`);
+    }
+  }
+
+  // Tier 2: Claude, when Nemotron did not answer.
+  if (proposals.length === 0 && process.env.ANTHROPIC_API_KEY) {
+    try {
+      const out = await planDay(ctx);
+      if (out.proposals.length > 0) {
+        proposals = out.proposals;
+        narration = out.narration;
+        provider = `claude-sonnet-5${fillGaps()}`;
+      } else {
+        note("claude proposed nothing");
+      }
+    } catch (e) {
+      note(`claude failed (${(e as Error).message}`);
     }
   }
 
   if (proposals.length === 0) {
-    // Deterministic proposals so the demo never depends on the model.
-    provider = `${provider ? `${provider}, ` : ""}deterministic`;
+    // Tier 3: deterministic, so the demo never depends on a model or a key.
+    note("deterministic");
     for (const g of today.gaps) {
       if (g.pick) proposals.push({ kind: "move_task", taskId: g.pick.id, gapId: g.id, reason: `${g.pick.title} fits the ${g.usable}-minute window` });
       if (g.usable >= 60 && !g.isEvening) proposals.push({ kind: "book_room", gapId: g.id, building: STUDY_SPOT, reason: "long focused window near your next class" });

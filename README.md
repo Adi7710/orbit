@@ -47,7 +47,7 @@ src/core                pure, tested arithmetic: no framework, no network
   say.ts                natural durations and clock times for speech
   emailDraft.ts, contacts.ts, game.ts, overlap.ts, habits.ts, travel.ts, time.ts
 src/agents
-  dayAgent.ts           proposes; every tool call is a proposal a human approves. Claude, then Nemotron, then code
+  dayAgent.ts           proposes; every tool call is a proposal a human approves. Nemotron, then Claude, then code
   learner.ts, weeklyLearner.ts   Nemotron learns one week at a time, carrying its own memo; code clamps
   ask.ts                grounded open questions, verified before they are spoken
   critic.ts             LLM-as-judge with a reward ledger; can only lower trust, never raise it
