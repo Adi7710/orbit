@@ -162,6 +162,10 @@ struct Today: Decodable {
         let endText: String
         let minutes: Int
         let names: [String]
+        /// Parallel to `names`. The stable identity, and what joins a person
+        /// to their crew row — two people can share a first name, and a
+        /// rename would otherwise move someone between groups.
+        let userIds: [String]?
     }
 
     struct TaskItem: Decodable, Identifiable, Hashable {
