@@ -9,6 +9,7 @@ type Walk = { minutes: number; meters: number; polyline: [number, number][]; sou
 type Option = {
   route: string; headsign: string; tripId: string;
   departsSec: number; departsText: string; scheduledText: string; status: "live" | "scheduled" | "ghost"; delaySec?: number;
+  confidence: "high" | "medium" | "low"; rideIsLive: boolean;
   vehicle?: { id: string; lat: number; lon: number; bearing?: number; ageSec: number; metersToStop: number };
   leaveBySec: number; leaveByText: string; rideMinutes: number; arriveSec: number; arriveText: string;
   verdict: { makesIt: boolean; marginMin: number };
@@ -22,7 +23,8 @@ type Journey = {
   alightStop: { id: string; name: string; lat: number; lon: number };
   walkToStop: Walk; walkToDest: Walk;
   options: Option[];
-  realtime: { tripsOk: boolean; vehiclesOk: boolean };
+  realtime: { tripsOk: boolean; vehiclesOk: boolean; alertsOk: boolean };
+  alerts: { id: string; header: string; effect: string; movesTheStop: boolean }[];
   routeColors: Record<string, string | undefined>;
   error?: string;
 };
@@ -176,6 +178,22 @@ export default function MapClient() {
                 </div>
               </div>
 
+              {/* A stop move belongs above the itinerary, not under it. Every
+                  line below assumes you are standing at a pole that, today,
+                  Pittsburgh Transit says has been moved. */}
+              {j.alerts?.length > 0 && (
+                <ul className="mt-3 space-y-1.5">
+                  {j.alerts.slice(0, 2).map((a) => (
+                    <li key={a.id} className={`rounded-xl border px-3 py-2 text-xs ${a.movesTheStop ? "border-amber-300 bg-amber-50 text-amber-900" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
+                      <span className="font-medium">{a.movesTheStop ? "Stop moved" : "Notice"}</span>
+                      <span className="mx-1.5 text-zinc-400">·</span>
+                      {a.header}
+                      {a.movesTheStop && <span className="mt-0.5 block text-amber-800">Check the pole before you settle in — the times below assume the usual one.</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
               <ol className="mt-3 space-y-1.5 text-sm">
                 <li className="flex gap-3"><span className="w-6">🚶</span><span className="w-16 tabular-nums text-zinc-500">{j.walkToStop.minutes} min</span><span>walk to {j.boardStop.name.toLowerCase()}{j.walkToStop.source === "estimate" ? "" : " (Google)"}</span></li>
                 <li className="flex gap-3"><span className="w-6">🚌</span><span className="w-16 tabular-nums text-zinc-500">{o.departsText}</span>
@@ -185,9 +203,15 @@ export default function MapClient() {
                     {o.status === "scheduled" && <span className="ml-2 rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600">scheduled {o.scheduledText}</span>}
                     {o.status === "ghost" && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">not on the live feed</span>}
                     {o.vehicle && <span className="ml-2 text-zinc-500">bus {o.vehicle.id} is {(o.vehicle.metersToStop / 1000).toFixed(1)} km away</span>}
+                    {/* "The 61B is at 20:33" reads the same whether it came
+                        from a bus four hundred metres away or a timetable
+                        printed in August. Say which. */}
+                    <span className={`ml-2 rounded px-1.5 py-0.5 text-xs ${o.confidence === "high" ? "bg-emerald-50 text-emerald-700" : o.confidence === "medium" ? "bg-zinc-100 text-zinc-600" : "bg-amber-50 text-amber-800"}`}>
+                      {o.confidence === "high" ? "confident" : o.confidence === "medium" ? "rough" : "timetable only"}
+                    </span>
                   </span>
                 </li>
-                <li className="flex gap-3"><span className="w-6">🪑</span><span className="w-16 tabular-nums text-zinc-500">{o.rideMinutes} min</span><span>ride to {j.alightStop.name.toLowerCase()}</span></li>
+                <li className="flex gap-3"><span className="w-6">🪑</span><span className="w-16 tabular-nums text-zinc-500">{o.rideMinutes} min</span><span>ride to {j.alightStop.name.toLowerCase()}{o.rideIsLive ? <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800">live prediction</span> : <span className="ml-2 text-xs text-zinc-400">scheduled</span>}</span></li>
                 <li className="flex gap-3"><span className="w-6">🚶</span><span className="w-16 tabular-nums text-zinc-500">{j.walkToDest.minutes} min</span><span>walk to {j.destination.label}</span></li>
                 <li className="flex gap-3 font-medium"><span className="w-6">🎓</span><span className="w-16 tabular-nums">{o.arriveText}</span><span>arrive{j.destination.arriveByText ? ` · class at ${j.destination.arriveByText}` : ""}</span></li>
               </ol>

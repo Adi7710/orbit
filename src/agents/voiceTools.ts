@@ -240,7 +240,7 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
       if (!j || !o) return { ok: false, text: "There is no bus you could still catch in the next hour and a half. Walking is the plan." };
 
       const leaveIn = Math.round((o.leaveBySec - j.clock.sec) / 60);
-      const said = [leaveIn <= 0 ? "Leave now." : `Leave in ${spoken(leaveIn)} minutes.`];
+      const said = [leaveIn <= 0 ? "Leave now." : `Leave in ${spoken(leaveIn)} minute${leaveIn === 1 ? "" : "s"}.`];
       const delay = o.delaySec && Math.abs(o.delaySec) > 59 ? `, ${spoken(Math.abs(Math.round(o.delaySec / 60)))} minutes ${o.delaySec > 0 ? "late" : "early"}` : "";
       said.push(o.status === "live" ? `The ${o.route} is live${delay}${o.vehicle ? ` and ${(o.vehicle.metersToStop / 1000).toFixed(1)} kilometres out` : ""}.` : `The ${o.route} is scheduled for ${spokenClock(Math.floor(o.departsSec / 60))}.`);
       if (j.destination.arriveBySec !== undefined) {
@@ -250,9 +250,21 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
       } else {
         said.push(`You are home by ${spokenClock(Math.floor(o.arriveSec / 60))}.`);
       }
+      // A stop move is the one thing worth interrupting for. Everything else
+      // here tells you when the bus comes; this tells you the pole you are
+      // walking to is not there, and no arrival prediction survives that.
+      const moved = j.alerts.find((a) => a.movesTheStop);
+      if (moved) said.push(`One thing: Pittsburgh Transit has a notice on this route. ${moved.header.replace(/\.$/, "")}. Check the stop before you settle in.`);
+      else if (j.alerts[0]) said.push(`Pittsburgh Transit also has a notice on this route: ${j.alerts[0].header.replace(/\.$/, "")}.`);
+
+      // Say when it is a timetable rather than a prediction, whether that is
+      // because the feed is down or because this particular bus is not
+      // reporting yet.
       if (!j.realtime.tripsOk) said.push("The live feed is down, so that is the timetable, not a prediction.");
-      log("voice", "voice_get_bus", { route: o.route, status: o.status });
-      return { ok: true, text: said.join(" "), data: { route: o.route } };
+      else if (o.confidence === "low") said.push("That one is off the timetable rather than a live reading, so treat it loosely.");
+
+      log("voice", "voice_get_bus", { route: o.route, status: o.status, confidence: o.confidence, alerts: j.alerts.length });
+      return { ok: true, text: said.join(" "), data: { route: o.route, confidence: o.confidence } };
     }
 
     case "get_estimate": {

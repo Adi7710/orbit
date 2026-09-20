@@ -3,6 +3,7 @@ import { clock, realtimeIndex, type Clock } from "@/services/prt";
 import { vehiclePositions, type VehiclePosition } from "@/services/vehicles";
 import { decodePolyline, haversineMeters, nearestIndex, pathMeters, walkMinutes, type LatLon } from "@/core/geo";
 import { fmt } from "@/core/time";
+import { alertsFor, serviceAlerts, type ServiceAlert } from "@/services/alerts";
 
 /**
  * Everything a map needs to show one trip: where you are, the stop, each
@@ -22,11 +23,38 @@ const HOME_ROUTES = ["61A", "61B", "61C", "61D"];
 
 export interface Walk { minutes: number; meters: number; polyline: [number, number][]; source: "google" | "estimate" }
 
+export type Confidence = "high" | "medium" | "low";
+
+/**
+ * How much to trust one departure, and why.
+ *
+ * Not decoration. "The 61B is at 20:33" reads identically whether it came from
+ * a bus four hundred metres away or from a timetable printed in August, and a
+ * student who misses a class because of the second one stops believing the
+ * first. Showing the difference is the honest version of a prediction.
+ *
+ *  - **high**   a vehicle is reporting and it is close, or the feed predicts
+ *               both ends of the ride.
+ *  - **medium** the trip is reporting but without a position, or it is far
+ *               enough out that a live prediction will still drift.
+ *  - **low**    pure timetable, or a ghost -- a trip that should be on the
+ *               road and is not in the feed at all.
+ */
+export function confidenceOf(x: { status: "live" | "scheduled" | "ghost"; vehicle?: { metersToStop: number; ageSec: number }; liveAlight: boolean; secondsAway: number }): Confidence {
+  if (x.status === "ghost") return "low";
+  if (x.status === "scheduled") return x.secondsAway < 20 * 60 ? "medium" : "low";
+  // A position older than two minutes is a stale fix, not a live one.
+  const fresh = x.vehicle && x.vehicle.ageSec <= 120;
+  if (fresh && x.vehicle!.metersToStop < 3000) return "high";
+  if (x.liveAlight && x.secondsAway < 30 * 60) return "high";
+  return "medium";
+}
+
 export interface BusOption {
   route: string; headsign: string; tripId: string; dir: number;
   departsSec: number; departsText: string; scheduledText: string; status: "live" | "scheduled" | "ghost"; delaySec?: number;
   vehicle?: { id: string; lat: number; lon: number; bearing?: number; ageSec: number; metersToStop: number; stopsAway?: number };
-  leaveBySec: number; leaveByText: string; rideMinutes: number; alightSec: number; arriveSec: number; arriveText: string;
+  leaveBySec: number; leaveByText: string; rideMinutes: number; rideIsLive: boolean; confidence: Confidence; alightSec: number; arriveSec: number; arriveText: string;
   verdict: { makesIt: boolean; marginMin: number };
   shape: [number, number][]; // route polyline trimmed from the bus (or board stop) to the alight stop
 }
@@ -40,11 +68,33 @@ export interface Journey {
   walkToStop: Walk;
   walkToDest: Walk;
   options: BusOption[];
-  realtime: { tripsOk: boolean; vehiclesOk: boolean };
+  realtime: { tripsOk: boolean; vehiclesOk: boolean; alertsOk: boolean };
   feedValid: boolean;
+  /** Live PRT service alerts touching these routes or stops, stop moves first. */
+  alerts: ServiceAlert[];
 }
 
+/**
+ * Walking legs are between fixed points -- a building and a stop -- so the
+ * answer never changes. Without this every journey request spent two Google
+ * Routes calls and up to ten seconds of latency re-deriving the same 193
+ * metres, and the map polls.
+ */
+const walkCache = new Map<string, Walk>();
+const walkKey = (a: LatLon, b: LatLon) => `${a.lat.toFixed(5)},${a.lon.toFixed(5)}>${b.lat.toFixed(5)},${b.lon.toFixed(5)}`;
+
 async function walk(a: LatLon, b: LatLon): Promise<Walk> {
+  const k = walkKey(a, b);
+  const hit = walkCache.get(k);
+  if (hit) return hit;
+  const fresh = await walkUncached(a, b);
+  // Only a real routed answer is worth keeping; a straight-line estimate
+  // should be retried in case the key arrives later.
+  if (fresh.source === "google") walkCache.set(k, fresh);
+  return fresh;
+}
+
+async function walkUncached(a: LatLon, b: LatLon): Promise<Walk> {
   const key = process.env.GOOGLE_MAPS_API_KEY;
   if (key) {
     try {
@@ -83,6 +133,7 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
   const ride = rideMinutes(boardId, alightId, c.ymd, c.sec) ?? 12;
   const live = c.simulated ? { index: new Map(), ok: false } : await realtimeIndex();
   const veh = c.simulated ? { byTrip: new Map<string, VehiclePosition>(), ok: false } : await vehiclePositions();
+  const alertFeed = c.simulated ? { alerts: [] as ServiceAlert[], ok: false } : await serviceAlerts(c.epoch);
 
   const options: BusOption[] = [];
   for (const d of sched) {
@@ -105,14 +156,36 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
       vehicle = { id: v.vehicleId, lat: v.lat, lon: v.lon, bearing: v.bearing, ageSec: Math.max(0, c.epoch - v.timestamp), metersToStop: Math.round(metersToStop) };
       if (fullShape.length && vi < ai) shape = fullShape.slice(vi, ai + 1);
     }
-    const alightSec = departsSec + ride * 60;
+    // Ride time, per trip, from the feed where it has one.
+    //
+    // The feed predicts every stop on the trip -- six to twenty-nine of them --
+    // and we were reading only the boarding stop and then applying one static
+    // ride to every bus. So a 61C already twelve minutes down got the same
+    // ride as an on-time 61D, and any delay picked up *during* the ride was
+    // invisible. Using the predicted arrival at the alighting stop costs
+    // nothing; the data is already in the response we fetched.
+    const liveAlight = rt?.stops.get(alightId);
+    const rawLiveRideSec = liveAlight ? d.sec + (liveAlight - schedEpoch) - departsSec : undefined;
+    // Sanity-check the feed against the timetable before trusting it. A live
+    // ride of six minutes where the schedule says thirteen is not a fast bus
+    // on a fixed route through Oakland; it is a stale prediction or one made
+    // mid-route. Accept between half and two and a half times the scheduled
+    // ride and fall back to the timetable outside that, the same shape of
+    // guard as the estimator's clamp: the feed can correct the schedule, it
+    // cannot contradict it.
+    const schedRideSec = ride * 60;
+    const liveRideUsable = rawLiveRideSec !== undefined && rawLiveRideSec >= schedRideSec * 0.5 && rawLiveRideSec <= schedRideSec * 2.5;
+    const alightSec = liveRideUsable ? departsSec + rawLiveRideSec! : departsSec + schedRideSec;
+    const tripRideMinutes = Math.max(1, Math.round((alightSec - departsSec) / 60));
     const arriveSec = alightSec + walkToDest.minutes * 60;
     const margin = opts.arriveBySec === undefined ? 0 : Math.round((opts.arriveBySec - arriveSec) / 60);
     options.push({
       route: d.route, headsign: d.headsign, tripId: d.trip, dir: d.dir,
       departsSec, departsText: fmt(Math.floor(departsSec / 60)), scheduledText: fmt(Math.floor(d.sec / 60)), status, delaySec: liveEpoch ? liveEpoch - schedEpoch : undefined,
       vehicle, leaveBySec: departsSec - walkToStop.minutes * 60 - 120, leaveByText: fmt(Math.floor((departsSec - walkToStop.minutes * 60 - 120) / 60)),
-      rideMinutes: ride, alightSec, arriveSec, arriveText: fmt(Math.floor(arriveSec / 60)),
+      rideMinutes: tripRideMinutes, rideIsLive: liveRideUsable,
+      confidence: confidenceOf({ status, vehicle, liveAlight: !!liveAlight, secondsAway: departsSec - c.sec }),
+      alightSec, arriveSec, arriveText: fmt(Math.floor(arriveSec / 60)),
       verdict: { makesIt: opts.arriveBySec === undefined ? true : arriveSec <= opts.arriveBySec, marginMin: margin },
       shape,
     });
@@ -126,7 +199,8 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
     origin,
     destination: { ...toB, label: opts.to, arriveBySec: opts.arriveBySec, arriveByText: opts.arriveBySec === undefined ? undefined : fmt(Math.floor(opts.arriveBySec / 60)) },
     boardStop, alightStop, walkToStop, walkToDest, options,
-    realtime: { tripsOk: live.ok, vehiclesOk: veh.ok },
+    realtime: { tripsOk: live.ok, vehiclesOk: veh.ok, alertsOk: alertFeed.ok },
     feedValid,
+    alerts: alertsFor(alertFeed.alerts, [...new Set(options.map((o) => o.route))], [boardId, alightId]),
   };
 }
