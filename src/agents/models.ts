@@ -103,18 +103,31 @@ export async function nemotronJson<T>(system: string, user: string, schema: obje
   // still in the system prompt as text, and the JSON is extracted from the
   // reply; the constrained mode is kept only as a second attempt for a model
   // that ignores the prompt.
+  // What each failure means, from the per-row eval on 2026-09-20 02:10: eight
+  // rows answered in ~800 ms and four took 10-43 s. The slow four were 429s
+  // (the key's rate limit), and a 429 used to fall into the schema retry --
+  // the degenerate path above -- so every rate limit became a timeout.
+  //
+  //   429            -> wait, then the same prompt-only call once more
+  //   non-JSON reply -> the schema attempt, which is what it is for
+  //   timeout        -> give up; retrying doubles the wait for the same answer
+  //   anything else  -> give up and say what it was
+  const is429 = (e: unknown) => e instanceof Error && e.message.startsWith("429");
+  const isNotJson = (e: unknown) => e instanceof SyntaxError;
+  const errText = (e: unknown) => (e as Error).message;
+
   try {
     const data = await attempt(false);
     return { data, provider: "nemotron-hosted", model, latencyMs: Date.now() - started };
   } catch (e1) {
-    // A timeout means the endpoint is slow; retrying doubles the wait for
-    // the same answer.
     if (isTimeout(e1)) return { data: fallback(), provider: "heuristic", model, latencyMs: Date.now() - started, error: `timeout after ${timeoutMs}ms` };
+    if (!is429(e1) && !isNotJson(e1)) return { data: fallback(), provider: "heuristic", model, latencyMs: Date.now() - started, error: errText(e1) };
     try {
-      const data = await attempt(true);
+      if (is429(e1)) await new Promise((r) => setTimeout(r, 2500));
+      const data = await attempt(isNotJson(e1));
       return { data, provider: "nemotron-hosted", model, latencyMs: Date.now() - started };
     } catch (e2) {
-      return { data: fallback(), provider: "heuristic", model, latencyMs: Date.now() - started, error: `${(e1 as Error).message} | ${(e2 as Error).message}` };
+      return { data: fallback(), provider: "heuristic", model, latencyMs: Date.now() - started, error: `${errText(e1)} | ${errText(e2)}` };
     }
   }
 }

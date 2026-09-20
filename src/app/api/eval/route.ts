@@ -71,10 +71,11 @@ export async function GET(req: Request) {
   const detail: Record<string, unknown[]> = { heuristic: heurRows };
 
   for (const variant of variants) {
-    // Two at a time, not ten. Ten parallel calls on one key trip NVIDIA's
-    // 429 and queue behind each other, which read as "hosted latency is
-    // 14 s" and "answered 4/10". Measured alone, a call is about a second.
-    const settled = await pool(truth, 2, (x) => estimateTask(x.title, x.course, variant));
+    // One at a time. Ten parallel calls on one key trip NVIDIA's 429 and
+    // queue behind each other, which read as "hosted latency is 14 s" and
+    // "answered 4/10"; even two in flight still drew 429s. Measured alone, a
+    // call is about a second, so a variant is about ten seconds.
+    const settled = await pool(truth, 1, (x) => estimateTask(x.title, x.course, variant));
     const rows: Row[] = settled.map((r, i) => {
       const e = Math.abs(r.minutes - truth[i].minutes);
       return { title: truth[i].title, actual: truth[i].minutes, predicted: r.minutes, errorMin: e, within25: e / truth[i].minutes <= 0.25 };
