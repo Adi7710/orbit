@@ -12,10 +12,15 @@ struct RootTabView: View {
     enum Tab: Hashable { case today, crew, calendar, map, settings }
 
     @State private var tab: Tab = .today
+    /// Mirrors the day's mode so the tab bar is tinted with it. Today owns
+    /// the truth and writes it here.
+    @State private var mode: Today.Mode = .normal
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         TabView(selection: $tab) {
-            ScheduleOverviewView()
+            ScheduleOverviewView(appMode: $mode)
                 .tabItem { Label("Today", systemImage: "circle.circle") }
                 .tag(Tab.today)
 
@@ -35,6 +40,7 @@ struct RootTabView: View {
                 .tabItem { Label("Settings", systemImage: "gearshape") }
                 .tag(Tab.settings)
         }
-        .tint(.orbitAccent)
+        .tint(OrbitModeChrome.on(mode, reduceMotion: reduceMotion).accent)
+        .animation(OrbitModeChrome.on(mode, reduceMotion: reduceMotion).animation, value: mode)
     }
 }

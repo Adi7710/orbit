@@ -17,6 +17,16 @@ import SwiftUI
 ///   up.
 struct ScheduleOverviewView: View {
 
+    /// Reported upward so the tab bar can wear the mode's accent too. Today
+    /// is the only screen that knows the mode, and the tab bar is the one
+    /// piece of chrome that outlives it, so it is told rather than asking.
+    /// Defaulted, so a preview or a test can build this view on its own.
+    @Binding private var appMode: Today.Mode
+
+    init(appMode: Binding<Today.Mode> = .constant(.normal)) {
+        self._appMode = appMode
+    }
+
     @State private var store = TodayStore()
     @State private var voice = VoiceSession()
     @State private var expanded: Today.DayBlock?
@@ -50,6 +60,8 @@ struct ScheduleOverviewView: View {
         NavigationStack {
         ZStack(alignment: .bottom) {
             Color.orbitBackground.ignoresSafeArea()
+            // The mode, said by the page and not only by the chip.
+            chrome.wash.ignoresSafeArea().animation(chrome.animation, value: store.day?.mode)
 
             switch store.phase {
             case .idle, .loading:
@@ -116,6 +128,9 @@ struct ScheduleOverviewView: View {
         }
         .task { await store.pollWhileVisible() }
         // A call that backgrounds mid-hold must not come back still listening.
+        .onChange(of: store.day?.mode) { _, newMode in
+            if let newMode { appMode = newMode }
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { voice.closeMicForBackground() }
         }
@@ -165,13 +180,26 @@ struct ScheduleOverviewView: View {
 
             if let cfg = day.modeConfig {
                 plainRow {
-                    Text(cfg.promise)
-                        .font(.subheadline)
-                        .foregroundStyle(OrbitClassic.inkSoft)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.bottom, 2)
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(cfg.promise)
+                                .font(.subheadline)
+                                .foregroundStyle(OrbitClassic.inkSoft)
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 6)
+                            Text(cfg.difficulty.uppercased())
+                                .font(.system(size: 9, weight: .bold))
+                                .tracking(0.8)
+                                .foregroundStyle(chrome.onAccent)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(Capsule().fill(chrome.accent))
+                        }
+                        modeLaws(cfg)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 2)
                 }
             }
 
@@ -311,6 +339,66 @@ struct ScheduleOverviewView: View {
 
     private func friendsDetail(_ day: Today) -> String {
         day.shared.isEmpty ? "Nobody free in your windows" : day.shared.flatMap(\.names).joined(separator: ", ")
+    }
+
+    /// What this mode actually does differently, in its own words.
+    ///
+    /// Every line is a field on `modeConfig`, which is `src/core/modes.ts`
+    /// serialised — the same object the day was built from. Nothing here is
+    /// the phone's opinion about what a mode means: if a law changes on the
+    /// server, this list changes with it. `MODE_LAWS_APPLIED` over there is
+    /// the guard that each of these is doing something; this is where a
+    /// student can see that it did.
+    @ViewBuilder
+    private func modeLaws(_ cfg: Today.ModeConfig) -> some View {
+        let laws: [String] = [
+            {
+                switch cfg.questStrategy {
+                case "one-per-gap": return "One quest in every real window"
+                case "largest-gap-optional": return "One optional thing, in your biggest window"
+                case "deadline-blocks": return "Deadlines place the work, not templates"
+                default: return cfg.questStrategy
+                }
+            }(),
+            "Windows count from \(cfg.minUsableGap) min",
+            {
+                switch cfg.deadlineMode {
+                case "quiet-line": return "Deadlines stay a quiet line"
+                case "due-soon-card": return "Due soon gets a card"
+                case "drive-day": return "Deadlines drive the day"
+                default: return cfg.deadlineMode
+                }
+            }(),
+            {
+                switch cfg.feasibilityMode {
+                case "always": return "Need against have, always on"
+                case "suggest-on-shortfall": return "Need against have when you are short"
+                default: return "No need-against-have meter"
+                }
+            }(),
+            {
+                switch cfg.leaveBy {
+                case "first-only": return "Only the first leave-by"
+                case "banner-all": return "Every leave-by, as a banner"
+                case "top-bar-all": return "Every leave-by, pinned to the top"
+                default: return cfg.leaveBy
+                }
+            }()
+        ] + (cfg.restBreakPerMin.map { ["A recovery break per \($0) min of work"] } ?? [])
+
+        VStack(alignment: .leading, spacing: 5) {
+            ForEach(laws, id: \.self) { law in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Circle()
+                        .fill(chrome.accent)
+                        .frame(width: 5, height: 5)
+                    Text(law)
+                        .font(.footnote)
+                        .foregroundStyle(OrbitClassic.inkFaint)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
     }
 
     /// The whole ledger reduced to the two lines that change behaviour.

@@ -56,13 +56,13 @@ struct LedgerRingsView: View {
     /// only encoding.
     private var bands: [Band] {
         let classBand = ledger.awake.map { _ in
-            Band(id: "fixed", label: "Class", minutes: ledger.fixed, color: Self.tint(0))
+            Band(id: "fixed", label: "Class", minutes: ledger.fixed, color: tint(0))
         }
         return [
             classBand,
-            Band(id: "travel", label: "Walking", minutes: ledger.travel, color: Self.tint(1)),
-            Band(id: "meals", label: "Meals", minutes: ledger.meals, color: Self.tint(2)),
-            Band(id: "routines", label: "Settling", minutes: ledger.routines, color: Self.tint(3))
+            Band(id: "travel", label: "Walking", minutes: ledger.travel, color: tint(1)),
+            Band(id: "meals", label: "Meals", minutes: ledger.meals, color: tint(2)),
+            Band(id: "routines", label: "Settling", minutes: ledger.routines, color: tint(3))
         ].compactMap { $0 }
     }
 
@@ -75,11 +75,12 @@ struct LedgerRingsView: View {
     ///
     ///   light  2F6FE4 4.65  2557B2 6.81  1B4084 9.94  132C5B 13.64  (on white)
     ///   dark   2F6FE4 4.51  6393EB 6.90  93B4F1 10.04 BCD1F6 13.59  (on black)
-    private static func tint(_ depth: Int) -> Color {
-        let light: [UInt32] = [0x2F6FE4, 0x2557B2, 0x1B4084, 0x132C5B]
-        let dark: [UInt32] = [0x2F6FE4, 0x6393EB, 0x93B4F1, 0xBCD1F6]
-        let i = min(depth, light.count - 1)
-        return Color.orbit(light: light[i], dark: dark[i])
+    /// The hue is the mode's; the depth is still the band's. Changing mode
+    /// repaints the whole stack, which is the loudest honest signal the screen
+    /// has that the day is being planned under different laws.
+    private func tint(_ depth: Int) -> Color {
+        let i = min(depth, chrome.ringLight.count - 1)
+        return Color.orbit(light: chrome.ringLight[i], dark: chrome.ringDark[i])
     }
 
     /// The whole the arcs are drawn against: the waking day, which every band
