@@ -5,7 +5,7 @@ import { questsForDay } from "@/core/game";
 import { sharedGaps } from "@/core/overlap";
 import { fmt, fromDate } from "@/core/time";
 import { MODE_RULES } from "@/core/types";
-import { assignQuestsForMode, modeConfig } from "@/core/modes";
+import { assignQuestsForMode, modeConfig, modeStats, wrapUpLine } from "@/core/modes";
 import { assignWorkBlocks, computeFeasibility, deadlinesFromTasks, deadlinesWithinHorizon, rankDeadlines } from "@/core/deadlines";
 import { buildJourney, BUILDINGS } from "./journey";
 import { clock } from "@/services/prt";
@@ -94,6 +94,21 @@ export async function buildToday(opts?: { to?: string }) {
   const workBlocks = cfg.deadlines.drivesAssignment ? assignWorkBlocks(deadlines, gaps, nowMin, cfg.minUsableGap) : [];
   const feasibility = cfg.feasibility === "off" ? null : computeFeasibility(deadlines, gaps, nowMin);
 
+  // What this mode measured, under its own laws. Reported rather than
+  // recomputed on a client, for the same reason every other number is: two
+  // places deriving the same statistic is how two screens come to disagree.
+  const placedTasks = [...picks.values()].filter(Boolean);
+  const stats = modeStats(cfg, {
+    gaps,
+    placed: placedTasks.length,
+    placedMinutes: placedTasks.reduce((n, t) => n + planner(s.estimator).planningMinutes(t!), 0),
+    optional: questsOptional,
+    deadlinesInHorizon: deadlines.length,
+    workBlocks,
+    shortfallMin: feasibility?.shortfallMin ?? 0,
+    hasFeasibility: feasibility !== null,
+  });
+
   // Which leg matters right now: getting to the next class, or getting home
   // after the last one.
   const ordered = [...s.blocks].sort((a, b) => a.start - b.start);
@@ -162,8 +177,11 @@ export async function buildToday(opts?: { to?: string }) {
       id: cfg.id, name: cfg.name, difficulty: cfg.difficulty, promise: cfg.promise,
       minUsableGap: cfg.minUsableGap, questsOptional, questStrategy: cfg.quests.strategy,
       deadlineMode: cfg.deadlines.mode, feasibilityMode: cfg.feasibility,
-      leaveBy: cfg.leaveBy, restBreakPerMin: cfg.restBreakPerMin,
+      leaveBy: cfg.leaveBy, restBreakPerMin: cfg.restBreakPerMin, wrapUp: cfg.wrapUp,
     },
+    /** What this mode's laws measured today, and how it may sum the day up. */
+    stats,
+    wrapUpText: wrapUpLine(stats),
     deadlines: deadlines.map((d) => ({ ...d, dueText: fmt(d.due), overdue: d.due < nowMin })),
     workBlocks: workBlocks.map((b) => ({ ...b, startText: fmt(b.start), endText: fmt(b.end) })),
     feasibility,

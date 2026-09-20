@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { bestFit, findGaps, MIN_USABLE } from "../gaps";
-import { assignQuestsForMode, MODE_CONFIG, modeConfig, DEFAULT_MODE } from "../modes";
+import { assignQuestsForMode, MODE_CONFIG, MODE_LAWS_APPLIED, modeConfig, modeStats, wrapUpLine, DEFAULT_MODE } from "../modes";
+import { computeLedger } from "../ledger";
 import {
   assignWorkBlocks, availableMinutesBefore, computeFeasibility, computeSlack,
   deadlinesFromTasks, deadlinesWithinHorizon, draftExtensionRequest, rankDeadlines, type Deadline,
@@ -155,5 +156,90 @@ describe("deadline arithmetic", () => {
     const text = draftExtensionRequest(d("Essay draft", 1280, 180), 120, "Adi");
     expect(text).toContain("2 hours short");
     expect(text).toContain("Adi");
+  });
+});
+
+describe("the core invariant: modes change what is asked, never the underlying truth", () => {
+  // Spec section 0. The honest number is computed identically in every mode and
+  // is always shown. In Orbit that is the ledger's capacity half: what the day
+  // physically contains. The work half (`queued`, `slack`, `overCommitted`)
+  // legitimately moves, because the mode changes which work is on the list --
+  // that is "what is asked", not "the underlying truth".
+  const HONEST = ["awake", "fixed", "travel", "meals", "routines", "friction", "usable", "naiveFree"] as const;
+
+  it("the honest number does not depend on which tasks a mode admits", () => {
+    const everything = computeLedger(blocks, profile, travel, tasks);
+    const crisisLike = computeLedger(blocks, profile, travel, tasks.filter((t) => t.domain === "learn" || t.domain === "build"));
+    const chillLike = computeLedger(blocks, profile, travel, tasks.filter((t) => !t.dueAt));
+    const nothing = computeLedger(blocks, profile, travel, []);
+
+    for (const key of HONEST) {
+      expect([crisisLike[key], chillLike[key], nothing[key]]).toEqual([everything[key], everything[key], everything[key]]);
+    }
+  });
+
+  it("but the work half does move, which is the part a mode is allowed to change", () => {
+    const everything = computeLedger(blocks, profile, travel, tasks);
+    const nothing = computeLedger(blocks, profile, travel, []);
+    expect(nothing.queued).toBe(0);
+    expect(everything.queued).toBeGreaterThan(0);
+    expect(nothing.slack).not.toBe(everything.slack);
+  });
+
+  it("computeLedger takes no mode, so it cannot branch on one", () => {
+    expect(computeLedger.length).toBeLessThanOrEqual(5); // blocks, profile, travel, queued, estimator
+  });
+});
+
+describe("every law on the config is applied somewhere", () => {
+  // Their validateLayouts(), for configuration rather than layout. The Record
+  // type makes a missing key a compile error; this catches an empty one.
+  it("names where each law is applied, with nothing left blank", () => {
+    const laws = Object.entries(MODE_LAWS_APPLIED);
+    expect(laws.length).toBeGreaterThan(0);
+    for (const [law, where] of laws) expect(where.length, `${law} is declared but nothing applies it`).toBeGreaterThan(10);
+  });
+
+  it("covers exactly the configurable fields, so a new law cannot be forgotten", () => {
+    const identity = new Set(["id", "name", "difficulty", "promise"]);
+    const configurable = Object.keys(MODE_CONFIG.normal).filter((k) => !identity.has(k)).sort();
+    expect(Object.keys(MODE_LAWS_APPLIED).sort()).toEqual(configurable);
+  });
+});
+
+describe("what each mode measures under its own laws", () => {
+  const gaps = [{ usable: 80 }, { usable: 446 }];
+  const base = { gaps, placed: 0, placedMinutes: 0, optional: false, deadlinesInHorizon: 2, workBlocks: [], shortfallMin: 0, hasFeasibility: true };
+
+  it("Chill never shows the meter and never awards XP", () => {
+    const st = modeStats(MODE_CONFIG.chill, { ...base, shortfallMin: 500 });
+    expect(st.meterShown).toBe(false);
+    expect(st.awardsXP).toBe(false);
+    expect(st.wrapUp).toBe("two-lines");
+  });
+
+  it("Normal shows the meter only once the day has stopped fitting", () => {
+    expect(modeStats(MODE_CONFIG.normal, base).meterShown).toBe(false);
+    expect(modeStats(MODE_CONFIG.normal, { ...base, shortfallMin: 1 }).meterShown).toBe(true);
+    expect(modeStats(MODE_CONFIG.normal, base).awardsXP).toBe(true);
+  });
+
+  it("Crisis shows it always, and earns one recovery break per 180 min of placed work", () => {
+    const st = modeStats(MODE_CONFIG.crisis, { ...base, workBlocks: [{ minutes: 200 }, { minutes: 124 }] });
+    expect(st.meterShown).toBe(true);
+    expect(st.workBlockMinutes).toBe(324);
+    expect(st.restBreaksEarned).toBe(1);          // 324 / 180
+    expect(modeStats(MODE_CONFIG.crisis, { ...base, workBlocks: [{ minutes: 370 }] }).restBreaksEarned).toBe(2);
+    expect(modeStats(MODE_CONFIG.normal, { ...base, placedMinutes: 900 }).restBreaksEarned).toBe(0); // no law, no breaks
+  });
+
+  it("the meter cannot be shown for a mode that never computed one", () => {
+    expect(modeStats(MODE_CONFIG.crisis, { ...base, hasFeasibility: false }).meterShown).toBe(false);
+  });
+
+  it("sums the day the way its wrapUp law allows", () => {
+    expect(wrapUpLine(modeStats(MODE_CONFIG.chill, { ...base, placed: 1 }))).toContain("One thing was on offer");
+    expect(wrapUpLine(modeStats(MODE_CONFIG.normal, { ...base, placed: 2, placedMinutes: 204 }))).toContain("204 of 526");
+    expect(wrapUpLine(modeStats(MODE_CONFIG.crisis, { ...base, shortfallMin: 60, workBlocks: [{ minutes: 100 }] }))).toContain("60 min short");
   });
 });

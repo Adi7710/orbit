@@ -2,7 +2,7 @@ import type { Gap } from "./gaps";
 import { MIN_USABLE } from "./gaps";
 import { bestFit } from "./gaps";
 import { Estimator } from "./estimator";
-import type { Mode, Task } from "./types";
+import { MODE_RULES, type Mode, type Task } from "./types";
 
 /**
  * The three modes as data, not as three code paths.
@@ -33,6 +33,9 @@ export type FeasibilityMode = "off" | "suggest-on-shortfall" | "always";
 /** How prominent the leave-by times are. */
 export type LeaveByMode = "first-only" | "banner-all" | "top-bar-all";
 
+/** What the end of the day is summarised as. */
+export type WrapUpMode = "two-lines" | "standard" | "deadline-summary";
+
 export interface ModeConfig {
   id: Mode;
   name: string;
@@ -57,6 +60,7 @@ export interface ModeConfig {
   };
   feasibility: FeasibilityMode;
   leaveBy: LeaveByMode;
+  wrapUp: WrapUpMode;
   /** One short recovery break per this many minutes of work. null means none offered. */
   restBreakPerMin: number | null;
 }
@@ -74,6 +78,7 @@ export const MODE_CONFIG: Record<Mode, ModeConfig> = {
     deadlines: { mode: "quiet-line", horizonHours: 72, drivesAssignment: false },
     feasibility: "off",
     leaveBy: "first-only",
+    wrapUp: "two-lines",
     restBreakPerMin: null,
   },
   normal: {
@@ -89,6 +94,7 @@ export const MODE_CONFIG: Record<Mode, ModeConfig> = {
     deadlines: { mode: "due-soon-card", horizonHours: null, drivesAssignment: false },
     feasibility: "suggest-on-shortfall",
     leaveBy: "banner-all",
+    wrapUp: "standard",
     restBreakPerMin: null,
   },
   crisis: {
@@ -101,6 +107,7 @@ export const MODE_CONFIG: Record<Mode, ModeConfig> = {
     deadlines: { mode: "drive-day", horizonHours: null, drivesAssignment: true },
     feasibility: "always",
     leaveBy: "top-bar-all",
+    wrapUp: "deadline-summary",
     restBreakPerMin: 180,
   },
 };
@@ -168,3 +175,115 @@ export function assignQuestsForMode(gaps: Gap[], tasks: Task[], config: ModeConf
   }
   return { picks, optional: config.quests.optional };
 }
+
+
+/**
+ * What this mode measures, and what it is allowed to say at the end of the day.
+ *
+ * Every field on ModeConfig is read here or by the day builder. A law that is
+ * declared and never applied is worse than no law: it reads like a promise the
+ * screen is keeping when nothing is keeping it. `MODE_LAWS_APPLIED` below is
+ * the guard that keeps that true, and a test fails if a field is added to the
+ * config without anything acting on it.
+ *
+ * The one number deliberately absent is the honest ledger. It is computed
+ * identically in every mode and always shown; modes change what is asked and
+ * what is emphasised, never the underlying truth. A test pins that too.
+ */
+export interface ModeStats {
+  mode: Mode;
+  /** How small a window had to be to count, and what that admitted. */
+  minUsableGap: number;
+  windows: number;
+  windowMinutes: number;
+  /** What the mode actually placed, and whether it was a suggestion. */
+  placed: number;
+  placedMinutes: number;
+  optional: boolean;
+  /** Deadlines inside this mode's horizon, and how the work sits against them. */
+  deadlinesInHorizon: number;
+  horizonHours: number | null;
+  workBlocks: number;
+  workBlockMinutes: number;
+  /** Whether the meter is on screen for this day under this mode's policy. */
+  meterShown: boolean;
+  shortfallMin: number;
+  /** Crisis earns a short recovery break per restBreakPerMin of placed work. */
+  restBreaksEarned: number;
+  /** Chill and Crisis do not award XP; only Normal does. */
+  awardsXP: boolean;
+  leaveBy: LeaveByMode;
+  wrapUp: WrapUpMode;
+}
+
+export interface ModeStatsInput {
+  gaps: { usable: number }[];
+  placedMinutes: number;
+  placed: number;
+  optional: boolean;
+  deadlinesInHorizon: number;
+  workBlocks: { minutes: number }[];
+  shortfallMin: number;
+  /** Null when the mode never computes one. */
+  hasFeasibility: boolean;
+}
+
+export function modeStats(config: ModeConfig, input: ModeStatsInput): ModeStats {
+  const windowMinutes = input.gaps.reduce((n, g) => n + g.usable, 0);
+  const workBlockMinutes = input.workBlocks.reduce((n, b) => n + b.minutes, 0);
+  const meterShown =
+    input.hasFeasibility &&
+    (config.feasibility === "always" || (config.feasibility === "suggest-on-shortfall" && input.shortfallMin > 0));
+  // Work actually on the plan, however this mode put it there.
+  const working = config.quests.strategy === "deadline-blocks" ? workBlockMinutes : input.placedMinutes;
+  return {
+    mode: config.id,
+    minUsableGap: config.minUsableGap,
+    windows: input.gaps.length,
+    windowMinutes,
+    placed: input.placed,
+    placedMinutes: input.placedMinutes,
+    optional: input.optional,
+    deadlinesInHorizon: input.deadlinesInHorizon,
+    horizonHours: config.deadlines.horizonHours,
+    workBlocks: input.workBlocks.length,
+    workBlockMinutes,
+    meterShown,
+    shortfallMin: input.shortfallMin,
+    restBreaksEarned: config.restBreakPerMin ? Math.floor(working / config.restBreakPerMin) : 0,
+    awardsXP: MODE_RULES[config.id].awardsXP,
+    leaveBy: config.leaveBy,
+    wrapUp: config.wrapUp,
+  };
+}
+
+/** The end of the day, in the shape this mode is allowed to say it. */
+export function wrapUpLine(stats: ModeStats): string {
+  switch (stats.wrapUp) {
+    case "two-lines":
+      return stats.placed > 0
+        ? `One thing was on offer today. ${stats.windowMinutes} minutes of real windows either way.`
+        : `Nothing was on offer today. ${stats.windowMinutes} minutes of real windows either way.`;
+    case "deadline-summary":
+      return stats.shortfallMin > 0
+        ? `${stats.deadlinesInHorizon} due, ${stats.workBlockMinutes} min of work placed, still ${stats.shortfallMin} min short. Start with the tightest tomorrow.`
+        : `${stats.deadlinesInHorizon} due and all of it fits: ${stats.workBlockMinutes} min placed across ${stats.workBlocks} blocks.`;
+    default:
+      return `${stats.placed} of ${stats.windows} windows had something in them, ${stats.placedMinutes} of ${stats.windowMinutes} minutes planned.`;
+  }
+}
+
+/**
+ * Every law on ModeConfig, and where it is applied. The guard that stops a
+ * field being declared and quietly doing nothing -- their `validateLayouts()`,
+ * for configuration rather than layout.
+ */
+export const MODE_LAWS_APPLIED: Record<keyof Omit<ModeConfig, "id" | "name" | "difficulty" | "promise">, string> = {
+  minUsableGap: "findGaps threshold in buildToday, and reported by modeStats",
+  quests: "assignQuestsForMode strategy, cap and optionality",
+  deadlines: "deadlinesWithinHorizon, assignWorkBlocks, and the deadline presentation on both clients",
+  feasibility: "computeFeasibility is skipped when off; modeStats.meterShown decides the screen",
+  leaveBy: "carried to both clients as modeConfig.leaveBy and reported by modeStats",
+  wrapUp: "wrapUpLine, and reported to both clients as modeConfig.wrapUp",
+  restBreakPerMin: "modeStats.restBreaksEarned",
+};

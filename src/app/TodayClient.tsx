@@ -8,7 +8,9 @@ import EmailModal from "./EmailModal";
 
 type Today = {
   mode: "normal" | "crisis" | "chill";
-  modeConfig: { id: string; name: string; difficulty: string; promise: string; minUsableGap: number; questsOptional: boolean; questStrategy: string; deadlineMode: "quiet-line" | "due-soon-card" | "drive-day"; feasibilityMode: "off" | "suggest-on-shortfall" | "always"; leaveBy: string; restBreakPerMin: number | null };
+  modeConfig: { id: string; name: string; difficulty: string; promise: string; minUsableGap: number; questsOptional: boolean; questStrategy: string; deadlineMode: "quiet-line" | "due-soon-card" | "drive-day"; feasibilityMode: "off" | "suggest-on-shortfall" | "always"; leaveBy: string; restBreakPerMin: number | null; wrapUp: string };
+  stats: { minUsableGap: number; windows: number; windowMinutes: number; placed: number; placedMinutes: number; deadlinesInHorizon: number; workBlocks: number; workBlockMinutes: number; meterShown: boolean; restBreaksEarned: number; awardsXP: boolean } | null;
+  wrapUpText: string;
   deadlines: { id: string; title: string; due: number; dueText: string; overdue: boolean; remainingEffortMin: number; courseCode?: string }[];
   workBlocks: { deadlineId: string; title: string; gapId: string; minutes: number; startText: string; endText: string; completes: boolean }[];
   feasibility: { needMin: number; haveMin: number; shortfallMin: number; message: string; deadlines: { id: string; title: string; fits: boolean; slackMin: number }[] } | null;
@@ -464,6 +466,23 @@ export default function TodayClient() {
           </div>
         </div>
         {importNote && <p className="mt-2 text-sm break-words text-zinc-600">{importNote}</p>}
+      </section>
+
+      <section className="rounded-2xl border p-5 md:col-span-3">
+        <h2 className="text-sm font-medium text-zinc-500">Where the day went, under {t.modeConfig.name}&apos;s rules</h2>
+        <p className="mt-2 text-sm break-words text-ink-2">{t.wrapUpText}</p>
+        {t.stats && (
+          <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-ink-3 sm:grid-cols-4">
+            <div className="flex justify-between gap-2"><dt>window floor</dt><dd className="tabular-nums text-ink-2">{t.stats.minUsableGap} min</dd></div>
+            <div className="flex justify-between gap-2"><dt>real windows</dt><dd className="tabular-nums text-ink-2">{t.stats.windows} · {t.stats.windowMinutes} min</dd></div>
+            <div className="flex justify-between gap-2"><dt>planned</dt><dd className="tabular-nums text-ink-2">{t.stats.placed} · {t.stats.placedMinutes} min</dd></div>
+            <div className="flex justify-between gap-2"><dt>due in horizon</dt><dd className="tabular-nums text-ink-2">{t.stats.deadlinesInHorizon}</dd></div>
+            <div className="flex justify-between gap-2"><dt>work blocks</dt><dd className="tabular-nums text-ink-2">{t.stats.workBlocks} · {t.stats.workBlockMinutes} min</dd></div>
+            <div className="flex justify-between gap-2"><dt>meter</dt><dd className="text-ink-2">{t.stats.meterShown ? "shown" : "hidden"}</dd></div>
+            <div className="flex justify-between gap-2"><dt>recovery breaks</dt><dd className="tabular-nums text-ink-2">{t.stats.restBreaksEarned}</dd></div>
+            <div className="flex justify-between gap-2"><dt>XP</dt><dd className="text-ink-2">{t.stats.awardsXP ? "awarded" : "not in this mode"}</dd></div>
+          </dl>
+        )}
       </section>
 
       {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-2 text-sm text-white shadow-lg">{toast}</div>}
