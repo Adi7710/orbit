@@ -1,4 +1,4 @@
-import { claude } from "./models";
+import { claude, nemotronJson } from "./models";
 import type { Ledger } from "@/core/ledger";
 import type { Gap } from "@/core/gaps";
 import type { Task } from "@/core/types";
@@ -51,14 +51,99 @@ function recordCost(u: { input_tokens: number; output_tokens: number; cache_read
   claudeSpend.usd += (u.input_tokens * 2 + u.output_tokens * 10 + cr * 0.2 + cw * 2.5) / 1e6;
 }
 
-export async function planDay(ctx: DayContext): Promise<{ proposals: Proposal[]; narration: string }> {
-  const summary = [
+/**
+ * The same job on Nemotron, for when there is no Anthropic key.
+ *
+ * Deliberately narrower than the Claude version: it may only propose moving a
+ * task into a gap or booking a room. `draft_extension` and `notify_friends`
+ * both end up in front of another human and require quoting the ledger
+ * verbatim, and a model that mis-copies a number into an email to an
+ * instructor is a different class of mistake from one that suggests the wrong
+ * study window. Those stay with Claude and the Email Agent.
+ *
+ * Every id the model returns is checked against the real gaps and tasks, so a
+ * proposal pointing at something that does not exist is dropped rather than
+ * shown.
+ */
+const nemotronSchema = {
+  type: "object",
+  properties: {
+    proposals: {
+      type: "array",
+      maxItems: 4,
+      items: {
+        type: "object",
+        properties: {
+          kind: { type: "string", enum: ["move_task", "book_room"] },
+          taskId: { type: "string", description: "Required for move_task. Must be one of the task ids given." },
+          gapId: { type: "string", description: "Which gap. Must be one of the gap ids given." },
+          building: { type: "string", description: "Required for book_room." },
+          reason: { type: "string", description: "Under 15 words, in the student's own terms." },
+        },
+        required: ["kind", "gapId", "reason"],
+        additionalProperties: false,
+      },
+    },
+    narration: { type: "string", description: "One sentence in the student's voice, playful but never cringe." },
+  },
+  required: ["proposals", "narration"],
+  additionalProperties: false,
+};
+
+export async function planDayWithNemotron(ctx: DayContext, summary: string): Promise<{ proposals: Proposal[]; narration: string; dropped: number }> {
+  const system = [
+    "You are Orbit's day agent for a college student. You never act: you propose, and the student confirms.",
+    "Propose at most one task per gap, and only tasks that fit the gap's usable minutes.",
+    "In crisis mode propose coursework only.",
+    "Use only the gap ids and task ids you are given. Never invent one.",
+    "Then write one sentence of narration in the student's voice, playful but not cringe.",
+  ].join(" ");
+
+  const r = await nemotronJson<{ proposals?: Record<string, string>[]; narration?: string }>(
+    system, summary, nemotronSchema, () => ({ proposals: [], narration: "" }), 25000,
+  );
+  if (r.provider === "heuristic") throw new Error(r.error ?? "nemotron unavailable");
+
+  const gapIds = new Set(ctx.gaps.map((g) => g.id));
+  const taskIds = new Set(ctx.tasks.filter((t) => !t.completedAt).map((t) => t.id));
+  const proposals: Proposal[] = [];
+  let dropped = 0;
+  const usedGaps = new Set<string>();
+
+  for (const raw of r.data.proposals ?? []) {
+    const gapId = String(raw.gapId ?? "");
+    const reason = String(raw.reason ?? "").trim().slice(0, 120);
+    if (!gapIds.has(gapId) || usedGaps.has(gapId)) { dropped++; continue; }
+    if (raw.kind === "move_task") {
+      const taskId = String(raw.taskId ?? "");
+      if (!taskIds.has(taskId)) { dropped++; continue; }
+      proposals.push({ kind: "move_task", taskId, gapId, reason });
+    } else if (raw.kind === "book_room") {
+      const building = String(raw.building ?? "").trim();
+      if (!building) { dropped++; continue; }
+      proposals.push({ kind: "book_room", gapId, building, reason });
+    } else {
+      dropped++;
+      continue;
+    }
+    usedGaps.add(gapId);
+  }
+  return { proposals, narration: (r.data.narration ?? "").trim(), dropped };
+}
+
+/** The context summary both models are given, so they are asked the same question. */
+export function daySummary(ctx: DayContext): string {
+  return [
     `Mode: ${ctx.mode}. Usable minutes ${ctx.ledger.usable}, queued ${ctx.ledger.queued}, slack ${ctx.ledger.slack}.`,
     `Gaps: ${ctx.gaps.map((g) => `${g.id} ${fmt(g.start)}-${fmt(g.end)} (${g.usable}m, from ${g.fromPlace})`).join("; ") || "none"}.`,
     `Tasks: ${ctx.tasks.filter((t) => !t.completedAt).map((t) => `${t.id} "${t.title}" ${t.estimateMinutes}m${t.dueAt ? ` due ${t.dueAt.toDateString()}` : ""}${t.courseCode ? ` [${t.courseCode}]` : ""}`).join("; ")}.`,
     `Shared free windows: ${ctx.sharedWindows.map((w) => `${fmt(w.start)}-${fmt(w.end)} with ${w.userIds.join(",")}`).join("; ") || "none"}.`,
     `Instructor emails: ${JSON.stringify(ctx.instructors)}.`,
   ].join("\n");
+}
+
+export async function planDay(ctx: DayContext): Promise<{ proposals: Proposal[]; narration: string }> {
+  const summary = daySummary(ctx);
 
   const res = await claude().messages.create({
     model: "claude-sonnet-5",
