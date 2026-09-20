@@ -36,8 +36,11 @@ export const gapId = (startMinutes: number) => `g${startMinutes}`;
 /**
  * @param now Minutes from midnight. When given, windows already past are
  *   dropped and one under way is shortened to what is actually left.
+ * @param minUsable How small a window may be and still count. Defaults to
+ *   MIN_USABLE so every existing caller is unchanged; the mode config passes
+ *   its own, which is the whole difference between Chill's 40 and Crisis's 12.
  */
-export function findGaps(blocks: FixedBlock[], profile: DayProfile, travel: TravelGraph, now?: number): Gap[] {
+export function findGaps(blocks: FixedBlock[], profile: DayProfile, travel: TravelGraph, now?: number, minUsable = MIN_USABLE): Gap[] {
   const dayStart = profile.wake + profile.morningRoutineMinutes;
   const dayEnd = profile.sleepStart - profile.windDownMinutes;
   const ordered = [...blocks].sort((a, b) => a.start - b.start);
@@ -56,7 +59,7 @@ export function findGaps(blocks: FixedBlock[], profile: DayProfile, travel: Trav
     const walk = travel.minutes(cursorPlace, b.place);
     const wStart = cursor === dayStart ? cursor : cursor + SETTLE_MINUTES;
     const wEnd = b.start - walk;
-    if (wEnd - wStart >= MIN_USABLE) {
+    if (wEnd - wStart >= minUsable) {
       out.push({ id: gapId(wStart), start: wStart, end: wEnd, fromPlace: cursorPlace, toPlace: b.place, usable: wEnd - wStart, isEvening: false });
     }
     cursor = b.end;
@@ -66,10 +69,10 @@ export function findGaps(blocks: FixedBlock[], profile: DayProfile, travel: Trav
   const walkHome = travel.minutes(cursorPlace, profile.home);
   const tailStart = cursor === dayStart ? cursor : cursor + SETTLE_MINUTES;
   const tailEnd = dayEnd - walkHome;
-  if (tailEnd - tailStart >= MIN_USABLE) {
+  if (tailEnd - tailStart >= minUsable) {
     out.push({ id: gapId(tailStart), start: tailStart, end: tailEnd, fromPlace: cursorPlace, toPlace: profile.home, usable: tailEnd - tailStart, isEvening: true });
   }
-  return now === undefined ? out : clipToNow(out, now);
+  return now === undefined ? out : clipToNow(out, now, minUsable);
 }
 
 /**
@@ -86,13 +89,13 @@ export function findGaps(blocks: FixedBlock[], profile: DayProfile, travel: Trav
  * id moved with the clock the Watcher would see one close and another open on
  * every single tick.
  */
-export function clipToNow(gaps: Gap[], now: number): Gap[] {
+export function clipToNow(gaps: Gap[], now: number, minUsable = MIN_USABLE): Gap[] {
   const out: Gap[] = [];
   for (const g of gaps) {
     if (g.end <= now) continue;                       // already gone
     if (g.start >= now) { out.push(g); continue; }    // still ahead, untouched
     const usable = g.end - now;
-    if (usable < MIN_USABLE) continue;                // what is left is a coffee
+    if (usable < minUsable) continue;                 // what is left is a coffee
     out.push({ ...g, start: now, usable, plannedStart: g.start, inProgress: true });
   }
   return out;

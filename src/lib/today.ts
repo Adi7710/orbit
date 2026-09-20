@@ -1,10 +1,12 @@
 import { store } from "./store";
 import { computeLedger, suggestCuts } from "@/core/ledger";
-import { bestFit, findGaps } from "@/core/gaps";
+import { findGaps } from "@/core/gaps";
 import { questsForDay } from "@/core/game";
 import { sharedGaps } from "@/core/overlap";
 import { fmt, fromDate } from "@/core/time";
 import { MODE_RULES } from "@/core/types";
+import { assignQuestsForMode, modeConfig } from "@/core/modes";
+import { assignWorkBlocks, computeFeasibility, deadlinesFromTasks, deadlinesWithinHorizon, rankDeadlines } from "@/core/deadlines";
 import { buildJourney, BUILDINGS } from "./journey";
 import { clock } from "@/services/prt";
 import { transitNeed } from "@/core/transitRelevance";
@@ -21,11 +23,14 @@ const isPlace = (p?: string): p is keyof typeof BUILDINGS => !!p && p in BUILDIN
  */
 export async function buildToday(opts?: { to?: string }) {
   const s = store();
-  const horizon = MODE_RULES[s.mode].horizonHours;
+  const cfg = modeConfig(s.mode);
+  // The mode's own horizon, with MODE_RULES kept as the fallback so a mode
+  // that has not been given a config still behaves the way it used to.
+  const horizon = cfg.deadlines.horizonHours ?? MODE_RULES[s.mode].horizonHours ?? null;
   const now = new Date();
   const liveTasks = s.tasks.filter((t) => !t.completedAt).filter((t) => {
     if (s.mode === "crisis") return t.domain === "learn" || t.domain === "build";
-    if (s.mode === "chill") return t.dueAt ? (t.dueAt.getTime() - now.getTime()) / 36e5 <= (horizon ?? 48) : false;
+    if (s.mode === "chill") return t.dueAt ? (t.dueAt.getTime() - now.getTime()) / 36e5 <= (horizon ?? 72) : false;
     return true;
   });
 
@@ -35,13 +40,22 @@ export async function buildToday(opts?: { to?: string }) {
   const nowMin = Math.floor(c.sec / 60);
 
   const ledger = computeLedger(s.blocks, s.profile, s.travel, liveTasks, s.estimator);
-  const gaps = findGaps(s.blocks, s.profile, s.travel, nowMin);
-  const picks = new Map(gaps.map((g) => [g.id, bestFit(g, liveTasks, s.estimator)] as const));
-  const seen = new Set<string>();
-  for (const [id, task] of picks) {
-    if (task && seen.has(task.id)) picks.set(id, undefined);
-    if (task) seen.add(task.id);
-  }
+  // How small a window may be is the mode's call now: a twelve-minute hole is
+  // a coffee in Normal and a place to put something in Crisis.
+  const gaps = findGaps(s.blocks, s.profile, s.travel, nowMin, cfg.minUsableGap);
+  const { picks, optional: questsOptional } = assignQuestsForMode(gaps, liveTasks, cfg, s.estimator);
+
+  // What is due, whether it fits, and -- in Crisis -- where the work goes.
+  // Every deadline is an existing task that has a due date, so nothing is
+  // entered twice and a syllabus import is already a deadline.
+  // Midnight of the *planning* day, derived from the clock rather than from
+  // Date(): under DEMO_CLOCK the two are different days, and a deadline
+  // measured against the wrong midnight is a whole day out.
+  const midnight = new Date((c.epoch - c.sec) * 1000);
+  const allDeadlines = deadlinesFromTasks(liveTasks, midnight, s.estimator);
+  const deadlines = rankDeadlines(deadlinesWithinHorizon(allDeadlines, nowMin, cfg.deadlines.horizonHours), gaps, nowMin);
+  const workBlocks = cfg.deadlines.drivesAssignment ? assignWorkBlocks(deadlines, gaps, nowMin, cfg.minUsableGap) : [];
+  const feasibility = cfg.feasibility === "off" ? null : computeFeasibility(deadlines, gaps, nowMin);
 
   // Which leg matters right now: getting to the next class, or getting home
   // after the last one.
@@ -99,6 +113,18 @@ export async function buildToday(opts?: { to?: string }) {
 
   return {
     mode: s.mode,
+    // The whole mode contract travels with the day, so a client renders what
+    // this mode asks for rather than keeping its own copy of the rules and
+    // drifting from the server's.
+    modeConfig: {
+      id: cfg.id, name: cfg.name, difficulty: cfg.difficulty, promise: cfg.promise,
+      minUsableGap: cfg.minUsableGap, questsOptional, questStrategy: cfg.quests.strategy,
+      deadlineMode: cfg.deadlines.mode, feasibilityMode: cfg.feasibility,
+      leaveBy: cfg.leaveBy, restBreakPerMin: cfg.restBreakPerMin,
+    },
+    deadlines: deadlines.map((d) => ({ ...d, dueText: fmt(d.due), overdue: d.due < nowMin })),
+    workBlocks: workBlocks.map((b) => ({ ...b, startText: fmt(b.start), endText: fmt(b.end) })),
+    feasibility,
     user: s.user,
     ledger,
     blocks: timeline,

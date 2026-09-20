@@ -8,6 +8,10 @@ import EmailModal from "./EmailModal";
 
 type Today = {
   mode: "normal" | "crisis" | "chill";
+  modeConfig: { id: string; name: string; difficulty: string; promise: string; minUsableGap: number; questsOptional: boolean; questStrategy: string; deadlineMode: "quiet-line" | "due-soon-card" | "drive-day"; feasibilityMode: "off" | "suggest-on-shortfall" | "always"; leaveBy: string; restBreakPerMin: number | null };
+  deadlines: { id: string; title: string; due: number; dueText: string; overdue: boolean; remainingEffortMin: number; courseCode?: string }[];
+  workBlocks: { deadlineId: string; title: string; gapId: string; minutes: number; startText: string; endText: string; completes: boolean }[];
+  feasibility: { needMin: number; haveMin: number; shortfallMin: number; message: string; deadlines: { id: string; title: string; fits: boolean; slackMin: number }[] } | null;
   user: { name: string; xpWeek: number; streakWeeks: number; group: string };
   ledger: { usable: number; naiveFree: number; travel: number; meals: number; routines: number; fixed: number; queued: number; slack: number; overCommitted: boolean };
   gaps: { id: string; startText: string; endText: string; usable: number; fromPlace?: string; isEvening: boolean; pick: { id: string; title: string; estimateMinutes: number } | null }[];
@@ -209,10 +213,14 @@ export default function TodayClient() {
             Hey {t.user.name}! Welcome to your Orbit
           </h1>
           <p className="text-sm text-zinc-500">Your calendar lies about how much time you have. Orbit doesn&apos;t.</p>
+          <p className="mt-1 text-sm break-words text-zinc-600">
+            <span className="font-medium">{t.modeConfig.name}</span>
+            <span className="text-zinc-500"> · {t.modeConfig.difficulty} · {t.modeConfig.promise}</span>
+          </p>
         </div>
         <div className="flex items-center gap-2 text-sm">
           {(["normal", "crisis", "chill"] as const).map((m) => (
-            <button key={m} onClick={() => setMode(m)} aria-pressed={t.mode === m} className={`min-h-11 rounded-full border px-4 ${t.mode === m ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300"}`}>{m}</button>
+            <button key={m} onClick={() => setMode(m)} aria-pressed={t.mode === m} title={t.mode === m ? t.modeConfig.promise : undefined} className={`min-h-11 rounded-full border px-4 ${t.mode === m ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300"}`}>{m}</button>
           ))}
           <span className="ml-3 rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-900">{t.user.xpWeek} XP · {t.user.streakWeeks}-wk streak</span>
         </div>
@@ -234,6 +242,53 @@ export default function TodayClient() {
       <WatcherPanel onChange={refresh} />
 
       <LedgerReveal l={t.ledger} />
+
+      {/* Need versus have. Chill never shows it; Normal only when the day does
+          not fit; Crisis always, because in Crisis it is the question. */}
+      {t.feasibility && (t.modeConfig.feasibilityMode === "always" || (t.modeConfig.feasibilityMode === "suggest-on-shortfall" && t.feasibility.shortfallMin > 0)) && (
+        <section className={`rounded-2xl border p-5 md:col-span-1 ${t.feasibility.shortfallMin > 0 ? "border-red-200 bg-red-50/50" : ""}`}>
+          <h2 className="text-sm font-medium text-zinc-500">Will it fit?</h2>
+          <p className={`mt-2 text-sm break-words ${t.feasibility.shortfallMin > 0 ? "text-red-700" : "text-emerald-700"}`}>{t.feasibility.message}</p>
+          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-200" role="img" aria-label={`${t.feasibility.needMin} minutes of work against ${t.feasibility.haveMin} minutes of windows`}>
+            <div
+              className={`h-full rounded-full ${t.feasibility.shortfallMin > 0 ? "bg-red-500" : "bg-emerald-600"}`}
+              style={{ width: `${Math.min(100, t.feasibility.haveMin ? (t.feasibility.needMin / t.feasibility.haveMin) * 100 : 0)}%` }}
+            />
+          </div>
+          <p className="mt-1.5 text-xs text-zinc-500 tabular-nums">{t.feasibility.needMin} min of work · {t.feasibility.haveMin} min of windows before the last deadline</p>
+        </section>
+      )}
+
+      {t.deadlines.length > 0 && t.modeConfig.deadlineMode !== "quiet-line" && (
+        <section className={`rounded-2xl border p-5 ${t.modeConfig.deadlineMode === "drive-day" ? "md:col-span-2" : ""}`}>
+          <h2 className="text-sm font-medium text-zinc-500">
+            {t.modeConfig.deadlineMode === "drive-day" ? "What is due, tightest first" : "Due soon"}
+          </h2>
+          <ol className="mt-2 space-y-1.5 text-sm">
+            {t.deadlines.map((d) => {
+              const v = t.feasibility?.deadlines.find((x) => x.id === d.id);
+              return (
+                <li key={d.id} className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0 break-words">
+                    {d.courseCode && <span className="mr-1.5 text-xs text-zinc-500">{d.courseCode}</span>}
+                    {d.title}
+                  </span>
+                  <span className={`shrink-0 text-xs tabular-nums ${d.overdue ? "text-red-600" : v && !v.fits ? "text-red-600" : "text-zinc-500"}`}>
+                    {d.remainingEffortMin} min · due {d.dueText}
+                    {v && !v.fits ? ` · ${Math.abs(v.slackMin)} short` : ""}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      )}
+
+      {t.modeConfig.deadlineMode === "quiet-line" && t.deadlines.length > 0 && (
+        <p className="text-sm break-words text-zinc-500 md:col-span-3">
+          {t.deadlines.length} thing{t.deadlines.length === 1 ? "" : "s"} due in the next three days. Nothing is on fire.
+        </p>
+      )}
       {t.cuts.length > 0 && (
         <section className="rounded-2xl border border-red-200 bg-red-50/50 p-5 md:col-span-2">
           <h2 className="text-sm font-medium text-red-700">The day will not fit. Cheapest way back:</h2>
@@ -301,7 +356,9 @@ export default function TodayClient() {
 
       <section className="rounded-2xl border p-5 md:col-span-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium text-zinc-500">Gaps and quests</h2>
+          <h2 className="text-sm font-medium text-zinc-500">
+            {t.modeConfig.questStrategy === "deadline-blocks" ? "Gaps and the work that goes in them" : t.modeConfig.questsOptional ? "Gaps, and one thing if you want it" : "Gaps and quests"}
+          </h2>
           <button disabled={busy} onClick={plan} className="min-h-11 shrink-0 rounded-full bg-zinc-900 px-4 text-sm text-white disabled:opacity-50">{busy ? "Thinking…" : "Plan my day"}</button>
         </div>
         {narration && <p className="mt-2 text-sm italic break-words text-zinc-600">{narration}</p>}
@@ -310,6 +367,15 @@ export default function TodayClient() {
             <div key={g.id} className="rounded-xl bg-zinc-50 p-4">
               <div className="text-lg font-semibold">{g.startText} → {g.endText}</div>
               <div className="text-xs text-zinc-500">{g.usable} usable min · from {g.fromPlace}{g.isEvening ? " · evening" : ""}</div>
+              {t.workBlocks.filter((b) => b.gapId === g.id).map((b) => (
+                <div key={b.deadlineId + b.startText} className="mt-2 rounded-lg bg-white p-2 text-sm">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="min-w-0 break-words font-medium">{b.title}</span>
+                    <span className="shrink-0 text-xs tabular-nums text-zinc-500">{b.startText}–{b.endText}</span>
+                  </div>
+                  <div className="text-xs text-zinc-500">{b.minutes} min{b.completes ? " · finishes it" : " · part of it"}</div>
+                </div>
+              ))}
               {g.pick ? (
                 logging?.taskId === g.pick.id ? (
                   <form
@@ -335,7 +401,10 @@ export default function TodayClient() {
                   </form>
                 ) : (
                   <div className="mt-2 flex items-center justify-between gap-2 text-sm">
-                    <span className="min-w-0 break-words">{g.pick.title}</span>
+                    <span className="min-w-0 break-words">
+                      {g.pick.title}
+                      {t.modeConfig.questsOptional && <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-medium tracking-wide text-zinc-600 uppercase">optional</span>}
+                    </span>
                     <button
                       onClick={() => setLogging({ taskId: g.pick!.id, minutes: String(g.pick!.estimateMinutes) })}
                       className="min-h-11 shrink-0 rounded-full border px-4 text-xs"
