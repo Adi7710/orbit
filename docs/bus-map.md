@@ -1,3 +1,7 @@
+> **Region note.** Orbit now plans in Jersey City / Hoboken by default: Hudson-Bergen Light Rail and PATH, for a Stevens student. Everything below describes the Pittsburgh build, which still runs behind `ORBIT_REGION=oakland` and is what the transit tests are pinned to. See [`docs/transit.md`](transit.md) for the Hudson County sources and their limits.
+
+---
+
 # Bus map: design and contract
 
 The bus feature is one screen that answers one question: **"If I stand up now, do I make it?"** Everything on the screen exists to make that answer believable at a glance.

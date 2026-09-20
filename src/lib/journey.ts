@@ -1,9 +1,10 @@
-import { STOP, bestStopPair, departuresAt, rideMinutes, stopInfo, routeShape, isFeedValid } from "@/services/schedule";
+import { STOP, REGION, bestStopPair, departuresAt, rideMinutes, stopInfo, routeShape, isFeedValid } from "@/services/schedule";
 import { clock, realtimeIndex, type Clock } from "@/services/prt";
 import { vehiclePositions, type VehiclePosition } from "@/services/vehicles";
 import { decodePolyline, haversineMeters, nearestIndex, pathMeters, walkMinutes, type LatLon } from "@/core/geo";
 import { fmt } from "@/core/time";
 import { alertsFor, serviceAlerts, type ServiceAlert } from "@/services/alerts";
+import { nextFrom, pathCodeForStopName, pathDepartures, type PathDeparture } from "@/services/path";
 
 /**
  * Everything a map needs to show one trip: where you are, the stop, each
@@ -11,15 +12,48 @@ import { alertsFor, serviceAlerts, type ServiceAlert } from "@/services/alerts";
  * and the verdict for the class you are trying to make. The map is pure
  * rendering; all timing lives here.
  */
-export const BUILDINGS: Record<string, LatLon & { boardOutbound?: string; alightInbound?: string }> = {
+/**
+ * Pittsburgh: Pitt's Oakland campus, with Squirrel Hill as home.
+ * Kept whole because every transit test is pinned to this slice.
+ */
+const OAKLAND_PLACES: Record<string, LatLon & { boardOutbound?: string; alightInbound?: string }> = {
   Cathedral: { lat: 40.4443, lon: -79.9532, boardOutbound: STOP.campusOutbound, alightInbound: STOP.campusInbound },
   Hillman: { lat: 40.4425, lon: -79.9537, boardOutbound: STOP.campusOutbound, alightInbound: STOP.campusInbound },
   Posvar: { lat: 40.4416, lon: -79.9536, boardOutbound: STOP.campusOutboundSennott, alightInbound: STOP.campusInbound },
   Sennott: { lat: 40.4414, lon: -79.9563, boardOutbound: STOP.campusOutboundSennott, alightInbound: STOP.campusInboundBenedum },
   Benedum: { lat: 40.4437, lon: -79.9587, boardOutbound: STOP.campusOutboundSennott, alightInbound: STOP.campusInboundBenedum },
-  Home: { lat: 40.4372, lon: -79.9230, boardOutbound: STOP.homeInbound, alightInbound: STOP.homeOutbound }, // Squirrel Hill, Murray + Darlington
+  Home: { lat: 40.4372, lon: -79.9230, boardOutbound: STOP.homeInbound, alightInbound: STOP.homeOutbound },
 };
-const HOME_ROUTES = ["61A", "61B", "61C", "61D"];
+
+/**
+ * Hudson County: Stevens on Castle Point, with home in downtown Jersey City.
+ *
+ * Coordinates are campus-accurate to roughly fifty metres, which is well
+ * inside the noise on a walk time. The one that matters is Babbio: the School
+ * of Business sits on the waterfront at the bottom of the hill, so it is a
+ * materially different walk from Hoboken Terminal than the academic buildings
+ * up on Castle Point -- and FE 570, FE 621 and MGT 808 all meet there.
+ *
+ * No board/alight stops are listed on purpose. bestStopPair resolves them from
+ * the feed, which is the whole reason that function exists.
+ */
+const HUDSON_PLACES: Record<string, LatLon & { boardOutbound?: string; alightInbound?: string }> = {
+  Babbio: { lat: 40.7434, lon: -74.0243 },        // Babbio Center, School of Business
+  Gateway: { lat: 40.7455, lon: -74.0245 },       // Gateway Academic Center
+  Howe: { lat: 40.7447, lon: -74.0251 },          // Howe Center
+  Burchard: { lat: 40.7452, lon: -74.0254 },      // Burchard Building
+  Library: { lat: 40.7441, lon: -74.0248 },       // Samuel C. Williams Library
+  HobokenTerminal: { lat: 40.7349, lon: -74.0290 },
+  Home: { lat: 40.7196, lon: -74.0430 },          // downtown Jersey City, by Grove Street
+};
+
+export const BUILDINGS = REGION === "oakland" ? OAKLAND_PLACES : HUDSON_PLACES;
+
+/**
+ * Fallback routes for the case where bestStopPair finds no served pair. Only
+ * reached when the student is nowhere near a stop we hold.
+ */
+const HOME_ROUTES = REGION === "oakland" ? ["61A", "61B", "61C", "61D"] : ["HBLR", "Hoboken - 33rd Street", "Hoboken - World Trade Center"];
 
 export interface Walk { minutes: number; meters: number; polyline: [number, number][]; source: "google" | "estimate" }
 
@@ -80,6 +114,16 @@ export interface Journey {
    * changing" is the kind of wrong that sends somebody walking for an hour.
    */
   noDirectRoute: boolean;
+  /**
+   * Live PATH trains from the boarding station, when it is one.
+   *
+   * Kept beside the scheduled options rather than merged into them: PATH's
+   * board publishes no trip ids, so there is no honest way to attach "4 min"
+   * to a particular timetable row. NJ Transit's realtime, which would cover
+   * the light rail, needs a developer account we do not have -- so in Hudson
+   * County PATH is live, the light rail is a timetable, and the app says which.
+   */
+  pathLive?: { station: string; ok: boolean; departures: PathDeparture[] };
 }
 
 /**
@@ -153,9 +197,22 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
   const usableRoutes = pair?.routes.length ? pair.routes : HOME_ROUTES;
   const sched = feedValid ? departuresAt(boardId, c.ymd, c.sec - 60, 90 * 60, usableRoutes) : [];
   const ride = rideMinutes(boardId, alightId, c.ymd, c.sec) ?? 12;
-  const live = c.simulated ? { index: new Map(), ok: false } : await realtimeIndex();
-  const veh = c.simulated ? { byTrip: new Map<string, VehiclePosition>(), ok: false } : await vehiclePositions();
-  const alertFeed = c.simulated ? { alerts: [] as ServiceAlert[], ok: false } : await serviceAlerts(c.epoch);
+  // Realtime is per region, and getting this wrong is not cosmetic.
+  //
+  // The PRT feeds are Pittsburgh. Fetched while planning a New Jersey journey
+  // they succeed, contain no matching trip ids, and the ghost rule -- feed is
+  // up, trip should have started, no update for it -- then marks every single
+  // Hudson County departure "not on the live feed". A green feed light and
+  // every train struck through.
+  //
+  // NJ Transit's realtime sits behind a developer account we do not have, so
+  // the light rail is timetable-only here and says so. PATH is live and is
+  // reported separately, because its board publishes no trip ids and cannot
+  // honestly be overlaid on a scheduled row.
+  const prtLive = REGION === "oakland" && !c.simulated;
+  const live = prtLive ? await realtimeIndex() : { index: new Map(), ok: false };
+  const veh = prtLive ? await vehiclePositions() : { byTrip: new Map<string, VehiclePosition>(), ok: false };
+  const alertFeed = prtLive ? await serviceAlerts(c.epoch) : { alerts: [] as ServiceAlert[], ok: false };
 
   const options: BusOption[] = [];
   for (const d of sched) {
@@ -226,6 +283,17 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
   );
   for (const o of options) if (suspended.has(o.route)) o.suspended = true;
 
+  // PATH is the one live source we can read in Hudson County without an
+  // account, so fetch it when the boarding station is a PATH one.
+  let pathLive: Journey["pathLive"];
+  if (REGION === "hudson" && !c.simulated) {
+    const code = pathCodeForStopName(bs.name);
+    if (code) {
+      const feed = await pathDepartures();
+      pathLive = { station: code, ok: feed.ok, departures: nextFrom(feed.departures, code).slice(0, 4) };
+    }
+  }
+
   // Live delays reorder buses; sort by when they actually leave, with anything
   // suspended pushed behind everything that is actually running.
   options.sort((a, b) => Number(a.suspended ?? false) - Number(b.suspended ?? false) || a.departsSec - b.departsSec);
@@ -240,5 +308,6 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
     feedValid,
     alerts: alertsFor(alertFeed.alerts, [...new Set(options.map((o) => o.route))], [boardId, alightId]),
     noDirectRoute: !pair && options.length === 0,
+    pathLive,
   };
 }

@@ -3,7 +3,23 @@
  * scripts/gtfs-extract.mjs into data/prt-oakland.json. Pure functions: which
  * service ids run on a date, and which departures leave a stop after a time.
  */
-import schedule from "../../data/prt-oakland.json";
+import oakland from "../../data/prt-oakland.json";
+import hudson from "../../data/njt-hudson.json";
+
+/**
+ * Which city Orbit is planning in.
+ *
+ * ORBIT_REGION=hudson  Jersey City / Hoboken: Hudson-Bergen Light Rail and
+ *                      PATH, for a Stevens student. This is the default.
+ * ORBIT_REGION=oakland Pittsburgh: PRT around Pitt. Kept whole, because the
+ *                      Oakland slice is what every transit test is pinned to
+ *                      and throwing it away to move cities would have cost the
+ *                      only regression suite this layer has.
+ *
+ * Both slices share one schema, so nothing downstream knows the difference.
+ */
+export const REGION = (process.env.ORBIT_REGION ?? "hudson") as "hudson" | "oakland";
+const schedule = REGION === "oakland" ? oakland : hudson;
 
 export interface Departure { stop: string; trip: string; route: string; dir: number; headsign: string; service: string; sec: number; seq: number; tripStart: number }
 interface Calendar { id: string; days: boolean[]; start: string; end: string }
