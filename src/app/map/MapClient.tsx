@@ -18,6 +18,8 @@ type Option = {
   totalMinutes: number;
   waitMinutes: number;
   suspended?: boolean;
+  /** Every stop this trip calls at between boarding and alighting, in order. */
+  callingAt: { id: string; name: string; lat: number; lon: number; timeText: string }[];
   shape: [number, number][];
 };
 type Journey = {
@@ -64,21 +66,28 @@ export default function MapClient() {
   // No hardcoded destination: "Cathedral" is a building in the wrong state.
   // The server says which place it would pick anyway.
   const [to, setTo] = useState<string>(params.get("to") ?? "");
-  const [arriveBy, setArriveBy] = useState(params.get("arriveBy") ?? "15:30");
+  // Never a typed default. "15:30" was a guess that kept measuring against a
+  // class hours in the past; the timetable already knows when you have to be
+  // there, and when it says nothing there is nothing to be late for.
+  const [arriveBy, setArriveBy] = useState(params.get("arriveBy") ?? "");
   const [updatedAgo, setUpdatedAgo] = useState(0);
   const [err, setErr] = useState("");
   const [places, setPlaces] = useState<string[]>(FALLBACK_PLACES);
+  const [classAt, setClassAt] = useState<Record<string, { title: string; startText: string }>>({});
 
   useEffect(() => {
     fetch("/api/transit/places")
       .then((r) => r.json())
-      .then((d: { places?: { id: string; lat?: number; lon?: number }[]; suggested?: string | null }) => {
+      .then((d: { places?: { id: string; lat?: number; lon?: number; nextClass?: { title: string; startText: string } | null }[]; suggested?: string | null }) => {
         if (!d.places?.length) return;
         const ids = d.places.map((x) => x.id);
         setPlaces(ids);
+        setClassAt(Object.fromEntries(d.places.filter((x) => x.nextClass).map((x) => [x.id, x.nextClass!])));
         // Preselect what Orbit would have chosen unasked, so a student going
         // where they always go taps nothing.
-        setTo((cur) => cur || d.suggested || ids.find((x) => x !== "Home") || ids[0]);
+        const dest = (cur: string) => cur || d.suggested || ids.find((x) => x !== "Home") || ids[0];
+        setTo(dest);
+        setArriveBy((cur) => cur || d.places!.find((x) => x.id === dest(""))?.nextClass?.startText || "");
         // Open on the right city. The initial view was Pittsburgh coordinates.
         const home = d.places.find((x) => x.id === "Home") ?? d.places[0];
         if (map.current && !userMoved.current && home.lat && home.lon) map.current.setView([home.lat, home.lon], 14);
@@ -213,6 +222,16 @@ export default function MapClient() {
       leaflet.polyline(o.shape, { color, weight: 3.5, opacity: 1 }).addTo(g);
     }
     // Stops.
+    // The stops in between. A line with only two markers on it hides what
+    // people orient by mid-journey: which stop is next, and how many are left.
+    for (const c of o?.callingAt ?? []) {
+      if (c.id === j.boardStop.id || c.id === j.alightStop.id) continue;
+      leaflet
+        .circleMarker([c.lat, c.lon], { radius: 4, color, weight: 2, fillColor: "#ffffff", fillOpacity: 1 })
+        .addTo(g)
+        .bindTooltip(`${c.name.toLowerCase()} · ${c.timeText}`, { direction: "top" });
+    }
+
     const stopPin = (label: string) => pin(`<div class="stop"><span>${label}</span></div>`, [26, 26]);
     leaflet.marker([j.boardStop.lat, j.boardStop.lon], { icon: stopPin("B") }).addTo(g).bindTooltip(`Board: ${j.boardStop.name}`, { direction: "top" });
     leaflet.marker([j.alightStop.lat, j.alightStop.lon], { icon: stopPin("A") }).addTo(g).bindTooltip(`Get off: ${j.alightStop.name}`, { direction: "top" });
@@ -280,10 +299,19 @@ export default function MapClient() {
           <select value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-lg border px-2 py-1 text-sm">{places.map((p) => <option key={p}>{p}</option>)}</select>
           <span className="text-zinc-400">→</span>
           <select value={to} onChange={(e) => setTo(e.target.value)} className="rounded-lg border px-2 py-1 text-sm">{places.map((p) => <option key={p}>{p}</option>)}</select>
-          {to !== "Home" && (
-            <label className="flex items-center gap-1 text-sm text-zinc-600">class at
-              <input value={arriveBy} onChange={(e) => setArriveBy(e.target.value)} className="w-16 rounded-lg border px-2 py-1" />
-            </label>
+          {/* The timetable knows when you have to be there. Typing a time is
+              how the map ended up measuring against a class five hours past,
+              so this states what Orbit read and offers to drop it, rather
+              than asking a student to supply a fact about their own day. */}
+          {classAt[to] ? (
+            <span className="flex items-center gap-2 rounded-lg bg-zinc-100 px-2 py-1 text-sm text-zinc-700">
+              {classAt[to].title} at {classAt[to].startText}
+              {arriveBy && (
+                <button onClick={() => setArriveBy("")} className="text-zinc-400 hover:text-zinc-900" aria-label="Ignore the class deadline">×</button>
+              )}
+            </span>
+          ) : (
+            <span className="text-sm text-zinc-400">nothing to catch</span>
           )}
           <span className="ml-auto pr-2 text-xs text-zinc-500">
             {j?.clock.simulated ? `demo clock ${j.clock.text}` : `now ${j?.clock.text ?? "--:--"}`} · {j?.realtime.tripsOk ? "PRT live" : "schedule only"} · updated {updatedAgo}s ago
@@ -329,6 +357,24 @@ export default function MapClient() {
                   </div>
                 )}
               </div>
+
+              {/* PATH is the one live source in Hudson County that needs no
+                  account, and it was arriving in the response and rendering
+                  nowhere. Kept separate from the itinerary because its board
+                  publishes no trip ids: these are real trains, but they cannot
+                  honestly be attached to a timetable row above. */}
+              {j.pathLive?.ok && j.pathLive.departures.length > 0 && (
+                <div className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
+                  <div className="text-xs font-medium text-zinc-500">PATH from {j.pathLive.station} · live</div>
+                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                    {j.pathLive.departures.map((d, i) => (
+                      <span key={i} className="tabular-nums">
+                        <b>{d.target}</b> <span className="text-zinc-600">{d.text}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* A stop move belongs above the itinerary, not under it. Every
                   line below assumes you are standing at a pole that, today,

@@ -75,6 +75,22 @@ for (const t of byTrip.values()) t.sort((x, y) => x.seq - y.seq);
 const tripReaches = (trip: string, stop: string, afterSeq: number) =>
   (byTrip.get(trip) ?? []).some((d) => d.stop === stop && d.seq > afterSeq);
 
+/**
+ * Does this specific trip get you from one stop to the other?
+ *
+ * The route is not enough. A route runs in both directions, and a stop's
+ * departure board lists every trip calling there, so filtering by route alone
+ * offers a train going the wrong way. That is exactly what Orbit was doing:
+ * boarding the light rail at Marin Boulevard on a service terminating at
+ * Jersey Avenue, one stop further south, and presenting it as the way to
+ * Hoboken.
+ */
+export function tripServes(tripId: string, boardId: string, alightId: string): boolean {
+  const legs = byTrip.get(tripId) ?? [];
+  const board = legs.find((d) => d.stop === boardId);
+  return !!board && tripReaches(tripId, alightId, board.seq);
+}
+
 export const STOP = {
   campusOutbound: "31", // Forbes Ave + Bigelow Blvd (Cathedral / Hillman), eastbound
   campusOutboundSennott: "20959", // Forbes Ave + Bouquet St FS
@@ -229,4 +245,26 @@ export function bestStopPair(
     }
   }
   return best ? { boardId: best.boardId, alightId: best.alightId, routes: best.routes, walkFrom: best.walkFrom, walkTo: best.walkTo } : undefined;
+}
+
+/**
+ * The stops a trip calls at between boarding and alighting.
+ *
+ * A map that shows only where you get on and off hides the thing people
+ * actually use to orient themselves mid-journey: which stop is next, and how
+ * many are left. This reads the trip's own sequence, so it is the real calling
+ * pattern rather than every stop the route passes.
+ */
+export function callingPoints(tripId: string, boardId: string, alightId: string): { id: string; name: string; lat: number; lon: number; sec: number }[] {
+  const legs = byTrip.get(tripId) ?? [];
+  const board = legs.find((d) => d.stop === boardId);
+  const alight = legs.find((d) => d.stop === alightId && (!board || d.seq > board.seq));
+  if (!board || !alight) return [];
+  return legs
+    .filter((d) => d.seq >= board.seq && d.seq <= alight.seq)
+    .map((d) => {
+      const s = data.stops[d.stop];
+      return s ? { id: s.id, name: s.name, lat: s.lat, lon: s.lon, sec: d.sec } : undefined;
+    })
+    .filter((x): x is { id: string; name: string; lat: number; lon: number; sec: number } => !!x);
 }

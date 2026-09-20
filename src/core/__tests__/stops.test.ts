@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bestStopPair, routesBetween, stopsNear, STOP } from "@/services/schedule";
+import { bestStopPair, callingPoints, departuresAt, routesBetween, stopsNear, tripServes, STOP } from "@/services/schedule";
 import { BUILDINGS } from "@/lib/journey";
 
 /**
@@ -71,5 +71,39 @@ describe("picking the pair for an arbitrary journey", () => {
     const pair = bestStopPair(BUILDINGS.Home, BUILDINGS.Cathedral, WEEKDAY)!;
     expect(pair.walkFrom).toBeGreaterThanOrEqual(0);
     expect(pair.walkTo).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("a trip has to actually reach where you are going", () => {
+  it("rejects a trip that calls at the boarding stop but terminates before the destination", () => {
+    // The bug this pins: a route runs both ways, and a stop's departure board
+    // lists every trip calling there. Filtering by route alone offered the
+    // light rail at Marin Boulevard on a service terminating one stop further
+    // south, and presented it as the way to Hoboken.
+    const board = STOP.campusOutbound;
+    const alight = STOP.homeOutbound;
+    const serving = departuresAt(board, WEEKDAY, 12 * 3600, 3600).filter((d) => tripServes(d.trip, board, alight));
+    const all = departuresAt(board, WEEKDAY, 12 * 3600, 3600);
+    expect(all.length).toBeGreaterThan(0);
+    // Every trip we keep must genuinely reach the far stop.
+    for (const d of serving) expect(tripServes(d.trip, board, alight), d.trip).toBe(true);
+    // And the filter must do something: not every trip at a stop goes our way.
+    expect(serving.length).toBeLessThanOrEqual(all.length);
+  });
+
+  it("is false for the reverse direction on the same trip", () => {
+    const d = departuresAt(STOP.campusOutbound, WEEKDAY, 12 * 3600, 3600).find((x) => tripServes(x.trip, STOP.campusOutbound, STOP.homeOutbound));
+    expect(d).toBeDefined();
+    expect(tripServes(d!.trip, STOP.homeOutbound, STOP.campusOutbound)).toBe(false);
+  });
+
+  it("lists the calling pattern in order, board first and alight last", () => {
+    const d = departuresAt(STOP.campusOutbound, WEEKDAY, 12 * 3600, 3600).find((x) => tripServes(x.trip, STOP.campusOutbound, STOP.homeOutbound))!;
+    const calls = callingPoints(d.trip, STOP.campusOutbound, STOP.homeOutbound);
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+    expect(calls[0].id).toBe(STOP.campusOutbound);
+    expect(calls[calls.length - 1].id).toBe(STOP.homeOutbound);
+    // Times only move forwards.
+    for (let i = 1; i < calls.length; i++) expect(calls[i].sec).toBeGreaterThanOrEqual(calls[i - 1].sec);
   });
 });

@@ -1,4 +1,4 @@
-import { STOP, REGION, bestStopPair, departuresAt, rideMinutes, stopInfo, routeShape, isFeedValid } from "@/services/schedule";
+import { STOP, REGION, bestStopPair, callingPoints, departuresAt, rideMinutes, stopInfo, routeShape, isFeedValid, tripServes } from "@/services/schedule";
 import { clock, realtimeIndex, type Clock } from "@/services/prt";
 import { vehiclePositions, type VehiclePosition } from "@/services/vehicles";
 import { decodePolyline, haversineMeters, nearestIndex, pathMeters, walkMinutes, type LatLon } from "@/core/geo";
@@ -95,6 +95,8 @@ export interface BusOption {
   totalMinutes: number;
   /** Time standing at the stop. Invisible in an itinerary that only lists legs. */
   waitMinutes: number;
+  /** Every stop this trip calls at between boarding and alighting, in order. */
+  callingAt: { id: string; name: string; lat: number; lon: number; timeText: string }[];
   /** PRT says this route is out of service. Shown, never recommended. */
   suspended?: boolean;
   shape: [number, number][]; // route polyline trimmed from the bus (or board stop) to the alight stop
@@ -225,6 +227,10 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
 
   const options: BusOption[] = [];
   for (const d of sched) {
+    // This trip, not just this route, has to actually reach where you are
+    // going. A route runs both ways and the board lists both, so without this
+    // Orbit offered a southbound train as the way north.
+    if (!tripServes(d.trip, boardId, alightId)) continue;
     const rt = live.index.get(d.trip);
     const liveEpoch = rt?.stops.get(boardId);
     const schedEpoch = c.epoch - c.sec + d.sec;
@@ -279,6 +285,7 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
       rideMinutes: tripRideMinutes, rideIsLive: liveRideUsable,
       confidence: confidenceOf({ status, vehicle, liveAlight: !!liveAlight, secondsAway: departsSec - c.sec }),
       alightSec, arriveSec, arriveText: fmt(Math.floor(arriveSec / 60)),
+      callingAt: callingPoints(d.trip, boardId, alightId).map((x) => ({ id: x.id, name: x.name, lat: x.lat, lon: x.lon, timeText: fmt(Math.floor(x.sec / 60)) })),
       // "you make it" against no deadline is a green badge meaning nothing.
       verdict: opts.arriveBySec === undefined ? null : { makesIt: arriveSec <= opts.arriveBySec, marginMin: margin },
       totalMinutes: Math.max(1, Math.round((arriveSec - (departsSec - walkToStop.minutes * 60 - 120)) / 60)),

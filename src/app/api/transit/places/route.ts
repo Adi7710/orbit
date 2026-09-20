@@ -26,15 +26,25 @@ export async function GET() {
   const nowMin = Math.floor(c.sec / 60);
   const need = transitNeed({ nowMin, blocks: s.blocks, isPlace });
 
-  const places = Object.entries(BUILDINGS).map(([id, b]) => ({
-    id,
-    label: id,
-    lat: b.lat,
-    lon: b.lon,
-    isHome: id === "Home",
-    // Where a class actually happens today, so the picker can sort the useful ones up.
-    hasClassToday: s.blocks.some((x) => x.place === id),
-  }));
+  const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+
+  const places = Object.entries(BUILDINGS).map(([id, b]) => {
+    // The next class still ahead at this place. A student should never type an
+    // arrival time that their own timetable already knows -- and typing one
+    // is how the map ended up measuring against a class five hours past.
+    const next = s.blocks
+      .filter((x) => x.place === id && x.start > nowMin)
+      .sort((x, y) => x.start - y.start)[0];
+    return {
+      id,
+      label: id,
+      lat: b.lat,
+      lon: b.lon,
+      isHome: id === "Home",
+      hasClassToday: s.blocks.some((x) => x.place === id),
+      nextClass: next ? { title: next.title, courseCode: next.courseCode ?? null, startText: hhmm(next.start) } : null,
+    };
+  });
 
   return NextResponse.json({
     places: places.sort((a, b) => Number(b.hasClassToday) - Number(a.hasClassToday) || a.label.localeCompare(b.label)),
