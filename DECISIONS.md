@@ -969,3 +969,10 @@ Decision: Three laws on `ModeConfig` were declared and inert — `leaveBy` and `
 Not addressed, and recorded so nobody assumes it was: `priorityLimit` in `MODE_RULES` has been declared and unused since before this work. It is not part of the mode config and I have not wired it; that is a separate decision about what a priority limit should do.
 Verified: 314/314 tests green (12 new), `tsc --noEmit` clean, all three modes rendered at phone width with 0 px overflow and no page errors.
 Affects: src/core/modes.ts, src/lib/today.ts, src/app/TodayClient.tsx, src/core/__tests__/modes.test.ts.
+
+## 2026-09-20 03:45 ET · Jatin · The iOS default server points at localhost, because the tunnel it pointed at is gone
+Decision: `ORBIT_API_BASE` in `ios/Orbit/project.yml` and in the committed `project.pbxproj` changes from `https://resolutions-exhibitions-rendered-ambient.trycloudflare.com` to `http://localhost:3123`.
+Why: that tunnel is dead — it has returned nothing for hours — so pressing Run in Xcode produced an app with no data and no error anybody could read. Neither default works for everyone: localhost is right for whoever is running `npm run dev` on the machine doing the build, which is every simulator session; the tunnel was right for a real device on someone else's network. Given one of them is currently a working default and the other resolves to nothing, this is the less wrong one until somebody restarts a tunnel.
+What it costs, stated plainly: **a build for a physical phone now needs an override**, because `localhost` on an iPhone is the iPhone. `xcodebuild ORBIT_API_BASE=http://<the Mac's LAN IP>:3123 …`, or edit the one line back. Anmol is the person this affects, and the connected device is his.
+Both files were changed together so a later `xcodegen generate` cannot silently reintroduce the dead URL. One line reverts it: `git checkout <ref> -- ios/Orbit/project.yml ios/Orbit/Orbit.xcodeproj/project.pbxproj`.
+Affects: ios/Orbit/project.yml, ios/Orbit/Orbit.xcodeproj/project.pbxproj.

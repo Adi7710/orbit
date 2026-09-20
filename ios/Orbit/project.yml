@@ -27,7 +27,7 @@ settings:
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
     # The one place the server URL is set. Override per build without touching
     # the plist: `xcodebuild ORBIT_API_BASE=https://orbit.vercel.app ...`
-    ORBIT_API_BASE: https://resolutions-exhibitions-rendered-ambient.trycloudflare.com
+    ORBIT_API_BASE: http://localhost:3123
 
 packages:
   # Voice. The only third-party package in the app; networking is still
