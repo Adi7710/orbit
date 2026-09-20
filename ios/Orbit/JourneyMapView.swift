@@ -59,6 +59,7 @@ struct JourneyMapView: View {
     // arrives; this is only what the map shows before it has one.
     @State private var camera: MapCameraPosition = .region(.init(center: .init(latitude: 40.7196, longitude: -74.0430), span: .init(latitudeDelta: 0.06, longitudeDelta: 0.06)))
     @State private var locationManager = CLLocationManager()
+    @State private var panelOpen = true
 
     /// Sends the student back to Today. The tab bar owns the selection; this
     /// screen only asks. Nil when the map is shown on its own.
@@ -128,12 +129,14 @@ struct JourneyMapView: View {
         .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
         .mapControls { MapUserLocationButton(); MapCompass() }
         .safeAreaInset(edge: .top) { header }
-        .sheet(isPresented: .constant(true)) {
-            sheet
-                .presentationDetents([.height(120), .medium, .large])
-                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-                .interactiveDismissDisabled()
-        }
+        // Was `.sheet(isPresented: .constant(true))` with interactive
+        // dismissal disabled. A sheet presented from inside a tab covers the
+        // tab bar at every detent, and one that cannot be dismissed traps the
+        // student on this screen -- no way back to Today, Crew or Settings.
+        // It is an inset panel now: same content, same collapse, and the tab
+        // bar stays reachable.
+        .safeAreaInset(edge: .bottom) { panel }
+
         .task {
             locationManager.requestWhenInUseAuthorization()
             model.start(origin: nil)
@@ -201,6 +204,34 @@ struct JourneyMapView: View {
                 .padding(.horizontal, 12).padding(.vertical, 6)
                 .background(Capsule().fill(Color.orbitSurface))
                 .overlay(Capsule().strokeBorder(Color.orbitHairline, lineWidth: 1))
+        }
+    }
+
+    /// The verdict panel, docked to the bottom of the map. Collapses to its
+    /// grabber so the map underneath can be read, and never covers the tab bar.
+    private var panel: some View {
+        VStack(spacing: 0) {
+            Button {
+                withAnimation(.snappy(duration: 0.28)) { panelOpen.toggle() }
+            } label: {
+                Capsule()
+                    .fill(Color.orbitInkFaint.opacity(0.55))
+                    .frame(width: 38, height: 5)
+                    .padding(.vertical, 9)
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(panelOpen ? "Hide the journey" : "Show the journey")
+
+            if panelOpen {
+                sheet.frame(maxHeight: 300)
+            }
+        }
+        .background(.regularMaterial)
+        .clipShape(UnevenRoundedRectangle(topLeadingRadius: 20, topTrailingRadius: 20, style: .continuous))
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.orbitHairline).frame(height: 1)
         }
     }
 

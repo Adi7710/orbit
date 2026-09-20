@@ -23,6 +23,7 @@
 		51F462A1E424729158933B48 /* TodayStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9296419EC39DE2345CA2633 /* TodayStore.swift */; };
 		5C94F73561EA4E1BDE1459F2 /* Voice.swift in Sources */ = {isa = PBXBuildFile; fileRef = D021CDDFACE1BCA7856813D1 /* Voice.swift */; };
 		5DEB7767CB6E0DC10D27D88D /* Crew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56FF7CBE3AAC107054AA17D5 /* Crew.swift */; };
+		6AC8C49CAC6E1601A72665E2 /* FriendsWalletView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5513A1451C41036FA5FB2809 /* FriendsWalletView.swift */; };
 		6F7DC3F6792914FF496467CE /* OrbitMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1EDA6EE72EBF8FE284F20FF /* OrbitMotion.swift */; };
 		7B82A8AB7F2340ADA05B6F5B /* GapCardRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36625DE5DBA1F2A672A50EA4 /* GapCardRow.swift */; };
 		7E2503E7638FFEDFEC6D1CA3 /* JourneyMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE05E028E7E8EF1D4023D7BB /* JourneyMapView.swift */; };
@@ -38,6 +39,7 @@
 		B2F4A767ABCB270ED97549DD /* CrewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E50EF8434BBFF2937A60779 /* CrewView.swift */; };
 		B54BAC1C95230594C4FE8AB1 /* OrbitModeChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2495E968508B6E7557A26A16 /* OrbitModeChrome.swift */; };
 		BA14610BAD867C4E894A9D2D /* PulseBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27EA3A4ABC59841560B753C4 /* PulseBanner.swift */; };
+		BAD52BBCF0E00A749D71789D /* PlanSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753104C301D64BEE5073D0CA /* PlanSheet.swift */; };
 		BD490999E896ADB56A52B98F /* TodayScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC48BDAFAEC4B52DCBDF571D /* TodayScreens.swift */; };
 		D5405A6195FF38330B1141EE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FF4DBDB50A70BB14CA3117B /* SettingsView.swift */; };
 		D88ED8AA2C9A3C2B0060B563 /* CompleteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E4DDA472485D787F8B10C91 /* CompleteSheet.swift */; };
@@ -69,8 +71,10 @@
 		47DC93773871223455B43ADA /* OrbitVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrbitVoice.swift; sourceTree = "<group>"; };
 		4E50EF8434BBFF2937A60779 /* CrewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrewView.swift; sourceTree = "<group>"; };
 		50C6CCDD345E93BBB214523E /* ClassDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClassDetailView.swift; sourceTree = "<group>"; };
+		5513A1451C41036FA5FB2809 /* FriendsWalletView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsWalletView.swift; sourceTree = "<group>"; };
 		56FF7CBE3AAC107054AA17D5 /* Crew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Crew.swift; sourceTree = "<group>"; };
 		63E0CC1DF21CB8931EC0E497 /* VoiceOrbView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceOrbView.swift; sourceTree = "<group>"; };
+		753104C301D64BEE5073D0CA /* PlanSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanSheet.swift; sourceTree = "<group>"; };
 		78DB696D9B9671CFA4AD2C83 /* SpeakButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeakButton.swift; sourceTree = "<group>"; };
 		7A55C811E18964A729EA449F /* OrbitAPI+Voice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OrbitAPI+Voice.swift"; sourceTree = "<group>"; };
 		8BCAD0F79684B7E6F7E0C5DD /* VoiceSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceSheetView.swift; sourceTree = "<group>"; };
@@ -147,7 +151,9 @@
 			children = (
 				50C6CCDD345E93BBB214523E /* ClassDetailView.swift */,
 				2E4DDA472485D787F8B10C91 /* CompleteSheet.swift */,
+				5513A1451C41036FA5FB2809 /* FriendsWalletView.swift */,
 				B87621E6BF74CB850FD824EE /* LedgerSheet.swift */,
+				753104C301D64BEE5073D0CA /* PlanSheet.swift */,
 				B77F80D4C8C7EDD0895EB22B /* ScheduleOverviewView.swift */,
 				E9296419EC39DE2345CA2633 /* TodayStore.swift */,
 			);
@@ -320,6 +326,7 @@
 				D88ED8AA2C9A3C2B0060B563 /* CompleteSheet.swift in Sources */,
 				5DEB7767CB6E0DC10D27D88D /* Crew.swift in Sources */,
 				B2F4A767ABCB270ED97549DD /* CrewView.swift in Sources */,
+				6AC8C49CAC6E1601A72665E2 /* FriendsWalletView.swift in Sources */,
 				7B82A8AB7F2340ADA05B6F5B /* GapCardRow.swift in Sources */,
 				23560F9CE849A3C8F802338B /* GradientTagView.swift in Sources */,
 				7E2503E7638FFEDFEC6D1CA3 /* JourneyMapView.swift in Sources */,
@@ -335,6 +342,7 @@
 				B54BAC1C95230594C4FE8AB1 /* OrbitModeChrome.swift in Sources */,
 				6F7DC3F6792914FF496467CE /* OrbitMotion.swift in Sources */,
 				9EA7C736C26EA00D559E0F94 /* OrbitVoice.swift in Sources */,
+				BAD52BBCF0E00A749D71789D /* PlanSheet.swift in Sources */,
 				BA14610BAD867C4E894A9D2D /* PulseBanner.swift in Sources */,
 				AA4E499B4B17B3485770990A /* RadialDialView.swift in Sources */,
 				1C042C272123866190F49BEE /* RootTabView.swift in Sources */,

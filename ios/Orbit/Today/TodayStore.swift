@@ -21,6 +21,9 @@ final class TodayStore {
     private(set) var staleBanner: String?
     private(set) var toast: Toast?
     private(set) var isWorking = false
+    /// The last plan the Day Agent returned, kept so the sheet that opens
+    /// after "Plan my day" can show the narration and which model wrote it.
+    private(set) var lastPlan: PlanResponse?
 
     /// "Not now" on a suggestion. Client-side only and deliberately so: there
     /// is no endpoint that dismisses a pick, and inventing one would make the
@@ -97,6 +100,7 @@ final class TodayStore {
         defer { isWorking = false }
         do {
             let result = try await api.plan()
+            lastPlan = result
             toast = Toast(
                 title: "\(result.proposals.count) proposal\(result.proposals.count == 1 ? "" : "s")",
                 lines: [result.narration, "via \(result.provider)"].filter { !$0.isEmpty },

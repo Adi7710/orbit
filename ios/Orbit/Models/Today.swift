@@ -172,6 +172,12 @@ struct Today: Decodable {
         let planningMinutes: Int
         let courseCode: String?
         let dueAt: String?
+        /// "due tomorrow". Written by the server so the phone never decides
+        /// how to say a deadline.
+        let dueText: String?
+        /// "overdue" | "today" | "soon" | "later". Also the server's, which
+        /// is what makes a week view possible without date arithmetic here.
+        let bucket: String?
     }
 
     struct Transit: Decodable, Hashable {

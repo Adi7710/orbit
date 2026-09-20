@@ -33,6 +33,8 @@ struct ScheduleOverviewView: View {
     @State private var completing: Completion?
     @State private var showingVoice = false
     @State private var showingLedger = false
+    @State private var openDoor: DoorID?
+    @State private var showingPlan = false
     @Namespace private var deck
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -43,6 +45,14 @@ struct ScheduleOverviewView: View {
     /// the primary action are the same instrument.
     private var chrome: OrbitModeChrome {
         .on(store.day?.mode ?? .normal, reduceMotion: reduceMotion)
+    }
+
+    /// The six doors on Today. Each opens a half sheet rather than pushing a
+    /// page: the ledger behind it stays on screen, which is the whole reason
+    /// the detail was moved off the home screen in the first place.
+    enum DoorID: String, Identifiable, CaseIterable {
+        case day, windows, bus, quests, proposals, friends
+        var id: String { rawValue }
     }
 
     /// What the Done button is asking about. Identifiable so `.sheet(item:)`
@@ -144,7 +154,23 @@ struct ScheduleOverviewView: View {
         .sheet(isPresented: $showingLedger) {
             if let day = store.day {
                 LedgerSheet(ledger: day.ledger, cuts: day.cuts ?? [])
+                    .presentationDetents([.fraction(0.62), .large])
+                    .presentationDragIndicator(.visible)
             }
+        }
+        .sheet(isPresented: $showingPlan) {
+            if let day = store.day {
+                PlanSheet(config: day.modeConfig,
+                          plan: store.lastPlan,
+                          isWorking: store.isWorking,
+                          accent: chrome.accent,
+                          onAccent: chrome.onAccent)
+                    .presentationDetents([.fraction(0.62), .large])
+                    .presentationDragIndicator(.visible)
+            }
+        }
+        .sheet(item: $openDoor) { which in
+            doorSheet(which)
         }
         .sheet(isPresented: $showingVoice) {
             VoiceSheetView(session: voice) { showingVoice = false }
@@ -182,36 +208,16 @@ struct ScheduleOverviewView: View {
                 ) { newMode in
                     Task { await store.setMode(newMode) }
                 }
-                .padding(.top, 8)
+                // A notification banner drops over the top of the screen and
+                // was landing on the student's own name. The header starts
+                // below where a banner ends.
+                .padding(.top, 46)
             }
 
-            if let cfg = day.modeConfig {
-                plainRow {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(cfg.promise)
-                                .font(.subheadline)
-                                .foregroundStyle(OrbitClassic.inkSoft)
-                                .multilineTextAlignment(.leading)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Spacer(minLength: 6)
-                            Text(cfg.difficulty.uppercased())
-                                .font(.system(size: 9, weight: .bold))
-                                .tracking(0.8)
-                                .foregroundStyle(chrome.onAccent)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 3)
-                                .background(Capsule().fill(chrome.accent))
-                        }
-                        modeLaws(cfg)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.bottom, 2)
-                }
-            }
-
-            // Plan my day sits under the rings and the mode bar, by Adi's
-            // call: first what the day is, then the one thing to do about it.
+            // Plan my day sits directly under the three modes. What the mode
+            // promises and the laws it plans by moved into the sheet this
+            // button opens: they describe the plan, so they belong with it
+            // rather than on a home screen that is meant to be glanceable.
             plainRow { planButton }
             plainRow { fitsCard(day) }
             deadlinesSection(day)
@@ -222,12 +228,12 @@ struct ScheduleOverviewView: View {
             // is the ledger and the way in; the detail lives one tap away,
             // which is the same rule the fits card already follows.
             section("Today") {
-                door("Your day", detail: dayDetail(day), icon: "calendar.day.timeline.left") { timelineSection(day) }
-                door("Your real windows", detail: windowsDetail(day), icon: "rectangle.split.3x1") { windowsSection(day) }
-                door("Getting there", detail: busDetail(day), icon: "tram") { busSection(day) }
-                door("Quests", detail: questsDetail(day), icon: "star") { questsSection(day) }
-                door("Waiting on you", detail: proposalsDetail(day), icon: "checkmark.circle") { proposalsSection(day) }
-                door("Free with you", detail: friendsDetail(day), icon: "person.2") { friendsSection(day) }
+                door(.day, "Your day", detail: dayDetail(day), icon: "calendar.day.timeline.left")
+                door(.windows, "Your real windows", detail: windowsDetail(day), icon: "rectangle.split.3x1")
+                door(.bus, "Getting there", detail: busDetail(day), icon: "tram")
+                door(.quests, "Quests", detail: questsDetail(day), icon: "star")
+                door(.proposals, "Waiting on you", detail: proposalsDetail(day), icon: "checkmark.circle")
+                door(.friends, "Free with you", detail: friendsDetail(day), icon: "person.2")
             }
 
             learnedSection(day)
@@ -247,6 +253,7 @@ struct ScheduleOverviewView: View {
     /// rings and the mode bar. The one action on the screen.
     private var planButton: some View {
         Button {
+            showingPlan = true
             Task { await store.planMyDay() }
         } label: {
             HStack(spacing: 8) {
@@ -271,20 +278,10 @@ struct ScheduleOverviewView: View {
 
     /// A row that opens a page. The page is the section it used to be, in its
     /// own List, under its own title.
-    private func door<Content: View>(
-        _ title: String,
-        detail: String,
-        icon: String,
-        @ViewBuilder page content: @escaping () -> Content
-    ) -> some View {
+    private func door(_ id: DoorID, _ title: String, detail: String, icon: String) -> some View {
         plainRow {
-            NavigationLink {
-                List { content() }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
-                    .background(Color.orbitBackground.ignoresSafeArea())
-                    .navigationTitle(title)
-                    .navigationBarTitleDisplayMode(.inline)
+            Button {
+                openDoor = id
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: icon)
@@ -301,7 +298,7 @@ struct ScheduleOverviewView: View {
                             .lineLimit(1)
                     }
                     Spacer(minLength: 8)
-                    Image(systemName: "chevron.right")
+                    Image(systemName: "chevron.up")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(OrbitClassic.inkFaint)
                 }
@@ -313,6 +310,34 @@ struct ScheduleOverviewView: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    /// A door's contents at half height. No navigation bar: each section
+    /// already writes its own heading, and a title bar on top of that says
+    /// the same word twice.
+    @ViewBuilder
+    private func doorSheet(_ which: DoorID) -> some View {
+        Group {
+            if let day = store.day, which == .friends {
+                FriendsWalletView(windows: day.shared, accent: chrome.accent)
+            } else if let day = store.day {
+                List {
+                    switch which {
+                    case .day: timelineSection(day)
+                    case .windows: windowsSection(day)
+                    case .bus: busSection(day)
+                    case .quests: questsSection(day)
+                    case .proposals: proposalsSection(day)
+                    case .friends: EmptyView()
+                    }
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
+            }
+        }
+        .background(Color.orbitBackground.ignoresSafeArea())
+        .presentationDetents([.fraction(0.62), .large])
+        .presentationDragIndicator(.visible)
     }
 
     // One line per door, from server fields only. Counts of things are the
@@ -346,66 +371,6 @@ struct ScheduleOverviewView: View {
 
     private func friendsDetail(_ day: Today) -> String {
         day.shared.isEmpty ? "Nobody free in your windows" : day.shared.flatMap(\.names).joined(separator: ", ")
-    }
-
-    /// What this mode actually does differently, in its own words.
-    ///
-    /// Every line is a field on `modeConfig`, which is `src/core/modes.ts`
-    /// serialised — the same object the day was built from. Nothing here is
-    /// the phone's opinion about what a mode means: if a law changes on the
-    /// server, this list changes with it. `MODE_LAWS_APPLIED` over there is
-    /// the guard that each of these is doing something; this is where a
-    /// student can see that it did.
-    @ViewBuilder
-    private func modeLaws(_ cfg: Today.ModeConfig) -> some View {
-        let laws: [String] = [
-            {
-                switch cfg.questStrategy {
-                case "one-per-gap": return "One quest in every real window"
-                case "largest-gap-optional": return "One optional thing, in your biggest window"
-                case "deadline-blocks": return "Deadlines place the work, not templates"
-                default: return cfg.questStrategy
-                }
-            }(),
-            "Windows count from \(cfg.minUsableGap) min",
-            {
-                switch cfg.deadlineMode {
-                case "quiet-line": return "Deadlines stay a quiet line"
-                case "due-soon-card": return "Due soon gets a card"
-                case "drive-day": return "Deadlines drive the day"
-                default: return cfg.deadlineMode
-                }
-            }(),
-            {
-                switch cfg.feasibilityMode {
-                case "always": return "Need against have, always on"
-                case "suggest-on-shortfall": return "Need against have when you are short"
-                default: return "No need-against-have meter"
-                }
-            }(),
-            {
-                switch cfg.leaveBy {
-                case "first-only": return "Only the first leave-by"
-                case "banner-all": return "Every leave-by, as a banner"
-                case "top-bar-all": return "Every leave-by, pinned to the top"
-                default: return cfg.leaveBy
-                }
-            }()
-        ] + (cfg.restBreakPerMin.map { ["A recovery break per \($0) min of work"] } ?? [])
-
-        VStack(alignment: .leading, spacing: 5) {
-            ForEach(laws, id: \.self) { law in
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Circle()
-                        .fill(chrome.accent)
-                        .frame(width: 5, height: 5)
-                    Text(law)
-                        .font(.footnote)
-                        .foregroundStyle(OrbitClassic.inkFaint)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
     }
 
     /// The whole ledger reduced to the two lines that change behaviour.
@@ -546,8 +511,8 @@ struct ScheduleOverviewView: View {
                         .foregroundStyle(Color.orbitInkFaint)
                 }
             }
-            .padding(.leading, 30)
-            .padding(.bottom, 10)
+            .padding(.leading, 14)
+            .padding(.bottom, 2)
             .allowsHitTesting(false)
         }
     }
@@ -612,34 +577,24 @@ struct ScheduleOverviewView: View {
     private func timelineSection(_ day: Today) -> some View {
         if let blocks = day.blocks, !blocks.isEmpty {
             section("Your day") {
-                plainRow {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(spacing: OrbitMetric.stackSpacing) {
-                            ForEach(Array(blocks.enumerated()), id: \.element.id) { pair in
-                                ClassCardView(
-                                    block: pair.element,
-                                    namespace: deck,
-                                    isSource: expanded?.id != pair.element.id,
-                                    index: pair.offset
-                                ) {
-                                    withAnimation(OrbitMotion.hero(reduceMotion)) {
-                                        expanded = pair.element
-                                    }
-                                }
-                                .scrollTransition(.interactive, axis: .horizontal) { view, phase in
-                                    // Opacity and scale are composited; neither
-                                    // re-lays-out the tile as it slides.
-                                    view.opacity(phase.isIdentity ? 1 : 0.7)
-                                        .scaleEffect(phase.isIdentity ? 1 : 0.94)
-                                }
-                            }
+                // Stacked, not a deck. A sideways rail hides most of the day
+                // behind a swipe; the whole timetable should be readable at
+                // once now that it lives in a sheet of its own.
+                ForEach(Array(blocks.enumerated()), id: \.element.id) { pair in
+                    ClassCardView(
+                        block: pair.element,
+                        stacked: true,
+                        namespace: deck,
+                        isSource: expanded?.id != pair.element.id,
+                        index: pair.offset
+                    ) {
+                        withAnimation(OrbitMotion.hero(reduceMotion)) {
+                            expanded = pair.element
                         }
-                        .scrollTargetLayout()
-                        .padding(.horizontal, 2)
-                        .padding(.vertical, 10)
                     }
-                    .scrollTargetBehavior(.viewAligned)
-                    .scrollClipDisabled()
+                    .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 }
             }
         }
@@ -659,13 +614,18 @@ struct ScheduleOverviewView: View {
                 }
             } else {
                 ForEach(Array(windows.enumerated()), id: \.element.id) { pair in
-                    GapCardRow(
-                        gap: pair.element,
-                        domain: domain(of: pair.element, in: day),
-                        index: pair.offset
-                    ) { startCompleting(pair.element) }
+                    // The work-block note used to be an .overlay, which
+                    // reserves no space and so printed itself on top of the
+                    // card's own text. It is part of the row now.
+                    VStack(alignment: .leading, spacing: 6) {
+                        GapCardRow(
+                            gap: pair.element,
+                            domain: domain(of: pair.element, in: day),
+                            index: pair.offset
+                        ) { startCompleting(pair.element) }
+                        workBlockNote(day, gapId: pair.element.id)
+                    }
                         .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
-                        .overlay(alignment: .bottomLeading) { workBlockNote(day, gapId: pair.element.id) }
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .swipeActions(edge: .leading, allowsFullSwipe: true) {

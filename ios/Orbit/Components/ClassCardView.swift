@@ -13,6 +13,8 @@ import SwiftUI
 /// A flat lime fill is one blend, so the deck now has no blur in it at all.
 struct ClassCardView: View {
     let block: Today.DayBlock
+    /// Full width in a vertical stack; fixed width in the horizontal deck.
+    var stacked: Bool = false
     /// Shared with the detail view so the tile becomes the sheet rather than
     /// cross-fading into one.
     let namespace: Namespace.ID
@@ -50,7 +52,9 @@ struct ClassCardView: View {
                 footer
             }
             .padding(OrbitMetric.cardPadding)
-            .frame(width: OrbitMetric.deckCardWidth, height: 172, alignment: .leading)
+            .frame(width: stacked ? nil : OrbitMetric.deckCardWidth,
+                   height: 172, alignment: .leading)
+            .frame(maxWidth: stacked ? .infinity : nil, alignment: .leading)
             .background(tileBackground)
             .clipShape(RoundedRectangle(cornerRadius: OrbitMetric.tileRadius, style: .continuous))
             .orbitBloom(.orbitAccent, active: isLive, radius: 18)
