@@ -22,6 +22,7 @@ struct ScheduleOverviewView: View {
     @State private var expanded: Today.DayBlock?
     @State private var completing: Completion?
     @State private var showingVoice = false
+    @State private var showingLedger = false
     @Namespace private var deck
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -107,6 +108,11 @@ struct ScheduleOverviewView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { voice.closeMicForBackground() }
         }
+        .sheet(isPresented: $showingLedger) {
+            if let day = store.day {
+                LedgerSheet(ledger: day.ledger, cuts: day.cuts ?? [])
+            }
+        }
         .sheet(isPresented: $showingVoice) {
             VoiceSheetView(session: voice) { showingVoice = false }
         }
@@ -144,28 +150,149 @@ struct ScheduleOverviewView: View {
                 .padding(.top, 8)
             }
 
+            plainRow { fitsCard(day) }
+            atRiskSection(day)
             timelineSection(day)
             windowsSection(day)
 
-            if let bus = day.bus {
-                section("Getting there") {
-                    plainRow { BusStripView(bus: bus) }
-                }
-            }
+            busSection(day)
 
             questsSection(day)
             proposalsSection(day)
             friendsSection(day)
+            learnedSection(day)
 
-            // Room for the dock, so the last card is never trapped under it.
+            // Room for the dock AND the tab bar under it. 104 was enough when
+            // the dock was the only thing down there; with a tab bar as well
+            // the last card was ending up under both.
             Color.clear
-                .frame(height: 104)
+                .frame(height: 168)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .refreshable { await store.refresh() }
+    }
+
+    /// The whole ledger reduced to the two lines that change behaviour.
+    /// Everything else is one tap away, which is the point: the first glance
+    /// stays readable.
+    private func fitsCard(_ day: Today) -> some View {
+        Button {
+            showingLedger = true
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(day.ledger.overCommitted
+                         ? "Today is \(OrbitDuration.hm(day.ledger.slack)) over."
+                         : "You have \(OrbitDuration.hm(day.ledger.slack)) spare today.")
+                        .font(.headline)
+                        .foregroundStyle(OrbitClassic.ink)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2)
+                        .foregroundStyle(OrbitClassic.inkFaint)
+                }
+                Text(day.ledger.overCommitted
+                     ? "The rest isn't happening, and that's fine — you can stop carrying it until tomorrow."
+                     : "After \(OrbitDuration.hm(day.ledger.frictionMinutes)) of walking, eating and getting ready.")
+                    .font(.subheadline)
+                    .foregroundStyle(OrbitClassic.inkSoft)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(OrbitClassic.surface)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Deadlines the work no longer fits in front of. Renders nothing when
+    /// the list is empty: an "all clear" card is a card you have to read to
+    /// find out it had nothing to say.
+    @ViewBuilder
+    private func atRiskSection(_ day: Today) -> some View {
+        if let atRisk = day.atRisk, !atRisk.isEmpty {
+            section("At risk") {
+                ForEach(atRisk) { task in
+                    plainRow {
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Text(task.title)
+                                .font(.orbitBody)
+                                .foregroundStyle(Color.orbitInk)
+                            Spacer(minLength: 8)
+                            Text("needs \(task.needsMinutes)m")
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(Color.orbitUrgent)
+                        }
+                        .padding(.vertical, 3)
+                    }
+                }
+            }
+        }
+    }
+
+    /// The weekly review, in its own words. Empty until an aspect has earned
+    /// the right to speak, and silent until then.
+    @ViewBuilder
+    private func learnedSection(_ day: Today) -> some View {
+        if let learned = day.learned, !learned.isEmpty {
+            section("What Orbit has learned") {
+                ForEach(learned) { fact in
+                    plainRow {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(fact.label)
+                                .orbitEyebrow()
+                                .foregroundStyle(Color.orbitInkFaint)
+                            Text(fact.sentence)
+                                .font(.orbitBody)
+                                .foregroundStyle(Color.orbitInkSoft)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(.vertical, 3)
+                    }
+                }
+            }
+        }
+    }
+
+    /// "Getting there" has two shapes. With a departure it is `BusStripView`.
+    /// Without one the server still says why — "Nothing to catch yet…" — and
+    /// that sentence is the card. An absent bus is not an absent section: the
+    /// student asked the same question either way and deserves the same
+    /// answer. Rendered only when there is something to say, so the header
+    /// never stands over nothing.
+    @ViewBuilder
+    private func busSection(_ day: Today) -> some View {
+        if let bus = day.bus {
+            section("Getting there") {
+                plainRow { BusStripView(bus: bus) }
+            }
+        } else if let why = day.transit.why, !why.isEmpty {
+            section("Getting there") {
+                plainRow {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(why)
+                            .font(.orbitBody)
+                            .foregroundStyle(Color.orbitInkSoft)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        if let next = day.transit.nextClass {
+                            Text("\(next.title) · \(next.startText)")
+                                .orbitEyebrow()
+                                .foregroundStyle(Color.orbitInkFaint)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
     }
 
     /// The glanceable deck: finished, in progress, up next, later.
@@ -425,17 +552,27 @@ struct ScheduleOverviewView: View {
             .listRowSeparator(.hidden)
     }
 
+    /// A titled group.
+    ///
+    /// The title is an ordinary row, not a `Section` header, and that is the
+    /// whole point. A plain `List` pins its headers, and these are transparent
+    /// — `listRowBackground(Color.clear)` is what lets the design own the
+    /// spacing — so a pinned one does not hide what scrolls beneath it, it
+    /// sits *on top of it*. "YOUR REAL WINDOWS" ended up printed over the first
+    /// card in the section. Giving the header an opaque plate would fix the
+    /// collision and give us a sticky grey bar the design does not want; these
+    /// are eyebrow labels, not navigation, so they should scroll away with
+    /// their content.
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         Section {
+            plainRow {
+                Text(title)
+                    .orbitEyebrow()
+                    .foregroundStyle(Color.orbitInkFaint)
+                    .padding(.top, 10)
+            }
             content()
-        } header: {
-            Text(title)
-                .orbitEyebrow()
-                .foregroundStyle(Color.orbitInkFaint)
-                .textCase(nil)
-                .padding(.top, 10)
         }
-        .listRowBackground(Color.clear)
     }
 }
 

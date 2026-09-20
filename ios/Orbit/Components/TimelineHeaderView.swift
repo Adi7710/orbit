@@ -29,11 +29,10 @@ struct TimelineHeaderView: View {
         return m >= 60 ? "\(m / 60)h \(m % 60)m" : "\(m)m"
     }
 
-    /// How much of the usable day is already committed. A proportion of two
-    /// server numbers, drawn as a dial.
-    private var committedFraction: Double {
-        guard ledger.usable > 0 else { return 1 }
-        return min(1, Double(ledger.queued) / Double(ledger.usable))
+    /// Corner radius, display face and pace for the mode that is on. Colour
+    /// meaning is not in here — see `OrbitModeChrome`.
+    private var chrome: OrbitModeChrome {
+        .on(mode, reduceMotion: reduceMotion)
     }
 
     var body: some View {
@@ -41,7 +40,7 @@ struct TimelineHeaderView: View {
             greeting.orbitAppear(0)
             readings.orbitAppear(1)
             modeChips.orbitAppear(2)
-            dial.orbitAppear(3)
+            ledgerRings.orbitAppear(3)
             breakdown.orbitAppear(4)
         }
     }
@@ -49,25 +48,31 @@ struct TimelineHeaderView: View {
     // MARK: - Pieces
 
     private var greeting: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(simulatedClock ? "Today · \(clockText) · demo clock" : "Today · \(clockText)")
-                    .orbitEyebrow()
-                    .foregroundStyle(simulatedClock ? Color.orbitUrgent : Color.orbitInkFaint)
-                Text("Hey \(user.name)")
-                    .font(.orbitTitle)
-                    .orbitTightDisplay()
-                    .foregroundStyle(Color.orbitInk)
+        VStack(spacing: 16) {
+            // The wordmark sits centred with the day's facts either side of
+            // it, the way the design opens every screen.
+            ZStack {
+                OrbitWordmark()
+                HStack {
+                    Text(simulatedClock ? "\(clockText) · demo" : clockText)
+                        .font(.system(size: 11, weight: .semibold))
+                        .tracking(0.6)
+                        .monospacedDigit()
+                        .foregroundStyle(simulatedClock ? Color(hex: OrbitClassic.crisis) : OrbitClassic.inkFaint)
+                    Spacer()
+                    Text("\(user.streakWeeks)w · \(user.xpWeek) XP")
+                        .font(.system(size: 11, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(OrbitClassic.inkSoft)
+                }
             }
-            Spacer()
-            HStack(spacing: 4) {
-                Text("\(user.streakWeeks)w")
-                Text("·")
-                Text("\(user.xpWeek) XP")
-            }
-            .orbitEyebrow()
-            .monospacedDigit()
-            .foregroundStyle(Color.orbitInkSoft)
+
+            Text(chrome.label("Hey \(user.name)"))
+                .font(chrome.title(.title))
+                .tracking(chrome.titleTracking)
+                .foregroundStyle(OrbitClassic.ink)
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
         }
     }
 
@@ -83,108 +88,72 @@ struct TimelineHeaderView: View {
     private func reading(label: String, value: String, struck: Bool) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(label)
-                .orbitEyebrow()
-                .foregroundStyle(Color.orbitInkFaint)
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.5)
+                .textCase(.uppercase)
+                .foregroundStyle(OrbitClassic.inkFaint)
             Text(value)
-                .font(.orbitNumeric)
-                .foregroundStyle(struck ? Color.orbitInkSoft : Color.orbitInk)
-                .strikethrough(struck, color: .orbitUrgent)
+                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(struck ? OrbitClassic.inkSoft : OrbitClassic.ink)
+                .strikethrough(struck, color: Color(hex: OrbitClassic.body))
                 .contentTransition(.numericText())
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .background {
-            RoundedRectangle(cornerRadius: OrbitMetric.chipRadius, style: .continuous)
-                .fill(Color.orbitSurface)
-                .overlay(
-                    RoundedRectangle(cornerRadius: OrbitMetric.chipRadius, style: .continuous)
-                        .strokeBorder(Color.orbitHairline, lineWidth: 1)
-                )
+            RoundedRectangle(cornerRadius: chrome.corner, style: .continuous)
+                .fill(OrbitClassic.surface)
         }
     }
 
-    /// Circular icon chips, one filled. The reference uses exactly this for
-    /// Air / Heat / Cold / Humid.
+    /// A segmented control, the way the design picks a mode: one strip, the
+    /// live segment filled with whatever accent the mode brought with it.
     private var modeChips: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 4) {
             ForEach(Today.Mode.allCases, id: \.self) { candidate in
                 Button {
                     onModeChange(candidate)
                 } label: {
-                    VStack(spacing: 6) {
-                        ZStack {
-                            Circle()
-                                .fill(candidate == mode ? Color.orbitAccent : Color.orbitSurface)
-                            Circle()
-                                .strokeBorder(Color.orbitHairline, lineWidth: candidate == mode ? 0 : 1)
-                            Image(systemName: icon(for: candidate))
-                                .font(.system(size: 15, weight: .medium))
-                                .foregroundStyle(candidate == mode ? Color.orbitOnAccent : Color.orbitInkSoft)
-                        }
-                        .frame(width: 46, height: 46)
-                        .orbitBloom(.orbitAccent, active: candidate == mode, radius: 12)
-
-                        Text(candidate.label)
-                            .orbitEyebrow()
-                            .foregroundStyle(candidate == mode ? Color.orbitInk : Color.orbitInkFaint)
-                    }
+                    Text(chrome.label(candidate.label))
+                        .font(.system(size: 14, weight: .semibold))
+                        .tracking(chrome.titleTracking > 0 ? 0.6 : 0)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 9)
+                        .background(
+                            RoundedRectangle(cornerRadius: max(5, chrome.corner - 5), style: .continuous)
+                                .fill(candidate == mode ? chrome.accent : Color.clear)
+                        )
+                        .foregroundStyle(candidate == mode ? chrome.onAccent : OrbitClassic.inkSoft)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.orbitTile)
+                .buttonStyle(.plain)
                 .accessibilityLabel("\(candidate.label) mode")
                 .accessibilityAddTraits(candidate == mode ? [.isButton, .isSelected] : .isButton)
             }
-            Spacer(minLength: 0)
         }
-        .animation(OrbitMotion.snap(reduceMotion), value: mode)
+        .padding(3)
+        .background(
+            RoundedRectangle(cornerRadius: max(8, chrome.corner - 2), style: .continuous)
+                .fill(OrbitClassic.surface)
+        )
+        .animation(chrome.animation, value: mode)
         .sensoryFeedback(.selection, trigger: mode)
     }
 
-    /// The subject of the screen.
-    private var dial: some View {
-        RadialDialView(progress: committedFraction, tint: .orbitAccentInk) {
-            VStack(spacing: 2) {
-                Text(hm(ledger.usable))
-                    .font(.orbitDisplay)
-                    .orbitTightDisplay()
-                    .monospacedDigit()
-                    .foregroundStyle(Color.orbitInk)
-                    .contentTransition(.numericText())
-                Text("usable today")
-                    .orbitEyebrow()
-                    .foregroundStyle(Color.orbitInkFaint)
-                if ledger.overCommitted {
-                    Text("\(hm(ledger.slack)) over")
-                        .orbitEyebrow()
-                        .foregroundStyle(Color.orbitOnAccent)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(Color.orbitUrgent))
-                        .padding(.top, 4)
-                }
-            }
-        }
-        .frame(height: 210)
-        .frame(maxWidth: .infinity)
-        // The arc sweeps 220 degrees from 160, so it is open at the bottom and
-        // the last third of its bounding box can never contain a tick: the
-        // lowest ticks sit at 0.34 of the radius below centre, leaving about
-        // 69pt of a 210pt box empty. Trimming most of that back is what closes
-        // the hole that opened between the dial and the breakdown line.
-        .padding(.bottom, -40)
+    /// The subject of the screen: what the calendar claimed, and the four
+    /// things that quietly take it apart. Replaces the single committed-vs-
+    /// usable dial, which could show the proportion but never the reason.
+    private var ledgerRings: some View {
+        LedgerRingsView(ledger: ledger, chrome: chrome)
     }
 
     private var breakdown: some View {
-        Text("Missing \(hm(ledger.frictionMinutes)) = \(hm(ledger.travel)) walking + \(hm(ledger.meals)) meals + \(hm(ledger.routines)) settling")
-            .font(.orbitBody)
-            .foregroundStyle(Color.orbitInkSoft)
+        // The three parts are already named and numbered by the meters above,
+        // so this line carries only the total they add up to.
+        Text("\(hm(ledger.frictionMinutes)) of today goes to getting there, eating and settling in.")
+            .font(.subheadline)
+            .foregroundStyle(OrbitClassic.inkSoft)
             .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private func icon(for mode: Today.Mode) -> String {
-        switch mode {
-        case .normal: return "circle.grid.2x2"
-        case .crisis: return "bolt.fill"
-        case .chill:  return "moon"
-        }
     }
 }

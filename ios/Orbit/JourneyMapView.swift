@@ -54,7 +54,9 @@ struct JourneyMapView: View {
     @State private var camera: MapCameraPosition = .region(.init(center: .init(latitude: 40.4426, longitude: -79.9497), span: .init(latitudeDelta: 0.03, longitudeDelta: 0.03)))
     @State private var locationManager = CLLocationManager()
 
-    private let places = ["Home", "Cathedral", "Hillman", "Posvar", "Sennott", "Benedum"]
+    /// Seeded with the one place that exists in every region so the pickers
+    /// are never empty on the first frame, then replaced by the server's list.
+    @State private var places: [String] = ["Home"]
 
     var body: some View {
         Map(position: $camera) {
@@ -131,7 +133,13 @@ struct JourneyMapView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Picker("", selection: $model.from) { ForEach(places, id: \.self, content: Text.init) }.labelsHidden()
+            Picker("", selection: $model.from) { ForEach(places, id: \.self, content: Text.init) }
+                .labelsHidden()
+                .task {
+                    if let loaded = try? await OrbitAPI.shared.places(), !loaded.isEmpty {
+                        places = loaded.map(\.label)
+                    }
+                }
             Image(systemName: "arrow.right").foregroundStyle(.secondary)
             Picker("", selection: $model.to) { ForEach(places, id: \.self, content: Text.init) }.labelsHidden()
             Spacer()

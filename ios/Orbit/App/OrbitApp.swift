@@ -9,7 +9,7 @@ import SwiftUI
 struct OrbitApp: App {
     var body: some Scene {
         WindowGroup {
-            ScheduleOverviewView()
+            RootTabView()
         }
     }
 }
