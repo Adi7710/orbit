@@ -1,4 +1,4 @@
-import { store } from "./store";
+import { store, log } from "./store";
 import { computeLedger, suggestCuts } from "@/core/ledger";
 import { bestFit, findGaps } from "@/core/gaps";
 import { questsForDay } from "@/core/game";
@@ -11,6 +11,25 @@ import { buildJourney, BUILDINGS } from "./journey";
 import { clock } from "@/services/prt";
 import { transitNeed } from "@/core/transitRelevance";
 import { bucketDue, compactDuration, naturalDue } from "@/core/say";
+import { currentWeek, reviewUpTo } from "./learned";
+
+/**
+ * The weekly review, kicked off in the background the first time the day is
+ * built and never awaited. Until it has run, learned[] is empty on every
+ * screen and the voice coach answers from the raw history -- which is how a
+ * fresh server spent a whole night showing "what Orbit has learned: nothing".
+ * Runs once per process; a failure is logged and the day is unaffected.
+ */
+let reviewKicked = false;
+function kickWeeklyReview() {
+  if (reviewKicked || process.env.NODE_ENV === "test" || process.env.ORBIT_NO_REVIEW === "1") return;
+  reviewKicked = true;
+  const week = currentWeek();
+  void reviewUpTo(week).then(
+    (r) => log("agent", "weekly_review_auto", { week, reviews: r.length }),
+    (e) => log("agent", "weekly_review_auto_failed", { week, error: (e as Error).message }),
+  );
+}
 import { REGION } from "@/services/schedule";
 
 /** Who publishes the timetable we just quoted, per region. */
@@ -54,6 +73,7 @@ export async function buildToday(opts?: { to?: string }) {
   const c = clock();
   const nowMin = Math.floor(c.sec / 60);
   const clockDate = new Date(c.epoch * 1000);
+  kickWeeklyReview();
 
   const ledger = computeLedger(s.blocks, s.profile, s.travel, liveTasks, s.estimator);
   // How small a window may be is the mode's call now: a twelve-minute hole is

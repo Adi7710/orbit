@@ -57,8 +57,20 @@ async function pool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Prom
   return out;
 }
 
+/**
+ * Cached for ten minutes. A full run is twenty model calls in series, about
+ * half a minute when the API is quiet and minutes when it is not; nobody at
+ * a judging table waits for that. `?fresh=1` re-scores; `?variant=` never
+ * caches, since it is the debugging path.
+ */
+let cache: { at: number; body: unknown } | undefined;
+const CACHE_MS = 10 * 60 * 1000;
+
 export async function GET(req: Request) {
-  const only = new URL(req.url).searchParams.get("variant") as EstimateVariant | null;
+  const url = new URL(req.url);
+  const only = url.searchParams.get("variant") as EstimateVariant | null;
+  const fresh = url.searchParams.get("fresh") === "1";
+  if (!only && !fresh && cache && Date.now() - cache.at < CACHE_MS) return NextResponse.json(cache.body);
   const variants: EstimateVariant[] = only ? [only] : ["zeroshot", "anchored"];
 
   const heurRows: Row[] = truth.map((x) => {
@@ -96,9 +108,12 @@ export async function GET(req: Request) {
     }));
   }
 
-  return NextResponse.json({
+  const body = {
     summary: results,
     detail,
+    cachedAt: new Date().toISOString(),
     note: "Ground truth is a synthetic session log of ten tasks. Replace with real logged sessions as students accumulate them; the estimator already stores guess-versus-actual per course.",
-  });
+  };
+  if (!only) cache = { at: Date.now(), body };
+  return NextResponse.json(body);
 }
