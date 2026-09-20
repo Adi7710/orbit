@@ -51,3 +51,12 @@ ios/**/xcuserdata/
 ios/**/*.xcuserstate
 ios/DerivedData/
 .swiftpm/
+
+# Claude Code skill packs pulled from third-party repos. Not our code, not a library:
+# kept out of the tree so nothing written before 11:00 on 19 Sept is in it.
+.agents/
+.claude/
+skills-lock.json
+
+# The example env has no secrets and is the one .env* file that belongs in git.
+!.env.example
