@@ -27,8 +27,11 @@ const FRESH_MS = 10 * 60 * 1000;
 const STALE_MS = 60 * 60 * 1000;
 let refreshing = false;
 
-const contextKey = (ctx: { gaps: { id: string; usable: number }[]; tasks: { id: string; completedAt?: unknown }[]; mode: string }) =>
-  `${ctx.mode}|${ctx.gaps.map((g) => `${g.id}:${g.usable}`).join(",")}|${ctx.tasks.filter((t) => !t.completedAt).map((t) => t.id).sort().join(",")}`;
+// The windows by id, not by size: a window under way shrinks by a minute
+// every minute, and keying on its usable minutes meant every tap was a cache
+// miss and the plan Nemotron gave seven minutes ago was never served.
+const contextKey = (ctx: { gaps: { id: string }[]; tasks: { id: string; completedAt?: unknown }[]; mode: string }) =>
+  `${ctx.mode}|${ctx.gaps.map((g) => g.id).join(",")}|${ctx.tasks.filter((t) => !t.completedAt).map((t) => t.id).sort().join(",")}`;
 
 const agoText = (at: number) => {
   const m = Math.round((Date.now() - at) / 60000);
