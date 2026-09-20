@@ -69,6 +69,11 @@ export default function MapClient() {
   // Deep link: the Today bus card links here with the exact leg it is showing,
   // so the two screens never open on different journeys.
   const params = useSearchParams();
+  // The question comes first, every time the map is opened on its own. It
+  // used to disappear as soon as a journey loaded, and a journey loads in a
+  // fifth of a second, so nobody ever saw it. Only a deep link that already
+  // names the destination skips it.
+  const [chosen, setChosen] = useState<boolean>(!!params.get("to"));
   const [from, setFrom] = useState<string>(params.get("from") ?? "Home");
   // No hardcoded destination: "Cathedral" is a building in the wrong state.
   // The server says which place it would pick anyway.
@@ -368,7 +373,7 @@ export default function MapClient() {
           are looking at. Asking one question first -- where are you going --
           means every number that follows is an answer to something they said.
           It disappears the moment they choose, and never comes back. */}
-      {!j && (
+      {!chosen && (
         <div className="absolute inset-0 z-[700] flex items-end justify-center bg-black/40 p-4 backdrop-blur-sm sm:items-center">
           <div className="w-full max-w-sm rounded-2xl bg-background p-5 shadow-xl">
             <h2 className="text-lg font-semibold tracking-tight">Where are you going?</h2>
@@ -380,14 +385,14 @@ export default function MapClient() {
               {places.filter((p) => p !== "Home").map((p) => (
                 <button
                   key={p}
-                  onClick={() => { setTo(p); setArriveBy(classAt[p]?.startText ?? ""); }}
+                  onClick={() => { setTo(p); setArriveBy(classAt[p]?.startText ?? ""); setChosen(true); userMoved.current = false; }}
                   className="rounded-xl border border-line px-3 py-2.5 text-left text-sm hover:border-primary"
                 >
                   <span className="font-medium">{p}</span>
                   {classAt[p] && <span className="block text-xs text-ink-2">{classAt[p].startText} · {classAt[p].title}</span>}
                 </button>
               ))}
-              <button onClick={() => setTo("Home")} className="rounded-xl border border-line px-3 py-2.5 text-left text-sm hover:border-primary">
+              <button onClick={() => { setTo("Home"); setChosen(true); userMoved.current = false; }} className="rounded-xl border border-line px-3 py-2.5 text-left text-sm hover:border-primary">
                 <span className="font-medium">Home</span>
                 <span className="block text-xs text-ink-2">head back</span>
               </button>
@@ -429,7 +434,7 @@ export default function MapClient() {
           <a href="/" className="flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-ink transition hover:bg-surface-2" aria-label="Back to today">‹ Orbit</a>
           <select value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Travelling from" className="min-h-11 rounded-lg border px-2 text-sm">{places.map((p) => <option key={p}>{p}</option>)}</select>
           <span aria-hidden="true" className="text-ink-2">→</span>
-          <select value={to} onChange={(e) => setTo(e.target.value)} aria-label="Travelling to" className="min-h-11 rounded-lg border px-2 text-sm">{places.map((p) => <option key={p}>{p}</option>)}</select>
+          <select value={to} onChange={(e) => { setTo(e.target.value); setChosen(true); }} aria-label="Travelling to" className="min-h-11 rounded-lg border px-2 text-sm">{places.map((p) => <option key={p}>{p}</option>)}</select>
           {/* The timetable knows when you have to be there. Typing a time is
               how the map ended up measuring against a class five hours past,
               so this states what Orbit read and offers to drop it, rather

@@ -190,7 +190,15 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
   // sequence rather than asserted by a stop's name. The old table stays as a
   // fallback for the case where nothing is within walking distance.
   const originPt = opts.origin ?? fromB;
-  const pair = bestStopPair(originPt, toB, c.ymd, Math.max(0, c.sec - 300));
+  // Try the walking radius first, then a wider one. Gateway and Howe sit
+  // 1.25 km up Castle Point from Hoboken Terminal, just past the default
+  // 1.2 km, and returned "no bus leg between those places" -- a rail line
+  // that stops at the foot of the hill is still the way there. The wider
+  // pass is the hardcoded track for every campus building: Marin Boulevard
+  // to Hoboken Terminal, and a longer walk.
+  const pair =
+    bestStopPair(originPt, toB, c.ymd, Math.max(0, c.sec - 300)) ??
+    bestStopPair(originPt, toB, c.ymd, Math.max(0, c.sec - 300), { radius: 2200 });
   const boardId = pair?.boardId ?? (goingHome ? fromB.boardOutbound : BUILDINGS.Home.boardOutbound);
   const alightId = pair?.alightId ?? (goingHome ? BUILDINGS.Home.alightInbound : toB.alightInbound);
   if (!boardId || !alightId) return undefined;
