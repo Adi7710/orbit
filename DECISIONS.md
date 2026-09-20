@@ -803,3 +803,14 @@ Two corrections found by running it rather than reading it. First, the arcs were
 Arithmetic: none added. `fraction` divides two server numbers to place a mark on an arc, which is what `TimelineHeaderView.committedFraction` already did for the dial; `hm` formats and does not decide.
 Open, not done: the dock's primary action is still lime under Crisis and Chill, so on those modes two different accents are on screen at once. Either the dock follows the chrome or the chrome stops moving the accent. Flagged for Adi, who owns Theme.
 Affects: ios/Orbit/Theme/OrbitModeChrome.swift, ios/Orbit/Components/LedgerRingsView.swift, ios/Orbit/Components/TimelineHeaderView.swift, ios/Orbit/Models/Today.swift, ios/Orbit/Orbit.xcodeproj.
+
+## 2026-09-20 01:05 ET · Anmol + Claude · learned[] and atRisk[] reach the phone, and say nothing when there is nothing to say
+Decision: Both arrays were in `GET /api/today` and in neither the iOS model nor the screen. Added `Today.LearnedFact {aspect, label, sentence}` and `Today.AtRiskTask {taskId, title, needsMinutes}`, each as an optional array so a build still decodes against an older deploy, and two sections that render only when their array is non-empty. An "all clear" card is a card you have to read to find out it had nothing to say.
+`sentence` is printed verbatim and never rephrased: the server writes it from the multiplier by code precisely so the words cannot disagree with the number (Jatin, 20 Sept 03:05). At risk shows the title and `needsMinutes` only.
+Noted, not worked around: `atRisk[].startsInHours` is a raw float and the only field in this response with no server-written text beside it, while everything else carries a `*Text`. Rendering "starts in 2.4h" would be the phone deciding how to say a time, so the row omits it. A `startsInText` on the server would let the row say what the rest of the screen says.
+Affects: ios/Orbit/Models/Today.swift, ios/Orbit/Today/ScheduleOverviewView.swift.
+
+## 2026-09-20 01:05 ET · Anmol + Claude · The app runs on hardware, not just the simulator
+Decision: Built, signed and installed on a paired iPhone 15 Pro Max (iOS 26.6.2) with the existing `DEVELOPMENT_TEAM K9TDRPCGUS` and automatic signing; Xcode minted "iOS Team Provisioning Profile: com.orbit.OrbitHacks" on the fly with `-allowProvisioningUpdates`. First launch was refused by SpringBoard until the developer profile was trusted on the device, which is a physical step and not a build problem. The public tunnel means the phone reaches the same server the simulator does, with no LAN assumptions.
+Still outstanding for submission: `NSAppTransportSecurity → NSAllowsArbitraryLoads` is still on in `project.yml`, and `ios/README.md` asks for it to come out before any submission running against the HTTPS URL. It is one block.
+Affects: ios/Orbit/Orbit.xcodeproj, and nothing in the source.

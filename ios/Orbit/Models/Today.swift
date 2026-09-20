@@ -23,6 +23,12 @@ struct Today: Decodable {
     let tasks: [TaskItem]
     let transit: Transit
     let proposals: [Proposal]
+    /// What the weekly review has worked out about this student. Optional so a
+    /// build still decodes against a server deployed before the field existed;
+    /// empty renders nothing rather than an "all clear" card.
+    let learned: [LearnedFact]?
+    /// Deadlines the remaining work no longer fits in front of.
+    let atRisk: [AtRiskTask]?
 
     enum Mode: String, Decodable, CaseIterable {
         case normal, crisis, chill
@@ -169,6 +175,27 @@ struct Today: Decodable {
             let startText: String
             let minutesAway: Int
         }
+    }
+
+    struct LearnedFact: Decodable, Identifiable, Hashable {
+        let aspect: String
+        let label: String
+        /// Written by code on the server precisely so the words can never
+        /// disagree with the multiplier behind them. The app prints it and
+        /// never rephrases it. See DECISIONS, 20 Sept 03:05.
+        let sentence: String
+
+        /// One aspect can speak about several categories, so the sentence is
+        /// part of the identity.
+        var id: String { aspect + "::" + sentence }
+    }
+
+    struct AtRiskTask: Decodable, Identifiable, Hashable {
+        let taskId: String
+        let title: String
+        let needsMinutes: Int
+
+        var id: String { taskId }
     }
 
     struct Proposal: Decodable, Identifiable, Hashable {

@@ -144,6 +144,7 @@ struct ScheduleOverviewView: View {
                 .padding(.top, 8)
             }
 
+            atRiskSection(day)
             timelineSection(day)
             windowsSection(day)
 
@@ -152,6 +153,7 @@ struct ScheduleOverviewView: View {
             questsSection(day)
             proposalsSection(day)
             friendsSection(day)
+            learnedSection(day)
 
             // Room for the dock, so the last card is never trapped under it.
             Color.clear
@@ -162,6 +164,55 @@ struct ScheduleOverviewView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .refreshable { await store.refresh() }
+    }
+
+    /// Deadlines the work no longer fits in front of. Renders nothing when
+    /// the list is empty: an "all clear" card is a card you have to read to
+    /// find out it had nothing to say.
+    @ViewBuilder
+    private func atRiskSection(_ day: Today) -> some View {
+        if let atRisk = day.atRisk, !atRisk.isEmpty {
+            section("At risk") {
+                ForEach(atRisk) { task in
+                    plainRow {
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Text(task.title)
+                                .font(.orbitBody)
+                                .foregroundStyle(Color.orbitInk)
+                            Spacer(minLength: 8)
+                            Text("needs \(task.needsMinutes)m")
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(Color.orbitUrgent)
+                        }
+                        .padding(.vertical, 3)
+                    }
+                }
+            }
+        }
+    }
+
+    /// The weekly review, in its own words. Empty until an aspect has earned
+    /// the right to speak, and silent until then.
+    @ViewBuilder
+    private func learnedSection(_ day: Today) -> some View {
+        if let learned = day.learned, !learned.isEmpty {
+            section("What Orbit has learned") {
+                ForEach(learned) { fact in
+                    plainRow {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(fact.label)
+                                .orbitEyebrow()
+                                .foregroundStyle(Color.orbitInkFaint)
+                            Text(fact.sentence)
+                                .font(.orbitBody)
+                                .foregroundStyle(Color.orbitInkSoft)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .padding(.vertical, 3)
+                    }
+                }
+            }
+        }
     }
 
     /// "Getting there" has two shapes. With a departure it is `BusStripView`.
