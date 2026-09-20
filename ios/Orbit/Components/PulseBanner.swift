@@ -16,6 +16,7 @@ struct PulseBanner: View {
     @State private var notices: [Notice] = []
     @State private var index = 0
     @State private var hidden = false
+    @State private var lift: CGFloat = 0
     @State private var every: Double = 20
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -43,6 +44,20 @@ struct PulseBanner: View {
                 )
                 .padding(.horizontal, 16)
                 .padding(.top, 6)
+                .offset(y: lift)
+                // Up to dismiss, which is where a notice wants to go. A tap
+                // still works: the banner is small and a swipe is a big
+                // gesture for a one-line notice.
+                .gesture(
+                    DragGesture()
+                        .onChanged { lift = min(0, $0.translation.height) }
+                        .onEnded { value in
+                            if value.translation.height < -24 {
+                                hidden = true
+                            }
+                            lift = 0
+                        }
+                )
                 .onTapGesture { hidden = true }
                 .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
                 .id(n.id)
@@ -52,6 +67,7 @@ struct PulseBanner: View {
         }
         .animation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85), value: index)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: hidden)
+        .animation(reduceMotion ? nil : .interactiveSpring, value: lift)
         .task {
             await load()
             guard !notices.isEmpty else { return }

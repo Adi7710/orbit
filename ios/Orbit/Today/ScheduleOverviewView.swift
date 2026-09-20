@@ -336,8 +336,43 @@ struct ScheduleOverviewView: View {
             }
         }
         .background(Color.orbitBackground.ignoresSafeArea())
-        .presentationDetents([.fraction(0.62), .large])
+        .presentationDetents([detent(for: which), .large])
         .presentationDragIndicator(.visible)
+    }
+
+    /// How tall a door opens: what its rows actually need, clamped so a door
+    /// with one line is not a full-screen sheet and a door with nine is not a
+    /// letterbox you have to scroll from the first row. Drag up for the rest.
+    ///
+    /// Counted rather than measured. A `List` is lazy, so asking it how tall
+    /// it is gives the height of what has been built so far, which is a
+    /// different number on every open.
+    private func detent(for which: DoorID) -> PresentationDetent {
+        guard let day = store.day else { return .medium }
+        let rows: Int
+        let perRow: CGFloat
+        switch which {
+        case .day:
+            rows = (day.blocks ?? []).count
+            perRow = 188            // a class card
+        case .windows:
+            rows = max(1, day.gaps.count)
+            perRow = 132            // a gap card, plus its work-block note
+        case .bus:
+            rows = 1
+            perRow = 150
+        case .quests:
+            rows = 1
+            perRow = 140            // one horizontal rail
+        case .proposals:
+            rows = max(1, day.pendingProposals.count)
+            perRow = 132
+        case .friends:
+            // The wallet is the content: a card in full plus the stack under
+            // it, so it wants most of the screen rather than a row count.
+            return .fraction(0.78)
+        }
+        return .height(min(max(96 + CGFloat(rows) * perRow, 240), 720))
     }
 
     // One line per door, from server fields only. Counts of things are the

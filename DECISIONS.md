@@ -1065,3 +1065,11 @@ Decision: Akshat asked for the seven friends split between Castle Point and Wate
 Three parts: `SharedWindow` now decodes `userIds`, which is also the better identity — two friends can share a first name, and keying a card by name moves someone between crews the moment they are renamed. `FriendsWalletView` loads the board once and maps user id to group. The filter is `Everyone` plus whichever crews the server lists *and* someone in today's windows actually belongs to, so a crew with nobody free today is not offered as an empty tab.
 Each card shows its crew under the name, the stack resets to the front card when the filter changes, and a filter with nobody in it says so rather than showing an empty stack.
 Affects: ios/Orbit/Models/Today.swift, ios/Orbit/Today/FriendsWalletView.swift.
+
+## 2026-09-20 10:45 ET · Anmol + Claude · Doors open to the size of what is in them, the friend card is a card, and a notice can be swiped away
+Decision: Three from Akshat, on device.
+**Door height follows content.** Every door was a flat `.fraction(0.62)`, so "Getting there" with one sentence opened as tall as "Your day" with three classes. Each door now opens at what its rows need — `96 + rows × per-row`, clamped to 240…720 so one line is not a full-screen sheet and nine rows are not a letterbox — and drags up to full. The friends wallet is the exception at `0.78`: the content is one card read in full with a stack beneath it, not a row count.
+Counted, not measured. A `List` is lazy, so asking it for its height returns the height of whatever has been built so far, which is a different number every time the sheet opens. A row count is the same number every time.
+**The friend card is bigger**: 46pt avatar, 28pt name, 19pt monospaced times, a FREE WITH YOU label, 20pt padding and a 280pt floor on the front card, with the stack offset opened from 26 to 30 to match. The crew name under the name is now in the mode's accent rather than grey — it is the thing the filter above it acts on.
+**A pulse notice can be swiped up to hide.** It was tap-only. Up is where a notice wants to go; the tap still works, because a swipe is a large gesture for a one-line banner.
+Affects: ios/Orbit/Today/ScheduleOverviewView.swift, ios/Orbit/Today/FriendsWalletView.swift, ios/Orbit/Components/PulseBanner.swift.

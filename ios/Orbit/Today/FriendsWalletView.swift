@@ -118,7 +118,7 @@ struct FriendsWalletView: View {
                         // narrower, so the one on top is unmistakably the one
                         // being read.
                         .scaleEffect(1 - CGFloat(depth) * 0.04, anchor: .top)
-                        .offset(y: CGFloat(depth) * 26 + (depth == 0 ? min(0, drag) : 0))
+                        .offset(y: CGFloat(depth) * 30 + (depth == 0 ? min(0, drag) : 0))
                         .opacity(depth == 0 ? 1 : 0.9)
                         .zIndex(Double(friends.count - depth))
                         .gesture(depth == 0 ? dragGesture : nil)
@@ -148,22 +148,22 @@ struct FriendsWalletView: View {
     }
 
     private func card(_ friend: Friend, isFront: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 13) {
                 Text(String(friend.name.prefix(1)).uppercased())
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(.white)
-                    .frame(width: 34, height: 34)
+                    .frame(width: 46, height: 46)
                     .background(Circle().fill(accent))
                 VStack(alignment: .leading, spacing: 1) {
                     Text(friend.name)
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
+                        .font(.system(size: 28, weight: .semibold, design: .rounded))
                         .foregroundStyle(OrbitClassic.ink)
                     if let g = friend.group {
                         Text(g.uppercased())
-                            .font(.system(size: 9, weight: .bold))
-                            .tracking(0.9)
-                            .foregroundStyle(OrbitClassic.inkFaint)
+                            .font(.system(size: 10, weight: .bold))
+                            .tracking(1.0)
+                            .foregroundStyle(accent)
                     }
                 }
                 Spacer(minLength: 0)
@@ -171,18 +171,23 @@ struct FriendsWalletView: View {
 
             if isFront {
                 Divider()
-                VStack(alignment: .leading, spacing: 9) {
+                Text("FREE WITH YOU")
+                    .font(.system(size: 10, weight: .bold))
+                    .tracking(1.0)
+                    .foregroundStyle(OrbitClassic.inkFaint)
+
+                VStack(alignment: .leading, spacing: 14) {
                     ForEach(Array(friend.windows.enumerated()), id: \.offset) { _, w in
                         HStack(alignment: .firstTextBaseline, spacing: 10) {
                             Text("\(w.startText)–\(w.endText)")
-                                .font(.system(.subheadline, design: .monospaced))
+                                .font(.system(size: 19, weight: .medium, design: .monospaced))
                                 .foregroundStyle(OrbitClassic.ink)
                             Spacer(minLength: 8)
                             Text("\(w.minutes) min")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(.system(size: 13, weight: .semibold))
                                 .foregroundStyle(accent)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
                                 .background(Capsule().fill(accent.opacity(0.14)))
                         }
                         if w.names.count > 1 {
@@ -194,15 +199,16 @@ struct FriendsWalletView: View {
                 }
             }
         }
-        .padding(16)
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minHeight: isFront ? 280 : 0, alignment: .top)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(OrbitClassic.surface)
                 .shadow(color: .black.opacity(0.10), radius: 10, y: 4)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .strokeBorder(OrbitClassic.hairline, lineWidth: 1)
         )
     }
