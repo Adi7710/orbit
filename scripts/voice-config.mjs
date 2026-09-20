@@ -51,7 +51,20 @@ export const TURN = {
  * shape of the end. 1 gives noticeably more natural phrasing for a delay
  * nobody notices in a room. `speed` slightly under 1 stops it sounding rushed.
  */
+/**
+ * The voice itself.
+ *
+ * Set here rather than left to ElevenLabs, because a new agent is assigned a
+ * default one -- and recreating the agent to register a tool therefore wiped
+ * whatever voice had been chosen in the dashboard, silently, three times
+ * tonight. Anything that survives a rebuild has to live in this file.
+ *
+ * Override per machine with ELEVENLABS_VOICE_ID.
+ */
+export const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb"; // George, warm storyteller
+
 export const TTS = {
+  voice_id: VOICE_ID,
   optimize_streaming_latency: 1,
   speed: 0.95,
   stability: 0.45,

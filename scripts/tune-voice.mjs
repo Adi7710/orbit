@@ -41,6 +41,7 @@ async function show() {
   console.log("  turn_timeout     :", cc.turn?.turn_timeout);
   console.log("  soft timeout     :", cc.turn?.soft_timeout_config?.timeout_seconds, `"${cc.turn?.soft_timeout_config?.message}"`);
   console.log("  tts latency/speed:", cc.tts?.optimize_streaming_latency, "/", cc.tts?.speed);
+  console.log("  voice_id         :", cc.tts?.voice_id);
   console.log("  llm              :", cc.agent?.prompt?.llm);
   console.log("  tools            :", (cc.agent?.prompt?.tool_ids ?? []).length);
   console.log("  prompt lines     :", String(cc.agent?.prompt?.prompt ?? "").split("\n").filter(Boolean).length);

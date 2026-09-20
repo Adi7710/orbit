@@ -495,3 +495,12 @@ Decision: Adi asked whether this is the quality I would ship. It was not. Six th
   6. **First production build.** `next build` had never been run. It passes: 24 routes, 2 static. Added Cache-Control to both transit endpoints -- private, ten seconds on the journey, which is under the client poll and every upstream TTL, so a burst of refreshes collapses without ever serving a stale bus.
 Still not shipped-quality, and worth saying plainly: the Hudson slice is a 10.6 MB JSON parsed at module load, there is no rate limiting on any route, OSM's tile policy is fine for a demo and not for a user base, and the store is still in memory.
 Affects: src/services/schedule.ts, src/lib/journey.ts, src/lib/today.ts, src/agents/voiceTools.ts, src/app/map/MapClient.tsx, src/app/api/transit/*.
+
+## 2026-09-19 23:20 ET · Adi + lead Claude · The voice was reset to a default on every agent rebuild
+Decision: voice_id now lives in scripts/voice-config.mjs (ELEVENLABS_VOICE_ID overrides it), so it is set at create time and re-applied by tune-voice. Set to George, the warm storyteller, which Adi chose. tune-voice --show prints it.
+Why it was wrong: setup-voice-agent.mjs never set a voice, so ElevenLabs assigned its default — Eric — to each new agent. Registering a tool means recreating the agent, which I did three times tonight, and each time it silently overwrote whatever voice had been picked in the dashboard. Exactly the same class of regression as the first_message override: anything that must survive a rebuild has to live in the config file, not in the dashboard.
+Checked while here, since Adi asked:
+  - **No key has ever been pushed.** .env.local has never been committed, .gitignore covers .env*, and every tracked mention is a variable name or an error string. Nothing key-shaped anywhere in history.
+  - **The key stays on the server.** /api/voice/token mints a short-lived conversation token with xi-api-key server-side; the browser receives a 1039-character JWT and never the key. No NEXT_PUBLIC_ ElevenLabs variable exists.
+  - **The iOS app has no voice code at all.** ios/ is the Today screen, the map, components and theme — no ElevenLabs integration. So a voice heard while testing in Xcode came from the web app in the simulator's browser, hitting the same agent, which is why it had the same wrong voice.
+Affects: scripts/voice-config.mjs, scripts/tune-voice.mjs, .env.example.
