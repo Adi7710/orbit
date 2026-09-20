@@ -29,11 +29,10 @@ struct TimelineHeaderView: View {
         return m >= 60 ? "\(m / 60)h \(m % 60)m" : "\(m)m"
     }
 
-    /// How much of the usable day is already committed. A proportion of two
-    /// server numbers, drawn as a dial.
-    private var committedFraction: Double {
-        guard ledger.usable > 0 else { return 1 }
-        return min(1, Double(ledger.queued) / Double(ledger.usable))
+    /// Corner radius, display face and pace for the mode that is on. Colour
+    /// meaning is not in here — see `OrbitModeChrome`.
+    private var chrome: OrbitModeChrome {
+        .on(mode, reduceMotion: reduceMotion)
     }
 
     var body: some View {
@@ -41,7 +40,7 @@ struct TimelineHeaderView: View {
             greeting.orbitAppear(0)
             readings.orbitAppear(1)
             modeChips.orbitAppear(2)
-            dial.orbitAppear(3)
+            ledgerRings.orbitAppear(3)
             breakdown.orbitAppear(4)
         }
     }
@@ -54,9 +53,9 @@ struct TimelineHeaderView: View {
                 Text(simulatedClock ? "Today · \(clockText) · demo clock" : "Today · \(clockText)")
                     .orbitEyebrow()
                     .foregroundStyle(simulatedClock ? Color.orbitUrgent : Color.orbitInkFaint)
-                Text("Hey \(user.name)")
-                    .font(.orbitTitle)
-                    .orbitTightDisplay()
+                Text(chrome.label("Hey \(user.name)"))
+                    .font(chrome.title())
+                    .tracking(chrome.titleTracking)
                     .foregroundStyle(Color.orbitInk)
             }
             Spacer()
@@ -94,10 +93,10 @@ struct TimelineHeaderView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
         .background {
-            RoundedRectangle(cornerRadius: OrbitMetric.chipRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: chrome.corner, style: .continuous)
                 .fill(Color.orbitSurface)
                 .overlay(
-                    RoundedRectangle(cornerRadius: OrbitMetric.chipRadius, style: .continuous)
+                    RoundedRectangle(cornerRadius: chrome.corner, style: .continuous)
                         .strokeBorder(Color.orbitHairline, lineWidth: 1)
                 )
         }
@@ -114,15 +113,15 @@ struct TimelineHeaderView: View {
                     VStack(spacing: 6) {
                         ZStack {
                             Circle()
-                                .fill(candidate == mode ? Color.orbitAccent : Color.orbitSurface)
+                                .fill(candidate == mode ? chrome.accent : Color.orbitSurface)
                             Circle()
                                 .strokeBorder(Color.orbitHairline, lineWidth: candidate == mode ? 0 : 1)
                             Image(systemName: icon(for: candidate))
                                 .font(.system(size: 15, weight: .medium))
-                                .foregroundStyle(candidate == mode ? Color.orbitOnAccent : Color.orbitInkSoft)
+                                .foregroundStyle(candidate == mode ? chrome.onAccent : Color.orbitInkSoft)
                         }
                         .frame(width: 46, height: 46)
-                        .orbitBloom(.orbitAccent, active: candidate == mode, radius: 12)
+                        .orbitBloom(chrome.accent, active: candidate == mode, radius: 12)
 
                         Text(candidate.label)
                             .orbitEyebrow()
@@ -135,46 +134,21 @@ struct TimelineHeaderView: View {
             }
             Spacer(minLength: 0)
         }
-        .animation(OrbitMotion.snap(reduceMotion), value: mode)
+        .animation(chrome.animation, value: mode)
         .sensoryFeedback(.selection, trigger: mode)
     }
 
-    /// The subject of the screen.
-    private var dial: some View {
-        RadialDialView(progress: committedFraction, tint: .orbitAccentInk) {
-            VStack(spacing: 2) {
-                Text(hm(ledger.usable))
-                    .font(.orbitDisplay)
-                    .orbitTightDisplay()
-                    .monospacedDigit()
-                    .foregroundStyle(Color.orbitInk)
-                    .contentTransition(.numericText())
-                Text("usable today")
-                    .orbitEyebrow()
-                    .foregroundStyle(Color.orbitInkFaint)
-                if ledger.overCommitted {
-                    Text("\(hm(ledger.slack)) over")
-                        .orbitEyebrow()
-                        .foregroundStyle(Color.orbitOnAccent)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .background(Capsule().fill(Color.orbitUrgent))
-                        .padding(.top, 4)
-                }
-            }
-        }
-        .frame(height: 210)
-        .frame(maxWidth: .infinity)
-        // The arc sweeps 220 degrees from 160, so it is open at the bottom and
-        // the last third of its bounding box can never contain a tick: the
-        // lowest ticks sit at 0.34 of the radius below centre, leaving about
-        // 69pt of a 210pt box empty. Trimming most of that back is what closes
-        // the hole that opened between the dial and the breakdown line.
-        .padding(.bottom, -40)
+    /// The subject of the screen: what the calendar claimed, and the four
+    /// things that quietly take it apart. Replaces the single committed-vs-
+    /// usable dial, which could show the proportion but never the reason.
+    private var ledgerRings: some View {
+        LedgerRingsView(ledger: ledger, chrome: chrome)
     }
 
     private var breakdown: some View {
-        Text("Missing \(hm(ledger.frictionMinutes)) = \(hm(ledger.travel)) walking + \(hm(ledger.meals)) meals + \(hm(ledger.routines)) settling")
+        // The three parts are already named and numbered by the meters above,
+        // so this line carries only the total they add up to.
+        Text("\(hm(ledger.frictionMinutes)) of today goes to getting there, eating and settling in.")
             .font(.orbitBody)
             .foregroundStyle(Color.orbitInkSoft)
             .fixedSize(horizontal: false, vertical: true)

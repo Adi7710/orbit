@@ -45,6 +45,12 @@ struct Today: Decodable {
     struct Ledger: Decodable {
         let usable: Int
         let naiveFree: Int
+        /// Minutes between waking and sleeping. `fixed + travel + meals +
+        /// routines + usable` sums to exactly this, which is what makes it the
+        /// right whole for the ledger rings. `naiveFree` is NOT that whole —
+        /// it already has class taken out. Optional so a build still decodes
+        /// against a server deployed before the field existed.
+        let awake: Int?
         let travel: Int
         let meals: Int
         let routines: Int
@@ -151,6 +157,18 @@ struct Today: Decodable {
         let clockText: String
         let simulated: Bool
         let realtimeOk: Bool
+        /// Why there is nothing to catch. The server writes the sentence; the
+        /// app prints it. Present whenever `bus` is nil, which is most of the
+        /// day, and the reason "Getting there" is never an empty card.
+        let why: String?
+        /// The class a departure would be for, when one is still ahead.
+        let nextClass: NextClass?
+
+        struct NextClass: Decodable, Hashable {
+            let title: String
+            let startText: String
+            let minutesAway: Int
+        }
     }
 
     struct Proposal: Decodable, Identifiable, Hashable {

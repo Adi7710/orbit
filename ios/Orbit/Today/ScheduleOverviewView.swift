@@ -147,11 +147,7 @@ struct ScheduleOverviewView: View {
             timelineSection(day)
             windowsSection(day)
 
-            if let bus = day.bus {
-                section("Getting there") {
-                    plainRow { BusStripView(bus: bus) }
-                }
-            }
+            busSection(day)
 
             questsSection(day)
             proposalsSection(day)
@@ -166,6 +162,39 @@ struct ScheduleOverviewView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .refreshable { await store.refresh() }
+    }
+
+    /// "Getting there" has two shapes. With a departure it is `BusStripView`.
+    /// Without one the server still says why — "Nothing to catch yet…" — and
+    /// that sentence is the card. An absent bus is not an absent section: the
+    /// student asked the same question either way and deserves the same
+    /// answer. Rendered only when there is something to say, so the header
+    /// never stands over nothing.
+    @ViewBuilder
+    private func busSection(_ day: Today) -> some View {
+        if let bus = day.bus {
+            section("Getting there") {
+                plainRow { BusStripView(bus: bus) }
+            }
+        } else if let why = day.transit.why, !why.isEmpty {
+            section("Getting there") {
+                plainRow {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(why)
+                            .font(.orbitBody)
+                            .foregroundStyle(Color.orbitInkSoft)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        if let next = day.transit.nextClass {
+                            Text("\(next.title) · \(next.startText)")
+                                .orbitEyebrow()
+                                .foregroundStyle(Color.orbitInkFaint)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
     }
 
     /// The glanceable deck: finished, in progress, up next, later.
@@ -425,17 +454,27 @@ struct ScheduleOverviewView: View {
             .listRowSeparator(.hidden)
     }
 
+    /// A titled group.
+    ///
+    /// The title is an ordinary row, not a `Section` header, and that is the
+    /// whole point. A plain `List` pins its headers, and these are transparent
+    /// — `listRowBackground(Color.clear)` is what lets the design own the
+    /// spacing — so a pinned one does not hide what scrolls beneath it, it
+    /// sits *on top of it*. "YOUR REAL WINDOWS" ended up printed over the first
+    /// card in the section. Giving the header an opaque plate would fix the
+    /// collision and give us a sticky grey bar the design does not want; these
+    /// are eyebrow labels, not navigation, so they should scroll away with
+    /// their content.
     private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
         Section {
+            plainRow {
+                Text(title)
+                    .orbitEyebrow()
+                    .foregroundStyle(Color.orbitInkFaint)
+                    .padding(.top, 10)
+            }
             content()
-        } header: {
-            Text(title)
-                .orbitEyebrow()
-                .foregroundStyle(Color.orbitInkFaint)
-                .textCase(nil)
-                .padding(.top, 10)
         }
-        .listRowBackground(Color.clear)
     }
 }
 
