@@ -14,7 +14,11 @@ export async function POST() {
   const today = await buildToday();
   let proposals: Proposal[] = [];
   let narration = "";
-  let provider = "claude-sonnet-5";
+  // Named after whoever actually answered, set only on success. It used to
+  // start as "claude-sonnet-5" and be rewritten on failure, so a day with no
+  // window -- where every tier returns nothing -- reported Claude with no
+  // Anthropic key in the environment.
+  let provider = process.env.ANTHROPIC_API_KEY ? "" : "no ANTHROPIC_API_KEY";
 
   if (process.env.ANTHROPIC_API_KEY) {
     try {
@@ -28,8 +32,9 @@ export async function POST() {
       });
       proposals = out.proposals;
       narration = out.narration;
+      provider = "claude-sonnet-5";
     } catch (e) {
-      provider = `fallback (${(e as Error).message})`;
+      provider = `claude failed (${(e as Error).message})`;
     }
   }
 
@@ -44,15 +49,29 @@ export async function POST() {
       if (out.proposals.length > 0) {
         proposals = out.proposals;
         narration = out.narration;
-        provider = `nemotron-hosted${out.dropped ? ` (${out.dropped} dropped: bad ids)` : ""}`;
+        // The model proposes; code guarantees coverage. First live run with a
+        // key: one proposal, the gym into the midday window, and the problem
+        // set due in two days left out entirely -- a worse plan than the
+        // deterministic one. So any window the model leaves empty gets the
+        // same pick the Today screen already shows, and the provider says so.
+        // Proposal is a union and draft_extension carries no gapId.
+        const taken = new Set(proposals.map((p) => ("gapId" in p ? p.gapId : undefined)));
+        let filled = 0;
+        for (const g of today.gaps) {
+          if (taken.has(g.id) || !g.pick) continue;
+          proposals.push({ kind: "move_task", taskId: g.pick.id, gapId: g.id, reason: `${g.pick.title} fits the ${g.usable}-minute window` });
+          filled++;
+        }
+        provider = `nemotron-hosted${out.dropped ? ` (${out.dropped} dropped: bad ids)` : ""}${filled ? ` + code (${filled} window${filled === 1 ? "" : "s"} filled)` : ""}`;
       }
     } catch (e) {
-      provider = `${provider.startsWith("claude") ? "no ANTHROPIC_API_KEY" : provider}, nemotron ${(e as Error).message}`;
+      provider = `${provider}, nemotron ${(e as Error).message}`;
     }
   }
 
   if (proposals.length === 0) {
     // Deterministic proposals so the demo never depends on the model.
+    provider = `${provider ? `${provider}, ` : ""}deterministic`;
     for (const g of today.gaps) {
       if (g.pick) proposals.push({ kind: "move_task", taskId: g.pick.id, gapId: g.id, reason: `${g.pick.title} fits the ${g.usable}-minute window` });
       if (g.usable >= 60 && !g.isEvening) proposals.push({ kind: "book_room", gapId: g.id, building: STUDY_SPOT, reason: "long focused window near your next class" });

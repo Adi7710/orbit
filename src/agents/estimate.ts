@@ -67,6 +67,10 @@ export async function estimateTask(title: string, courseCode?: string, variant: 
     user,
     schema,
     () => ({ minutes: baseline, domain: "build" as const, confidence: 0.3 }),
+    // Hosted latency measured at 8-10 s and spiky. At 15 s half the eval's
+    // calls timed out and the model rows were half the heuristic's own score.
+    // Nothing on the voice path waits on this, so the ceiling can be honest.
+    30000,
   );
 
   const raw = Math.max(1, Math.round(r.data.minutes));

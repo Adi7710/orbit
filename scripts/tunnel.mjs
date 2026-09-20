@@ -85,6 +85,23 @@ async function follow(url) {
     console.error(`>>> could not re-point voice tools: ${e.message}`);
     console.error(`>>> voice will be dead until you run: node scripts/repoint-voice.mjs\n`);
   }
+  publish(url);
+}
+
+/**
+ * Tell the team where the server is, through GitHub, so an iOS build on
+ * another machine can find it: `gh variable get ORBIT_API_BASE`, then
+ * `xcodebuild ORBIT_API_BASE=<that>`. The URL is the only thing that leaves
+ * this machine. No key ever does -- the app never holds one; it asks this
+ * server, and this server holds the keys in .env.local.
+ */
+function publish(url) {
+  try {
+    execFileSync("gh", ["variable", "set", "ORBIT_API_BASE", "--body", url], { stdio: "ignore" });
+    console.log(`>>> GitHub variable ORBIT_API_BASE = ${url}`);
+  } catch {
+    console.error(">>> could not set the GitHub variable (gh not logged in?); the URL is still in .tunnel-url.txt");
+  }
 }
 
 /** True if the public URL answers. /api/today is the cheapest honest probe we
