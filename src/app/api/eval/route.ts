@@ -47,6 +47,16 @@ function summarize(rows: Row[]) {
   };
 }
 
+/** Run `fn` over `items` with at most `n` in flight, preserving order. */
+async function pool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+    while (next < items.length) { const i = next++; out[i] = await fn(items[i]); }
+  }));
+  return out;
+}
+
 export async function GET(req: Request) {
   const only = new URL(req.url).searchParams.get("variant") as EstimateVariant | null;
   const variants: EstimateVariant[] = only ? [only] : ["zeroshot", "anchored"];
@@ -61,7 +71,10 @@ export async function GET(req: Request) {
   const detail: Record<string, unknown[]> = { heuristic: heurRows };
 
   for (const variant of variants) {
-    const settled = await Promise.all(truth.map((x) => estimateTask(x.title, x.course, variant)));
+    // Two at a time, not ten. Ten parallel calls on one key trip NVIDIA's
+    // 429 and queue behind each other, which read as "hosted latency is
+    // 14 s" and "answered 4/10". Measured alone, a call is about a second.
+    const settled = await pool(truth, 2, (x) => estimateTask(x.title, x.course, variant));
     const rows: Row[] = settled.map((r, i) => {
       const e = Math.abs(r.minutes - truth[i].minutes);
       return { title: truth[i].title, actual: truth[i].minutes, predicted: r.minutes, errorMin: e, within25: e / truth[i].minutes <= 0.25 };

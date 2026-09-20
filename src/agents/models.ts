@@ -88,16 +88,30 @@ export async function nemotronJson<T>(system: string, user: string, schema: obje
     }
   };
 
+  // Prompt-only first, schema second. Measured 2026-09-20 01:40 against
+  // nemotron-3.5-lightning-30b-a3b with the same 64-token request:
+  //
+  //   without response_format   796 ms   {"minutes": 45, "domain": "learn"}
+  //   with json_schema strict   15,434 ms  "										..." (never closes)
+  //
+  // Grammar-constrained decoding is degenerate on this endpoint: it accepts
+  // the schema and then emits whitespace until max_tokens. Because the
+  // endpoint never *rejects* the schema, the old order -- schema first, retry
+  // only on rejection -- burned the whole timeout on every single call. That
+  // is the entire "hosted latency is 8-10 s and spiky" finding, the 5/10
+  // answered in the eval, and the planner timing out at 25 s. The schema is
+  // still in the system prompt as text, and the JSON is extracted from the
+  // reply; the constrained mode is kept only as a second attempt for a model
+  // that ignores the prompt.
   try {
-    const data = await attempt(true);
+    const data = await attempt(false);
     return { data, provider: "nemotron-hosted", model, latencyMs: Date.now() - started };
   } catch (e1) {
-    // Only retry when the endpoint rejected the schema. A timeout means the
-    // endpoint is slow, and retrying doubles the wait for the same answer:
-    // that is what produced the 30 s worst case in the first eval run.
+    // A timeout means the endpoint is slow; retrying doubles the wait for
+    // the same answer.
     if (isTimeout(e1)) return { data: fallback(), provider: "heuristic", model, latencyMs: Date.now() - started, error: `timeout after ${timeoutMs}ms` };
     try {
-      const data = await attempt(false);
+      const data = await attempt(true);
       return { data, provider: "nemotron-hosted", model, latencyMs: Date.now() - started };
     } catch (e2) {
       return { data: fallback(), provider: "heuristic", model, latencyMs: Date.now() - started, error: `${(e1 as Error).message} | ${(e2 as Error).message}` };

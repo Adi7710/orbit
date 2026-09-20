@@ -100,7 +100,10 @@ export async function planDayWithNemotron(ctx: DayContext, summary: string): Pro
   ].join(" ");
 
   const r = await nemotronJson<{ proposals?: Record<string, string>[]; narration?: string }>(
-    system, summary, nemotronSchema, () => ({ proposals: [], narration: "" }), 25000,
+    // About two seconds when the API is quiet. Twelve is the most a person
+    // will watch a spinner on stage before the deterministic plan should
+    // simply appear instead.
+    system, summary, nemotronSchema, () => ({ proposals: [], narration: "" }), 12000,
   );
   if (r.provider === "heuristic") throw new Error(r.error ?? "nemotron unavailable");
 

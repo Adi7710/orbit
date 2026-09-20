@@ -89,13 +89,36 @@ async function follow(url) {
 }
 
 /**
- * Tell the team where the server is, through GitHub, so an iOS build on
- * another machine can find it: `gh variable get ORBIT_API_BASE`, then
- * `xcodebuild ORBIT_API_BASE=<that>`. The URL is the only thing that leaves
- * this machine. No key ever does -- the app never holds one; it asks this
- * server, and this server holds the keys in .env.local.
+ * The iOS build reads ORBIT_API_BASE from the project, so "open in Xcode and
+ * Run" only works if the value in the repo is the URL that is alive right
+ * now. On every rotation the two files that hold it are rewritten; they still
+ * have to be committed and pushed for a Mac to see them, and the log says so.
+ * A stale URL in the project is the one thing that makes the app look broken
+ * when the server is fine.
+ */
+const IOS_URL_FILES = ["ios/Orbit/project.yml", "ios/Orbit/Orbit.xcodeproj/project.pbxproj"];
+function bake(url) {
+  const re = /https?:\/\/[a-z0-9.-]+(?::\d+)?/g;
+  let touched = 0;
+  for (const f of IOS_URL_FILES) {
+    try {
+      const before = fs.readFileSync(f, "utf8");
+      // Only the ORBIT_API_BASE lines; nothing else in these files is a URL we own.
+      const after = before.split(/\r?\n/).map((l) => (l.includes("ORBIT_API_BASE") && re.test(l) ? l.replace(re, url) : l)).join("\n");
+      if (after !== before) { fs.writeFileSync(f, after); touched++; }
+    } catch { /* file not present on this checkout */ }
+  }
+  if (touched) console.log(`>>> iOS project now points at ${url} (${touched} files) -- commit and push so a Mac gets it`);
+}
+
+/**
+ * Tell the team where the server is, through GitHub as well: `gh variable get
+ * ORBIT_API_BASE`. The URL is the only thing that leaves this machine. No key
+ * ever does -- the app never holds one; it asks this server, and this server
+ * holds the keys in .env.local.
  */
 function publish(url) {
+  bake(url);
   try {
     execFileSync("gh", ["variable", "set", "ORBIT_API_BASE", "--body", url], { stdio: "ignore" });
     console.log(`>>> GitHub variable ORBIT_API_BASE = ${url}`);

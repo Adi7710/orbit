@@ -5,7 +5,10 @@ The SwiftUI client. It renders; it never computes a time. Every number comes fro
 ## Open it (Mac only)
 
 `ios/Orbit/Orbit.xcodeproj` is committed. Open it and run — there is nothing to
-set up.
+set up. The server URL is baked into the project as `ORBIT_API_BASE` and points
+at the live tunnel on Adi's machine; if the app says it cannot reach the server,
+`git pull` (the tunnel rewrites the URL when it rotates) or run
+`gh variable get ORBIT_API_BASE` and set that as the build setting.
 
 The project is **generated from `ios/Orbit/project.yml` by XcodeGen**, which is
 where the deployment target, the Info.plist keys and the Swift package live. You
