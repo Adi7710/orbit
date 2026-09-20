@@ -90,18 +90,27 @@ describe("voice tools backed by the learning log", () => {
     expect((await handleVoiceTool({ tool: "get_estimate", task: "laundry" })).ok).toBe(false);
   });
 
-  it("get_coach answers from the learning log in spoken words, without calling the model", async () => {
+  it("get_coach says plainly when it does not know the student yet", async () => {
+    const { resetLearned } = await import("@/lib/learned");
+    resetLearned();
     const r = await handleVoiceTool({ tool: "get_coach" });
     expect(r.ok).toBe(true);
-    expect(r.text).toContain("Here is what your history says.");
-    expect(r.text).toMatch(/percent faster before noon/);
+    expect(r.text).toMatch(/do not know enough about you yet/);
     expect(r.text).not.toMatch(/\d/);
   });
 
-  it("get_coach admits when there is too little history", async () => {
-    store().habits = store().habits.slice(0, 3);
+  it("get_coach speaks what the weekly review learned, in words, with no model call", async () => {
+    const { learned, resetLearned } = await import("@/lib/learned");
+    resetLearned();
+    learned().aspects.work_length = {
+      memory: { week: 2, multipliers: { big_assignment: 1.4 }, evidence: {}, memos: [] },
+      observations: 6, active: true, lastReviewedWeek: 2, lessons: [],
+    };
     const r = await handleVoiceTool({ tool: "get_coach" });
-    expect(r.text).toMatch(/not enough to say anything real/);
+    expect(r.text).toContain("Here is what I have worked out about you.");
+    expect(r.text).toMatch(/longer than you think/);
+    // Every number is spoken, so text-to-speech never reads a bare digit.
+    expect(r.text).not.toMatch(/\d/);
   });
 
   it("log_actual by voice feeds the learning log exactly like a tap", async () => {

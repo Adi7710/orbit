@@ -8,6 +8,7 @@ import type { Mode, Task } from "@/core/types";
 import { buildHabitProfile, type TimeBucket } from "@/core/habits";
 import { habitInsightsCached, peekInsights } from "./habitAgent";
 import { recordHabit } from "@/lib/habitLog";
+import { deadlineRisk, learnedFacts } from "@/lib/learned";
 
 /**
  * The voice tool surface.
@@ -253,20 +254,20 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
     }
 
     case "get_coach": {
-      const profile = buildHabitProfile(s.habits);
-      if (profile.sessions < 6) {
-        return { ok: true, text: `I only have ${spoken(profile.sessions)} finished sessions so far, which is not enough to say anything real. Tell me when you finish things and how long they took.` };
+      // Sentences come from src/lib/learned.ts, written by code from the
+      // multiplier itself. The model described its own numbers backwards in two
+      // aspects during testing, so nothing it phrases is spoken aloud here.
+      const facts = learnedFacts();
+      if (facts.length === 0) {
+        const profile = buildHabitProfile(s.habits);
+        return { ok: true, text: `I do not know enough about you yet. I have ${spoken(profile.sessions)} finished sessions. Tell me when you finish things and how long they took, and I will start noticing what you are like.` };
       }
-      // Never wait on the model here: answer from the cache, and warm it for next time.
-      const cached = peekInsights(profile);
-      const result = cached ?? (await habitInsightsCached(profile, { useModel: false }));
-      if (!cached) void habitInsightsCached(profile).catch(() => {});
-      if (result.insights.length === 0) return { ok: true, text: "Nothing stands out in your history yet." };
-      const [first, second] = result.insights;
-      const said = ["Here is what your history says.", speakNumbers(first.text), speakNumbers(first.suggestion)];
-      if (second) said.push(speakNumbers(second.text));
-      log("voice", "voice_get_coach", { source: result.provider, insights: result.insights.length });
-      return { ok: true, text: said.join(" "), data: { provider: result.provider, kinds: result.insights.map((i) => i.kind) } };
+      const said = ["Here is what I have worked out about you."];
+      for (const f of facts.slice(0, 3)) said.push(speakNumbers(f.sentence));
+      const risky = s.tasks.filter((t) => !t.completedAt).map((t) => ({ t, r: deadlineRisk(t) })).filter((x) => x.r?.atRisk);
+      if (risky.length) said.push(`One thing to watch: you usually start ${risky[0].t.title} about ${spokenDuration(Math.round(risky[0].r!.startsInHours * 60))} before it is due, and it needs ${spokenDuration(risky[0].r!.needsMinutes)}.`);
+      log("voice", "voice_get_coach", { facts: facts.length, atRisk: risky.length });
+      return { ok: true, text: said.join(" "), data: { facts: facts.length } };
     }
 
     default:

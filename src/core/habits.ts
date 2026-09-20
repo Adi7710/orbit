@@ -37,6 +37,8 @@ export interface HabitRecord {
   week?: number;
   /** How long before the deadline the student actually started, in hours (procrastination). */
   startedHoursBeforeDue?: number;
+  /** Extra signals an aspect may learn from, such as the size of the gap it was done in. */
+  meta?: Record<string, number>;
 }
 
 export interface BucketStat { bucket: TimeBucket; sessions: number; /** actual / estimate, mean */ meanRatio: number; /** 1 = your normal pace for that kind of task, below 1 = faster */ pace: number }

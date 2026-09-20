@@ -7,6 +7,7 @@ import { fmt, fromDate } from "@/core/time";
 import { MODE_RULES } from "@/core/types";
 import { buildJourney, BUILDINGS } from "./journey";
 import { clock } from "@/services/prt";
+import { deadlineRisk, learnedFacts, planner, worthOffering, worthProposing } from "./learned";
 
 const isPlace = (p?: string): p is keyof typeof BUILDINGS => !!p && p in BUILDINGS;
 
@@ -30,7 +31,9 @@ export async function buildToday() {
 
   const ledger = computeLedger(s.blocks, s.profile, s.travel, liveTasks, s.estimator);
   const gaps = findGaps(s.blocks, s.profile, s.travel);
-  const picks = new Map(gaps.map((g) => [g.id, bestFit(g, liveTasks, s.estimator)] as const));
+  // Anything this student has quietly never done stops taking up their gaps.
+  const offerable = liveTasks.filter((t) => worthOffering(t.domain));
+  const picks = new Map(gaps.map((g) => [g.id, bestFit(g, offerable, planner(s.estimator, g))] as const));
   const seen = new Set<string>();
   for (const [id, task] of picks) {
     if (task && seen.has(task.id)) picks.set(id, undefined);
@@ -105,10 +108,17 @@ export async function buildToday() {
       walkSource: journey?.walkToStop.source ?? "estimate",
     },
     shared: shared.map((w) => ({ ...w, startText: fmt(w.start), endText: fmt(w.end), names: w.userIds.map((id) => s.friends.find((f) => f.userId === id)?.name ?? id) })),
-    tasks: liveTasks.map((t) => ({ ...t, planningMinutes: s.estimator.planningMinutes(t) })),
+    tasks: liveTasks.map((t) => ({ ...t, planningMinutes: planner(s.estimator).planningMinutes(t), risk: deadlineRisk(t) ?? null })),
+    /** Deadlines this student starts too late to finish, seen days ahead. */
+    atRisk: liveTasks.flatMap((t) => {
+      const r = deadlineRisk(t);
+      return r?.atRisk ? [{ taskId: t.id, title: t.title, startsInHours: r.startsInHours, needsMinutes: r.needsMinutes }] : [];
+    }),
+    /** What Orbit has worked out about this student, in plain words written by code. */
+    learned: learnedFacts().slice(0, 6),
     cuts,
     calibration: s.estimator.calibration(),
-    proposals: s.proposals,
+    proposals: s.proposals.filter((p) => p.status !== "pending" || worthProposing(p.proposal.kind)),
     events: s.events.slice(-30).reverse(),
   };
 }

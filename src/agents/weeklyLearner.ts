@@ -1,3 +1,4 @@
+import type { AspectSpec, Observation } from "@/core/aspects";
 import { nemotronJson, type Provider } from "./models";
 
 /**
@@ -24,47 +25,7 @@ import { nemotronJson, type Provider } from "./models";
 export const CLAMP_MIN = 0.4;
 export const CLAMP_MAX = 3;
 
-/** One thing that happened: what the app allowed for it, and what it really took. */
-export interface Observation {
-  label: string;
-  /** What the multiplier is learned per: a kind of work, a walking leg. */
-  category: string;
-  /** What the app would assume before any learning. */
-  estimate: number;
-  actual: number;
-  /** Anything the scoring needs that the model is not shown. */
-  meta?: Record<string, number>;
-}
-
-export interface AspectSpec {
-  id: string;
-  /** "kind of work", "walk between two buildings". */
-  categoryNoun: string;
-  /** What the multiplier scales. */
-  baselineNoun: string;
-  /** Two sentences telling the model what it is planning and why it matters. */
-  brief: string;
-  categories: string[];
-  categoryLabel: Record<string, string>;
-  /** Overrides the default safety rail, for aspects whose true values sit far from 1. */
-  clamp?: { min: number; max: number };
-  /**
-   * Some aspects are one trait plus exceptions rather than a number per
-   * category. Walking is: a person has a pace, and it applies to every walk
-   * including ones they have never taken. A leg only gets its own number when
-   * it keeps disagreeing with that pace, because there is a real reason for it
-   * (a hill, slow lifts) rather than noise.
-   */
-  global?: {
-    noun: string;
-    /** Nothing changes at all until this many weeks have been seen. */
-    warmupWeeks: number;
-    /** A category must disagree with the global pace in this many separate weeks before it may have its own number. */
-    exceptionMinWeeks: number;
-    /** How far from the global pace counts as disagreeing. */
-    exceptionThreshold: number;
-  };
-}
+export type { AspectSpec, Observation };
 
 export interface WeekMemory {
   week: number;

@@ -313,3 +313,28 @@ Affects: docs/learning/04-exam-studying.md. The warning itself is worth building
 Decision: Of the owner's four aspects, Nemotron earns its place on two. Assignment length: 3.9 min mean error against the code baseline's 6.8, and it learns nearly the whole pattern from one week. Procrastination: 7 of 8 blown deadlines caught against the baseline's 2. Walking: the travel-graph median is more accurate on well-travelled legs, but only the model produces a transferable pace and a reason ("a hill or slow lift"), so use both. Exam cramming: a tie on the outcome and worse numbers, so use the running average.
 Why: The pattern across all four is that the model pays off where the signal is sparse, noisy and not already modelled, and where the useful output is a judgement or an explanation rather than an average. Where the quantity is frequent, tight, or already has a mechanism, code matches or beats it.
 Affects: what should be wired into live planning, and the case to make for the NVIDIA track.
+
+## 2026-09-20 03:05 ET · Jatin · Learning is a registry, not a feature: one engine, eleven aspects, generic for any user
+Decision: Generalized everything learned across the four measured aspects into a live engine. `src/core/aspects.ts` is a declarative registry: an aspect states what the app currently assumes, how to pull this week's evidence out of what the app already records, and what changes once it is known. `src/lib/learned.ts` runs every aspect weekly, keeps each one's memory, and exposes what the rest of the app reads. Adding an aspect is a registry entry plus one line where its correction applies; it needs no new learner, prompt, route or test scaffolding. Eleven are registered: work length, course load, procrastination, time of day, gap fit, walking, settling in, meals, exam cramming, follow-through and which suggestions the student accepts.
+Why: The goal is pattern recognition for any user across anything in the app, not four hand-built features. Every aspect turned out to be the same question — the app assumes X, what does this person actually do — whose answer is a multiplier on the app's assumption, which is what lets one learner serve all of them.
+Affects: src/core/aspects.ts, src/lib/learned.ts, /api/learning/review, /api/learning/profile, src/lib/today.ts, src/agents/voiceTools.ts.
+
+## 2026-09-20 03:05 ET · Jatin · Layered aspects learn the residual, never the whole error
+Decision: An aspect declares `onTopOf`, and the engine hands it a baseline that already includes those corrections. course_load sits on work_length; time_of_day and gap_fit sit on both.
+Why: Caught in live testing. work_length learned big assignments at 1.37x and course_load learned MATH 0220 at 1.33x from the same completions, so a task that was both got 1.82x and a 90 minute problem set was planned at 164. With the layering it is 127, and the course correctly shows almost no residual of its own once the kind of work is accounted for.
+Affects: src/core/aspects.ts (LearningInput.baseline, AspectDef.onTopOf), src/lib/learned.ts.
+
+## 2026-09-20 03:05 ET · Jatin · Every sentence the student sees is written by code from the multiplier
+Decision: `learnedFacts()` derives its wording from the number itself, and the voice agent's get_coach reads those sentences. Nothing Nemotron phrases is shown to a student.
+Why: In aspects 3 and 4 the model described its own numbers backwards ("completes big assignments quickly" for the student who starts them last). The arithmetic was right and the meaning inverted, which no numeric check catches. Deriving the words from the number makes the disagreement impossible rather than unlikely, and a test asserts direction for every aspect.
+Affects: src/lib/learned.ts, src/agents/voiceTools.ts, src/core/__tests__/aspects.test.ts.
+
+## 2026-09-20 03:05 ET · Jatin · A student the app knows nothing about gets the app exactly as it was
+Decision: Every aspect returns a multiplier of 1 until it has enough evidence, and an aspect whose signal the app does not yet record collects nothing and stays inactive. A test asserts a new user's planning, risk and offers are untouched.
+Why: The learning must be a correction to a working app, never a precondition for one. It also means a new aspect can be registered before the data that feeds it exists, which is how the remaining signals (walks, settling in, meals, exam cramming) are already wired and waiting.
+Affects: src/lib/learned.ts.
+
+## 2026-09-20 03:05 ET · Jatin · The NVIDIA key in .env.local is truncated and chat completions are 403
+Decision: Recorded so it is not mistaken for a code fault. The stored key is 29 characters; a valid nvapi key is about 69. `/v1/models` returns 200 because that endpoint needs no auth, which makes the key look healthy on the diagnostics route while every chat completion fails with 403 Forbidden.
+Why: The weekly review degraded to the running average for every aspect and kept working, which is the designed behaviour, but the learning is not Nemotron's until the key is replaced. Re-paste it in full.
+Affects: .env.local, and anyone reading /api/nvidia as proof the key works.
