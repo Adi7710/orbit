@@ -353,7 +353,10 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
       // multipliers, the queue and the calendar. The coach is the same
       // sentences read aloud, so the phone and the voice cannot disagree.
       const t = await buildToday();
-      const said = ["Here is what I have worked out about you."];
+      // Credit where the number came from. When the weekly review was the
+      // model, say so; when the rules carried a week, do not claim it.
+      const byModel = facts.some((f) => f.learnedBy === "nemotron-hosted");
+      const said = [byModel ? "Here is what Nemotron has worked out about you from your last few weeks." : "Here is what I have worked out about you."];
       for (const f of facts.slice(0, 2)) said.push(speakNumbers(f.sentence));
       for (const g of (t.growth ?? []).slice(0, 2)) if (!said.some((x) => x === speakNumbers(g))) said.push(speakNumbers(g));
       const top = t.opportunities?.[0];

@@ -286,6 +286,13 @@ struct Today: Decodable {
         /// disagree with the multiplier behind them. The app prints it and
         /// never rephrases it. See DECISIONS, 20 Sept 03:05.
         let sentence: String
+        /// "nemotron-hosted" when the model did the last review, "heuristic"
+        /// when the rules did. Shown, so the credit is exact.
+        let learnedBy: String?
+        /// The memo the model wrote to itself, when there is one.
+        let memo: String?
+
+        var isNemotron: Bool { learnedBy?.hasPrefix("nemotron") == true }
 
         /// One aspect can speak about several categories, so the sentence is
         /// part of the identity.
