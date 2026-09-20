@@ -12,8 +12,7 @@ import SwiftUI
 /// their hues in every mode, because a hue that means class here and meals
 /// there means nothing anywhere. The accent moves; the encoding stays put.
 ///
-/// Every accent is a light fill carrying near-black ink, which is the rule the
-/// lime already follows — see `Color.orbitOnAccent`. Nothing here is a number
+/// Every accent is a saturated fill carrying white. Nothing here is a number
 /// the server owns; this type only decides shape, weight and pace.
 struct OrbitModeChrome {
 
@@ -40,9 +39,9 @@ struct OrbitModeChrome {
         switch mode {
         case .normal:
             return OrbitModeChrome(
-                accent: Color(hex: OrbitToken.lime),
-                onAccent: Color(hex: OrbitToken.onLime),
-                corner: OrbitMetric.cardRadius,
+                accent: Color(hex: OrbitClassic.primary),
+                onAccent: .white,
+                corner: 14,
                 titleWeight: .semibold,
                 titleWidth: .standard,
                 titleTracking: -0.8,
@@ -55,9 +54,9 @@ struct OrbitModeChrome {
         // should not pretend otherwise.
         case .crisis:
             return OrbitModeChrome(
-                accent: Color(hex: OrbitToken.ember),
-                onAccent: Color(hex: OrbitToken.onLime),
-                corner: 8,
+                accent: Color(hex: OrbitClassic.crisis),
+                onAccent: .white,
+                corner: 6,
                 titleWeight: .heavy,
                 titleWidth: .condensed,
                 titleTracking: 0.6,
@@ -69,9 +68,9 @@ struct OrbitModeChrome {
         // back instead of asking for anything, and the slowest settle.
         case .chill:
             return OrbitModeChrome(
-                accent: Color(hex: OrbitToken.teal),
-                onAccent: Color(hex: OrbitToken.onLime),
-                corner: 34,
+                accent: Color(hex: OrbitClassic.chill),
+                onAccent: .white,
+                corner: 22,
                 titleWeight: .medium,
                 titleWidth: .standard,
                 titleTracking: 0,
