@@ -96,6 +96,10 @@ export const hudsonTasks: Task[] = [
   { id: "read", title: "Reading: Chapter 3", domain: "learn", estimateMinutes: 40, courseCode: "FE 570", source: "manual" },
   { id: "gym", title: "Gym", domain: "body", estimateMinutes: 60, source: "manual" },
   { id: "essay", title: "Case write-up draft", domain: "build", estimateMinutes: 180, courseCode: "MGT 808", source: "canvas", dueAt: new Date(Date.now() + 5 * 864e5) },
+  // The small undated things a real week has. Both LIFE, so the fourth ring
+  // has something to draw and Chill has something to offer.
+  { id: "laundry", title: "Laundry", domain: "life", estimateMinutes: 45, source: "manual" },
+  { id: "call", title: "Call home", domain: "life", estimateMinutes: 20, source: "manual" },
 ];
 
 export const tasks: Task[] = (process.env.ORBIT_REGION ?? "hudson") === "oakland" ? oaklandTasks : hudsonTasks;

@@ -105,6 +105,15 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
 
+/* The pulse banner arriving. Stilled under reduced motion by the rule below. */
+@keyframes pulse-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+.pulse-in {
+  animation: pulse-in 0.35s ease-out;
+}
+
 /* Every number that changes in place or sits in a column: docs/theme.md section 4. */
 .tabular,
 [data-tabular] {
