@@ -89,7 +89,12 @@ export interface BusOption {
   departsSec: number; departsText: string; scheduledText: string; status: "live" | "scheduled" | "ghost"; delaySec?: number;
   vehicle?: { id: string; lat: number; lon: number; bearing?: number; ageSec: number; metersToStop: number; stopsAway?: number };
   leaveBySec: number; leaveByText: string; rideMinutes: number; rideIsLive: boolean; confidence: Confidence; alightSec: number; arriveSec: number; arriveText: string;
-  verdict: { makesIt: boolean; marginMin: number };
+  /** Only when there is a class to be late for. Null means nothing to miss. */
+  verdict: { makesIt: boolean; marginMin: number } | null;
+  /** Door to door, leaving now: the number a person actually wants. */
+  totalMinutes: number;
+  /** Time standing at the stop. Invisible in an itinerary that only lists legs. */
+  waitMinutes: number;
   /** PRT says this route is out of service. Shown, never recommended. */
   suspended?: boolean;
   shape: [number, number][]; // route polyline trimmed from the bus (or board stop) to the alight stop
@@ -259,13 +264,21 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
     const arriveSec = alightSec + walkToDest.minutes * 60;
     const margin = opts.arriveBySec === undefined ? 0 : Math.round((opts.arriveBySec - arriveSec) / 60);
     options.push({
-      route: d.route, headsign: d.headsign, tripId: d.trip, dir: d.dir,
+      route: d.route,
+      // Strip the route out of its own headsign. NJ Transit writes "HBLR 8TH
+      // STREET" and we print the route beside it, so it read "HBLR hblr 8th
+      // street".
+      headsign: d.headsign.replace(new RegExp("^" + d.route.replace(/[.*+?^${}()|[]\]/g, "\      route: d.route, headsign: d.headsign, tripId: d.trip, dir: d.dir,") + "\s*", "i"), "").trim() || d.headsign,
+      tripId: d.trip, dir: d.dir,
       departsSec, departsText: fmt(Math.floor(departsSec / 60)), scheduledText: fmt(Math.floor(d.sec / 60)), status, delaySec: liveEpoch ? liveEpoch - schedEpoch : undefined,
       vehicle, leaveBySec: departsSec - walkToStop.minutes * 60 - 120, leaveByText: fmt(Math.floor((departsSec - walkToStop.minutes * 60 - 120) / 60)),
       rideMinutes: tripRideMinutes, rideIsLive: liveRideUsable,
       confidence: confidenceOf({ status, vehicle, liveAlight: !!liveAlight, secondsAway: departsSec - c.sec }),
       alightSec, arriveSec, arriveText: fmt(Math.floor(arriveSec / 60)),
-      verdict: { makesIt: opts.arriveBySec === undefined ? true : arriveSec <= opts.arriveBySec, marginMin: margin },
+      // "you make it" against no deadline is a green badge meaning nothing.
+      verdict: opts.arriveBySec === undefined ? null : { makesIt: arriveSec <= opts.arriveBySec, marginMin: margin },
+      totalMinutes: Math.max(1, Math.round((arriveSec - (departsSec - walkToStop.minutes * 60 - 120)) / 60)),
+      waitMinutes: Math.max(0, Math.round((departsSec - (c.sec + walkToStop.minutes * 60)) / 60)),
       shape,
     });
   }

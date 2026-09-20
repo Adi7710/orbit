@@ -44,5 +44,9 @@ export async function GET() {
     /** True when Orbit would already be planning this without being asked. */
     planned: need.needed,
     nowText: `${String(Math.floor(nowMin / 60)).padStart(2, "0")}:${String(nowMin % 60).padStart(2, "0")}`,
+  }, {
+    // The place list moves when the timetable does, which is monthly. The
+    // suggestion inside it moves with the clock, so a minute is the ceiling.
+    headers: { "Cache-Control": "private, max-age=60" },
   });
 }

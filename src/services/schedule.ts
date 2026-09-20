@@ -45,6 +45,36 @@ export function routeColor(route: string): string | undefined {
 
 const data = schedule as unknown as Schedule;
 
+/**
+ * Indexes, built once.
+ *
+ * Every lookup here used to be a linear scan of the whole departures array.
+ * That was tolerable on the Pittsburgh slice and is not on Hudson County:
+ * 54,608 departures, and bestStopPair tries up to thirty-six stop pairs per
+ * request, each one scanning the lot. Two million comparisons to answer "when
+ * is the next train", which measured at 1.5 seconds a request.
+ *
+ * Both maps are derived from the same immutable JSON, so they are built once
+ * at module load and never invalidated.
+ */
+const byStop = new Map<string, Departure[]>();
+const byTrip = new Map<string, Departure[]>();
+for (const d of data.departures) {
+  let a = byStop.get(d.stop);
+  if (!a) byStop.set(d.stop, (a = []));
+  a.push(d);
+  let t = byTrip.get(d.trip);
+  if (!t) byTrip.set(d.trip, (t = []));
+  t.push(d);
+}
+// Sorted once so callers never have to.
+for (const a of byStop.values()) a.sort((x, y) => x.sec - y.sec);
+for (const t of byTrip.values()) t.sort((x, y) => x.seq - y.seq);
+
+/** Does this trip call at `stop` after sequence `afterSeq`? */
+const tripReaches = (trip: string, stop: string, afterSeq: number) =>
+  (byTrip.get(trip) ?? []).some((d) => d.stop === stop && d.seq > afterSeq);
+
 export const STOP = {
   campusOutbound: "31", // Forbes Ave + Bigelow Blvd (Cathedral / Hillman), eastbound
   campusOutboundSennott: "20959", // Forbes Ave + Bouquet St FS
@@ -92,9 +122,12 @@ export function activeServices(yyyymmdd: string): Set<string> {
 /** Departures from a stop on a date, from `fromSec` (seconds after midnight, may exceed 86400) for `windowSec`. */
 export function departuresAt(stopId: string, yyyymmdd: string, fromSec: number, windowSec = 3600, routes?: string[]): Departure[] {
   const services = activeServices(yyyymmdd);
-  return data.departures
-    .filter((d) => d.stop === stopId && services.has(d.service) && d.sec >= fromSec && d.sec <= fromSec + windowSec && (!routes || routes.includes(d.route)))
-    .sort((a, b) => a.sec - b.sec);
+  const routeSet = routes ? new Set(routes) : undefined;
+  // Indexed by stop and pre-sorted by time, so this is a filter over one
+  // stop's departures rather than over all fifty-four thousand.
+  return (byStop.get(stopId) ?? []).filter(
+    (d) => services.has(d.service) && d.sec >= fromSec && d.sec <= fromSec + windowSec && (!routeSet || routeSet.has(d.route)),
+  );
 }
 
 /** Scheduled ride time between two stops on the same trip, if the trip serves both. */
@@ -142,10 +175,12 @@ export function stopsNear(p: { lat: number; lon: number }, radius = 1200): { id:
 export function routesBetween(boardId: string, alightId: string, yyyymmdd: string, fromSec = 0, windowSec = 24 * 3600): string[] {
   if (boardId === alightId) return [];
   const services = activeServices(yyyymmdd);
-  const boards = data.departures.filter((d) => d.stop === boardId && services.has(d.service) && d.sec >= fromSec && d.sec <= fromSec + windowSec);
+  const boards = (byStop.get(boardId) ?? []).filter((d) => services.has(d.service) && d.sec >= fromSec && d.sec <= fromSec + windowSec);
   const out = new Set<string>();
   for (const b of boards) {
-    if (data.departures.some((d) => d.trip === b.trip && d.stop === alightId && d.seq > b.seq)) out.add(b.route);
+    // One route is enough to prove the pair; no need to walk every trip on it.
+    if (out.has(b.route)) continue;
+    if (tripReaches(b.trip, alightId, b.seq)) out.add(b.route);
   }
   return [...out];
 }

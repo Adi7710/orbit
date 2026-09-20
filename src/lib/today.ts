@@ -133,7 +133,11 @@ export async function buildToday(opts?: { to?: string }) {
       : null,
     arrivals: (journey?.options ?? []).map((x) => ({
       route: x.route, text: x.departsText, realtime: x.status === "live", status: x.status, headsign: x.headsign,
-      leaveByText: x.leaveByText, arriveText: x.arriveText, makesIt: x.verdict.makesIt, marginMin: x.verdict.marginMin,
+      leaveByText: x.leaveByText, arriveText: x.arriveText,
+      // Null verdict means there is nothing to be late for, which is not the
+      // same as making it. Clients must be able to tell those apart.
+      makesIt: x.verdict?.makesIt ?? null, marginMin: x.verdict?.marginMin ?? null,
+      totalMinutes: x.totalMinutes, waitMinutes: x.waitMinutes,
     })),
     ghosts: (journey?.options ?? []).filter((x) => x.status === "ghost").map((x) => ({ route: x.route })),
     transit: {

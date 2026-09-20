@@ -46,5 +46,16 @@ export async function GET(req: Request) {
 
   const j = await buildJourney({ origin, from, to, arriveBySec });
   if (!j) return NextResponse.json({ error: "no bus leg between those places" }, { status: 404 });
-  return NextResponse.json({ ...j, routeColors: Object.fromEntries(j.options.map((o) => [o.route, routeColor(o.route)])) });
+  return NextResponse.json(
+    { ...j, routeColors: Object.fromEntries(j.options.map((o) => [o.route, routeColor(o.route)])) },
+    {
+      headers: {
+        // Private: this is one student's journey, never a shared CDN object.
+        // Ten seconds is under the client's own poll interval and under every
+        // upstream feed's TTL, so it collapses a burst of refreshes -- a
+        // double-tap, two tabs, a reconnect -- without ever showing a stale bus.
+        "Cache-Control": "private, max-age=10",
+      },
+    },
+  );
 }

@@ -245,7 +245,7 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
       const said = [leaveIn <= 0 ? "Leave now." : `Leave in ${leaveIn < 60 ? `${spoken(leaveIn)} minute${leaveIn === 1 ? "" : "s"}` : naturalDuration(leaveIn)}.`];
       const delay = o.delaySec && Math.abs(o.delaySec) > 59 ? `, ${spoken(Math.abs(Math.round(o.delaySec / 60)))} minutes ${o.delaySec > 0 ? "late" : "early"}` : "";
       said.push(o.status === "live" ? `The ${o.route} is live${delay}${o.vehicle ? ` and ${(o.vehicle.metersToStop / 1000).toFixed(1)} kilometres out` : ""}.` : `The ${o.route} is scheduled for ${spokenClock(Math.floor(o.departsSec / 60))}.`);
-      if (j.destination.arriveBySec !== undefined) {
+      if (o.verdict) {
         said.push(o.verdict.makesIt
           ? `You are at ${j.destination.label} by ${spokenClock(Math.floor(o.arriveSec / 60))}, ${spoken(o.verdict.marginMin)} minutes before class.`
           : `That puts you ${spoken(Math.abs(o.verdict.marginMin))} minutes late. Take the earlier one or walk.`);

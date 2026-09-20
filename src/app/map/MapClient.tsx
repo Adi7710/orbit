@@ -13,7 +13,11 @@ type Option = {
   confidence: "high" | "medium" | "low"; rideIsLive: boolean;
   vehicle?: { id: string; lat: number; lon: number; bearing?: number; ageSec: number; metersToStop: number };
   leaveBySec: number; leaveByText: string; rideMinutes: number; arriveSec: number; arriveText: string;
-  verdict: { makesIt: boolean; marginMin: number };
+  /** Null when there is nothing to be late for. Not the same as making it. */
+  verdict: { makesIt: boolean; marginMin: number } | null;
+  totalMinutes: number;
+  waitMinutes: number;
+  suspended?: boolean;
   shape: [number, number][];
 };
 type Journey = {
@@ -254,7 +258,7 @@ export default function MapClient() {
   }, [j, sel]);
 
   const o = j?.options[sel];
-  const verdictTone = !o ? "" : !o.verdict.makesIt ? "bg-red-500" : o.verdict.marginMin < 5 ? "bg-amber-500" : "bg-emerald-500";
+  const verdictTone = !o?.verdict ? "" : !o.verdict.makesIt ? "bg-red-500" : o.verdict.marginMin < 5 ? "bg-amber-500" : "bg-emerald-500";
   const leaveInMin = o && j ? Math.round((o.leaveBySec - j.clock.sec) / 60) : 0;
 
   return (
@@ -310,10 +314,20 @@ export default function MapClient() {
                     <span className="ml-2 text-base font-normal text-zinc-500">({o.leaveByText})</span>
                   </div>
                 </div>
-                <div className={`flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium text-white ${verdictTone}`}>
-                  <span className="h-2 w-2 rounded-full bg-white/90" />
-                  {o.verdict.makesIt ? `you make it${j.destination.arriveByText ? `, ${o.verdict.marginMin} min to spare` : ""}` : `you miss it by ${Math.abs(o.verdict.marginMin)} min`}
-                </div>
+                {/* A verdict needs something to be late for. With no class
+                    ahead, "you make it" is a green badge meaning nothing — so
+                    say how long the whole trip takes instead, which is the
+                    number a person wanted anyway. */}
+                {o.verdict ? (
+                  <div className={`flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium text-white ${verdictTone}`}>
+                    <span className="h-2 w-2 rounded-full bg-white/90" />
+                    {o.verdict.makesIt ? `you make it, ${o.verdict.marginMin} min to spare` : `you miss it by ${Math.abs(o.verdict.marginMin)} min`}
+                  </div>
+                ) : (
+                  <div className="rounded-full bg-zinc-900 px-3 py-1 text-sm font-medium text-white">
+                    {compactDuration(o.totalMinutes)} door to door
+                  </div>
+                )}
               </div>
 
               {/* A stop move belongs above the itinerary, not under it. Every
@@ -349,9 +363,12 @@ export default function MapClient() {
                     </span>
                   </span>
                 </li>
+                {o.waitMinutes > 2 && (
+                  <li className="flex gap-3 text-zinc-500"><span className="w-6">⏳</span><span className="w-16 tabular-nums">{compactDuration(o.waitMinutes)}</span><span>wait at the stop</span></li>
+                )}
                 <li className="flex gap-3"><span className="w-6">🪑</span><span className="w-16 tabular-nums text-zinc-500">{compactDuration(o.rideMinutes)}</span><span>ride to {j.alightStop.name.toLowerCase()}{o.rideIsLive ? <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800">live prediction</span> : <span className="ml-2 text-xs text-zinc-400">scheduled</span>}</span></li>
                 <li className="flex gap-3"><span className="w-6">🚶</span><span className="w-16 tabular-nums text-zinc-500">{compactDuration(j.walkToDest.minutes)}</span><span>walk to {j.destination.label}</span></li>
-                <li className="flex gap-3 font-medium"><span className="w-6">🎓</span><span className="w-16 tabular-nums">{o.arriveText}</span><span>arrive{j.destination.arriveByText ? ` · class at ${j.destination.arriveByText}` : ""}</span></li>
+                <li className="flex gap-3 font-medium"><span className="w-6">🎓</span><span className="w-16 tabular-nums">{o.arriveText}</span><span>arrive{j.destination.arriveByText ? ` · class at ${j.destination.arriveByText}` : ` · ${compactDuration(o.totalMinutes)} door to door`}</span></li>
               </ol>
 
               <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
