@@ -27,12 +27,14 @@ final class TodayScreens: XCTestCase {
         add(shot)
     }
 
-    /// The ledger header is the proof the API answered and decoded. Matched on
-    /// the text rather than an identifier, and case-insensitively: the eyebrow
-    /// style uppercases for display only, so the accessibility label keeps the
-    /// sentence case the view was written with.
+    /// The ledger rings are the proof the API answered and decoded: their
+    /// accessibility label reads "Of 16h 30m awake, 9h 07m is actually usable"
+    /// and is written from server numbers. The rings are one accessibility
+    /// element (children ignored), so they are not a staticText; match any
+    /// descendant, case-insensitively. The two reading cards this used to
+    /// match were removed on 20 Sept.
     private var ledgerHeading: XCUIElement {
-        app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "Actually usable")).firstMatch
+        app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@", "actually usable")).firstMatch
     }
 
     func testToday() {
