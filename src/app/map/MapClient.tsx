@@ -59,6 +59,13 @@ export default function MapClient() {
   // mistaken for the user moving it.
   const framing = useRef(false);
   const [sel, setSel] = useState(0);
+  // Leaflet is imported lazily. On a fast local API the journey and the places
+  // list both arrive before the map exists, and the redraw effect ran once,
+  // found no map, returned, and did not run again until the next poll -- up
+  // to a minute of an empty world map at zoom 2. The map announces itself
+  // here, the redraw depends on it, and Home is kept until it can be framed.
+  const [mapReady, setMapReady] = useState(false);
+  const homeRef = useRef<{ lat: number; lon: number } | null>(null);
   // Deep link: the Today bus card links here with the exact leg it is showing,
   // so the two screens never open on different journeys.
   const params = useSearchParams();
@@ -124,6 +131,7 @@ export default function MapClient() {
         setArriveBy((cur) => cur || d.places!.find((x) => x.id === dest(""))?.nextClass?.startText || "");
         // Open on the right city. The initial view was Pittsburgh coordinates.
         const home = d.places.find((x) => x.id === "Home") ?? d.places[0];
+        if (home.lat && home.lon) homeRef.current = { lat: home.lat, lon: home.lon };
         if (map.current && !userMoved.current && home.lat && home.lon) map.current.setView([home.lat, home.lon], 14);
       })
       .catch(() => {});
@@ -234,6 +242,10 @@ export default function MapClient() {
       // the person took over. Leaflet fires movestart for our own fitBounds too.
       map.current.on("dragstart", () => { userMoved.current = true; });
       map.current.on("zoomstart", () => { if (!framing.current) userMoved.current = true; });
+      // If the places list beat the import, Home is already known: frame it now
+      // rather than leaving the world at zoom 2 until something else moves it.
+      if (homeRef.current && !userMoved.current) map.current.setView([homeRef.current.lat, homeRef.current.lon], 14);
+      setMapReady(true);
     })();
     return () => { cancelled = true; };
   }, []);
@@ -315,11 +327,15 @@ export default function MapClient() {
     // worse than one that never moves. Once they touch it, framing becomes
     // their job and the recenter button is how they hand it back.
     if (!userMoved.current) {
+      // animate: false, so zoomstart fires inside this guard. Animated
+      // framing raised zoomstart after the guard was cleared, which counted
+      // our own framing as the person taking over and switched auto-framing
+      // off for good.
       framing.current = true;
-      map.current.fitBounds(leaflet.latLngBounds(pts).pad(0.18), { animate: true });
+      map.current.fitBounds(leaflet.latLngBounds(pts).pad(0.18), { animate: false });
       framing.current = false;
     }
-  }, [j, sel]);
+  }, [j, sel, mapReady]);
 
   /** Put the journey back in frame, and resume auto-framing. */
   const recenter = useCallback(() => {
@@ -330,7 +346,7 @@ export default function MapClient() {
     const pts: [number, number][] = [[j.origin.lat, j.origin.lon], [j.boardStop.lat, j.boardStop.lon], [j.alightStop.lat, j.alightStop.lon], [j.destination.lat, j.destination.lon]];
     if (o?.vehicle) pts.push([o.vehicle.lat, o.vehicle.lon]);
     framing.current = true;
-    map.current.fitBounds(leaflet.latLngBounds(pts).pad(0.18), { animate: true });
+    map.current.fitBounds(leaflet.latLngBounds(pts).pad(0.18), { animate: false });
     framing.current = false;
   }, [j, sel]);
 
