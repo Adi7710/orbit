@@ -115,3 +115,22 @@ export function compactDuration(minutes: number): string {
 export function spokenLead(minutes: number): string {
   return minutes < 60 ? `${minutes} minute${minutes === 1 ? "" : "s"}` : naturalDuration(minutes);
 }
+
+/**
+ * Which pile a deadline goes in on a screen: the design shows four buckets,
+ * and bucketing on the phone is date arithmetic on a deadline, which the
+ * client is not allowed to do. Computed here, next to naturalDue, from the
+ * same day boundaries.
+ */
+export type DueBucket = "overdue" | "today" | "soon" | "later" | "undated";
+export function bucketDue(due: Date | string | undefined, now = new Date()): DueBucket {
+  if (!due) return "undated";
+  const d = new Date(due);
+  if (Number.isNaN(d.getTime())) return "undated";
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(d) - day(now)) / 864e5);
+  if (diff < 0) return "overdue";
+  if (diff === 0) return "today";
+  if (diff <= 3) return "soon";
+  return "later";
+}

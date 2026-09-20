@@ -24,14 +24,18 @@ Two reasons this is a hard rule. Honesty is the product, and plain words are wha
 
 Four domains, fixed in the type system as `learn | build | body | life`.
 
-| Domain | Light | on light | Dark | on dark | Counts |
-|---|---|---|---|---|---|
-| **LEARN** | `#0B6FA8` | 5.04:1 | `#5AA9DC` | 7.14:1 | assigned work — Canvas, syllabus, studying |
-| **BUILD** | `#B07C00` | 3.39:1 | `#E6A21A` | 8.37:1 | your own work — projects, applications |
-| **BODY** | `#C26D9C` | 3.26:1 | `#E191BC` | 7.87:1 | movement beyond the walk |
-| **LIFE** | `#006B4F` | 6.03:1 | `#00A87B` | 6.04:1 | the focus ring — set by the student at setup |
+> **Superseded 20 Sept 03:40 (Adi, as designer).** The app shipped on the *classic* four-domain palette below, on the system's own greys, and that is the palette from here on — the fourth change in thirty hours and the last. The Okabe–Ito set that was here is kept in git history. The check in §2.2 was re-run on these values; the results are in "Run 2".
 
-Contrast is measured against the page ground (`#F6F6F4` light, `#12141A` dark). All four clear **3:1**, the WCAG 2.1 threshold for non-text graphics, which is what a ring arc is.
+| Domain | Hue (both themes) | on `#FFFFFF` | on `#F2F2F7` | on `#000000` | on `#1C1C1E` | Counts |
+|---|---|---|---|---|---|---|
+| **LEARN** | `#2F6FE4` | 4.65:1 | 4.17:1 | 4.51:1 | 3.66:1 | assigned work — Canvas, syllabus, studying |
+| **BUILD** | `#0F9C8C` | 3.41:1 | 3.06:1 | 6.15:1 | 4.99:1 | your own work — projects, applications |
+| **BODY** | `#E04A32` | 4.04:1 | 3.62:1 | 5.20:1 | 4.21:1 | movement beyond the walk |
+| **LIFE** | `#9A4DBF` | 5.01:1 | 4.49:1 | 4.19:1 | 3.39:1 | the focus ring — set by the student at setup |
+
+Accents: **primary** `#2F6FE4` (= LEARN), **crisis** `#E11D48`, **chill** `#557488`. Each carries **white** text: 4.65:1, 4.70:1 and 4.95:1. Chill was `#6E8CA0` until 20 Sept; white on it was 3.55:1, which fails as text, so it was darkened.
+
+One hue per domain in both themes, because the grounds are Apple's system colours (`systemBackground`, `secondarySystemBackground`) and the phone resolves those itself. Every arc clears **3:1** on all four grounds. **BUILD as text on a light card is 3.06:1 and must not be used as a word** — ink on a build fill, never build ink on white.
 
 **Text drawn on top of a ring colour:**
 
@@ -61,7 +65,20 @@ Issue #15 asks for the check to be stated, so here it is in full.
 | build / life | 57.9 | 62.5 |
 | **body / life** | **24.3** | **20.0** |
 
-Body and life are the tightest pair, which is expected — magenta and green are exactly what deuteranopia collapses. They clear the threshold because the two were deliberately separated in **lightness** as well as hue, which is the axis deuteranopia preserves. **If anyone re-tunes those two, re-run the check.** Making them closer in lightness is what breaks this.
+**Run 2 — the classic palette, 20 Sept 03:40.** Same method (Machado 2009 deuteranopia, severity 1.0, CIE76 ΔE, threshold 20):
+
+| Pair | ΔE |
+|---|---|
+| learn / build | 65.4 |
+| learn / body | 119.8 |
+| **learn / life** | **24.8** |
+| build / body | 55.1 |
+| build / life | 41.1 |
+| body / life | 95.8 |
+
+All six clear. Learn and life are the tight pair this time — blue and purple — and they clear because life is markedly lighter. **If anyone re-tunes those two, re-run the check.** The rings also carry a direct label and a gap, so colour is never the only encoding.
+
+*Run 1, on the Okabe–Ito set this file used to specify, kept for the record:* body and life were the tightest pair, which is expected — magenta and green are exactly what deuteranopia collapses. They clear the threshold because the two were deliberately separated in **lightness** as well as hue, which is the axis deuteranopia preserves. **If anyone re-tunes those two, re-run the check.** Making them closer in lightness is what breaks this.
 
 The palette derives from Okabe–Ito, a set already validated for colour-blind viewers, with each colour's lightness retuned per theme to hit the contrast threshold.
 

@@ -28,6 +28,13 @@ struct ScheduleOverviewView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
+    /// The mode's accent, shape and pace. The dock reads this too, so Crisis
+    /// and Chill never put two accents on one screen: the header segment and
+    /// the primary action are the same instrument.
+    private var chrome: OrbitModeChrome {
+        .on(store.day?.mode ?? .normal, reduceMotion: reduceMotion)
+    }
+
     /// What the Done button is asking about. Identifiable so `.sheet(item:)`
     /// rebuilds the sheet when a different task is tapped.
     struct Completion: Identifiable, Equatable {
@@ -184,9 +191,10 @@ struct ScheduleOverviewView: View {
         } label: {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline) {
+                    // docs/copy.md today.ledger.over / today.ledger.tight.
                     Text(day.ledger.overCommitted
-                         ? "Today is \(OrbitDuration.hm(day.ledger.slack)) over."
-                         : "You have \(OrbitDuration.hm(day.ledger.slack)) spare today.")
+                         ? "You're over by \(OrbitDuration.hm(day.ledger.slack)). Something has to move."
+                         : "You have \(OrbitDuration.hm(day.ledger.slack)) of slack today.")
                         .font(.headline)
                         .foregroundStyle(OrbitClassic.ink)
                         .multilineTextAlignment(.leading)
@@ -195,9 +203,10 @@ struct ScheduleOverviewView: View {
                         .font(.caption2)
                         .foregroundStyle(OrbitClassic.inkFaint)
                 }
-                Text(day.ledger.overCommitted
-                     ? "The rest isn't happening, and that's fine — you can stop carrying it until tomorrow."
-                     : "After \(OrbitDuration.hm(day.ledger.frictionMinutes)) of walking, eating and getting ready.")
+                // One line for both states. The old "over" line was sixteen
+                // words and a feeling the app had decided on for the student;
+                // copy rule 6 puts the number first and stops there.
+                Text("After \(OrbitDuration.hm(day.ledger.frictionMinutes)) of walking, eating and getting ready.")
                     .font(.subheadline)
                     .foregroundStyle(OrbitClassic.inkSoft)
                     .multilineTextAlignment(.leading)
@@ -227,9 +236,11 @@ struct ScheduleOverviewView: View {
                                 .font(.orbitBody)
                                 .foregroundStyle(Color.orbitInk)
                             Spacer(minLength: 8)
+                            // Not red: the deadline is the student's, and the
+                            // number is the message. theme.md section 2.4.
                             Text("needs \(task.needsMinutes)m")
                                 .font(.system(.caption, design: .monospaced))
-                                .foregroundStyle(Color.orbitUrgent)
+                                .foregroundStyle(Color.orbitInkSoft)
                         }
                         .padding(.vertical, 3)
                     }
@@ -340,7 +351,7 @@ struct ScheduleOverviewView: View {
         section("Your real windows") {
             if windows.isEmpty {
                 plainRow {
-                    Text(day.gaps.isEmpty ? "Nothing fits today. Enjoy it." : "You cleared the board.")
+                    Text(day.gaps.isEmpty ? "Nothing fits. Enjoy it." : "You cleared the board.")
                         .font(.orbitBody)
                         .foregroundStyle(Color.orbitInkFaint)
                         .padding(.vertical, 10)
@@ -448,14 +459,15 @@ struct ScheduleOverviewView: View {
                         .font(.system(size: 14, weight: .semibold))
                     Text("Plan my day").font(.orbitHeadline)
                 }
-                .foregroundStyle(Color.orbitOnAccent)
+                .foregroundStyle(chrome.onAccent)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 15)
-                .background(LinearGradient.orbitAccent, in: Capsule())
+                .background(chrome.accent, in: Capsule())
             }
             .buttonStyle(.orbitTile)
             .disabled(store.isWorking)
-            .orbitBloom(.orbitAccent, active: !store.isWorking, radius: 18)
+            .orbitBloom(chrome.accent, active: !store.isWorking, radius: 18)
+            .animation(chrome.animation, value: store.day?.mode)
 
             // Neutral on purpose. The accent budget allows lime on one primary
             // action per surface, and on Today that is "Plan my day". The voice

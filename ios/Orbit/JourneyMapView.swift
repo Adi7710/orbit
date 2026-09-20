@@ -51,7 +51,10 @@ final class JourneyModel {
 
 struct JourneyMapView: View {
     @State private var model = JourneyModel()
-    @State private var camera: MapCameraPosition = .region(.init(center: .init(latitude: 40.4426, longitude: -79.9497), span: .init(latitudeDelta: 0.03, longitudeDelta: 0.03)))
+    // Opens at Home in Jersey City, wide enough to hold Hoboken. It was
+    // 40.4426, -79.9497, which is Pittsburgh. fit() re-frames once a journey
+    // arrives; this is only what the map shows before it has one.
+    @State private var camera: MapCameraPosition = .region(.init(center: .init(latitude: 40.7196, longitude: -74.0430), span: .init(latitudeDelta: 0.06, longitudeDelta: 0.06)))
     @State private var locationManager = CLLocationManager()
 
     /// Seeded with the one place that exists in every region so the pickers
@@ -144,7 +147,7 @@ struct JourneyMapView: View {
             Picker("", selection: $model.to) { ForEach(places, id: \.self, content: Text.init) }.labelsHidden()
             Spacer()
             if let j = model.journey {
-                Text(j.clock.simulated ? "demo \(j.clock.text)" : j.realtime.tripsOk ? "PRT live" : "schedule")
+                Text(j.clock.simulated ? "demo \(j.clock.text)" : j.realtime.tripsOk ? "live" : "timetable")
                     .font(.caption2).foregroundStyle(.secondary)
             }
         }

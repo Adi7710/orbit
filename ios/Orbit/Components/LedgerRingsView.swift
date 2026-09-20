@@ -121,14 +121,19 @@ struct LedgerRingsView: View {
                 .textCase(.uppercase)
                 .foregroundStyle(OrbitClassic.inkSoft)
 
+            // Ink on a well, not white on crimson. theme.md section 2.4: there
+            // is no colour for the student doing badly, and "over" is the
+            // student's own day. The number is the information; a red pill
+            // is the app deciding how they should feel about it.
             if ledger.overCommitted {
                 Text(OrbitDuration.hm(ledger.slack) + " over")
                     .font(.system(size: 10, weight: .semibold))
                     .tracking(0.8)
-                    .foregroundStyle(.white)
+                    .monospacedDigit()
+                    .foregroundStyle(OrbitClassic.ink)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(Color(hex: OrbitClassic.crisis)))
+                    .background(Capsule().fill(OrbitClassic.surfaceDeep))
                     .padding(.top, 3)
             }
         }

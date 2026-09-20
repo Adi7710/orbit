@@ -26,7 +26,10 @@ enum OrbitClassic {
 
     static let primary: UInt32 = 0x2F6FE4
     static let crisis:  UInt32 = 0xE11D48
-    static let chill:   UInt32 = 0x6E8CA0
+    /// Darkened from 6E8CA0 on 20 Sept: white text on the original was
+    /// 3.55:1, which fails as text. This one is 4.95:1 with white and 4.24:1
+    /// as an arc on black. See docs/theme.md section 2.2, run 2.
+    static let chill:   UInt32 = 0x557488
 
     // MARK: Surfaces
 

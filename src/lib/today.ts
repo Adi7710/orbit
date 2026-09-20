@@ -8,6 +8,7 @@ import { MODE_RULES } from "@/core/types";
 import { buildJourney, BUILDINGS } from "./journey";
 import { clock } from "@/services/prt";
 import { transitNeed } from "@/core/transitRelevance";
+import { bucketDue, compactDuration, naturalDue } from "@/core/say";
 import { REGION } from "@/services/schedule";
 
 /** Who publishes the timetable we just quoted, per region. */
@@ -41,6 +42,7 @@ export async function buildToday(opts?: { to?: string }) {
   // never moved will still be offering this morning's window at seven at night.
   const c = clock();
   const nowMin = Math.floor(c.sec / 60);
+  const clockDate = new Date(c.epoch * 1000);
 
   const ledger = computeLedger(s.blocks, s.profile, s.travel, liveTasks, s.estimator);
   const gaps = findGaps(s.blocks, s.profile, s.travel, nowMin);
@@ -188,11 +190,20 @@ export async function buildToday(opts?: { to?: string }) {
       alertsOk: journey?.realtime.alertsOk ?? false,
     },
     shared: shared.map((w) => ({ ...w, startText: fmt(w.start), endText: fmt(w.end), names: w.userIds.map((id) => s.friends.find((f) => f.userId === id)?.name ?? id) })),
-    tasks: liveTasks.map((t) => ({ ...t, planningMinutes: planner(s.estimator).planningMinutes(t), risk: deadlineRisk(t) ?? null })),
+    // dueText and bucket are written here so no client has to do date
+    // arithmetic on a deadline; the design's four piles need the bucket.
+    tasks: liveTasks.map((t) => ({ ...t, planningMinutes: planner(s.estimator).planningMinutes(t), risk: deadlineRisk(t) ?? null, dueText: naturalDue(t.dueAt, clockDate) ?? null, bucket: bucketDue(t.dueAt, clockDate) })),
+    /** Planned minutes per domain, for the four domain rings. Always all four, zeros included, so a ring can draw empty. */
+    domains: (["learn", "build", "body", "life"] as const).map((domain) => {
+      const mine = liveTasks.filter((t) => t.domain === domain);
+      return { domain, count: mine.length, plannedMinutes: mine.reduce((a, t) => a + planner(s.estimator).planningMinutes(t), 0) };
+    }),
     /** Deadlines this student starts too late to finish, seen days ahead. */
     atRisk: liveTasks.flatMap((t) => {
       const r = deadlineRisk(t);
-      return r?.atRisk ? [{ taskId: t.id, title: t.title, startsInHours: r.startsInHours, needsMinutes: r.needsMinutes }] : [];
+      // startsInText: the one field in this response that had a raw float and
+      // no words beside it, so the phone was rendering "2.4h" itself.
+      return r?.atRisk ? [{ taskId: t.id, title: t.title, startsInHours: r.startsInHours, startsInText: `usually starts ${compactDuration(Math.round(r.startsInHours * 60))} before`, needsMinutes: r.needsMinutes, needsText: compactDuration(r.needsMinutes) }] : [];
     }),
     /** What Orbit has worked out about this student, in plain words written by code. */
     learned: learnedFacts().slice(0, 6),
