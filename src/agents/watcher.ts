@@ -1,3 +1,4 @@
+import { STUDY_SPOT } from "@/services/schedule";
 import { store, log } from "@/lib/store";
 import { buildToday } from "@/lib/today";
 import type { Proposal } from "./dayAgent";
@@ -201,9 +202,9 @@ export async function decide(e: WatcherEvent): Promise<{ tier: Tier; action: str
       }
       return {
         tier: "B",
-        action: `Put ${pick.title} in the ${gap.usable}-minute block at ${gap.startText} and hold a room in Hillman`,
+        action: `Put ${pick.title} in the ${gap.usable}-minute block at ${gap.startText} and hold a room in ${STUDY_SPOT}`,
         reasoning: `${grew ? "That cancellation joined two windows into one stretch" : "A new window opened"} of ${gap.usable} minutes, and ${pick.title} wants ${pick.estimateMinutes}. Holding a room reserves something outside the app, so it is yours to confirm.`,
-        proposal: { kind: "book_room", gapId: gap.id, building: "Hillman", reason: `${gap.usable} free minutes opened at ${gap.startText}` },
+        proposal: { kind: "book_room", gapId: gap.id, building: STUDY_SPOT, reason: `${gap.usable} free minutes opened at ${gap.startText}` },
       };
     }
 

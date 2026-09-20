@@ -7,10 +7,10 @@ import { clock } from "@/services/prt";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/transit/journey?from=Cathedral&to=Home
- * GET /api/transit/journey?from=Home&to=Cathedral&arriveBy=14:30&lat=40.4372&lon=-79.9230
+ * GET /api/transit/journey?from=Babbio&to=Home
+ * GET /api/transit/journey?from=Home&to=Babbio&arriveBy=14:30&lat=40.7196&lon=-74.0430
  *
- * from/to are building keys (Cathedral, Hillman, Posvar, Sennott, Benedum, Home).
+ * from/to are place keys for the region (Hudson: Babbio, Gateway, Burchard, Howe, HobokenTerminal, Home).
  * lat/lon override the origin with the phone's location. arriveBy defaults to the
  * next class start when going to campus.
  */

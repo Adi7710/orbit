@@ -45,6 +45,15 @@ const g = globalThis as unknown as { __orbit?: Store };
 /** How far the planning clock is from the wall clock; zero unless DEMO_CLOCK is set. */
 const clockShiftMs = () => clock().epoch * 1000 - Date.now();
 
+/**
+ * Leaderboard groups, per region. "Tower A" is a Pitt residence hall; a
+ * student in Jersey City is grouped with Jersey City, and the rivals across
+ * the river with Hoboken. Same five rows, same XP, either way.
+ */
+const HUDSON = (process.env.ORBIT_REGION ?? "hudson") !== "oakland";
+const GROUP_A = HUDSON ? "Jersey City" : "Tower A";
+const GROUP_B = HUDSON ? "Hoboken" : "Tower B";
+
 /** The "build" course with seeded history, per region. Same six sessions either way. */
 const SEED_COURSE = (process.env.ORBIT_REGION ?? "hudson") === "oakland" ? "MATH 0220" : "FE 621";
 
@@ -56,7 +65,7 @@ function seed(): Store {
   // another university on an otherwise coherent screen.
   for (const a of [95, 100, 90, 105, 98, 92]) estimator.record(SEED_COURSE, "build", 60, a);
   return {
-    user: { id: "me", name: process.env.ORBIT_USER_NAME ?? "Adi", group: "Tower A", streakWeeks: 2, xpWeek: 340, ringsClosed: 4 },
+    user: { id: "me", name: process.env.ORBIT_USER_NAME ?? "Adi", group: GROUP_A, streakWeeks: 2, xpWeek: 340, ringsClosed: 4 },
     profile: fixtureProfile,
     travel: fixtureTravel,
     blocks: [...fixtureBlocks],
@@ -74,11 +83,11 @@ function seed(): Store {
       { userId: "jordan", name: "Jordan", sharesFreeTime: false, gaps: [{ id: "j1", start: t(11, 0), end: t(14, 0), usable: 180, isEvening: false }] },
     ],
     board: [
-      { userId: "me", name: process.env.ORBIT_USER_NAME ?? "Adi", xpWeek: 340, streakWeeks: 2, ringsClosed: 4, group: "Tower A" },
-      { userId: "sam", name: "Sam", xpWeek: 410, streakWeeks: 3, ringsClosed: 5, group: "Tower A" },
-      { userId: "priya", name: "Priya", xpWeek: 385, streakWeeks: 1, ringsClosed: 6, group: "Tower A" },
-      { userId: "jordan", name: "Jordan", xpWeek: 120, streakWeeks: 0, ringsClosed: 1, group: "Tower B" },
-      { userId: "lee", name: "Lee", xpWeek: 520, streakWeeks: 5, ringsClosed: 7, group: "Tower B" },
+      { userId: "me", name: process.env.ORBIT_USER_NAME ?? "Adi", xpWeek: 340, streakWeeks: 2, ringsClosed: 4, group: GROUP_A },
+      { userId: "sam", name: "Sam", xpWeek: 410, streakWeeks: 3, ringsClosed: 5, group: GROUP_A },
+      { userId: "priya", name: "Priya", xpWeek: 385, streakWeeks: 1, ringsClosed: 6, group: GROUP_A },
+      { userId: "jordan", name: "Jordan", xpWeek: 120, streakWeeks: 0, ringsClosed: 1, group: GROUP_B },
+      { userId: "lee", name: "Lee", xpWeek: 520, streakWeeks: 5, ringsClosed: 7, group: GROUP_B },
     ],
     habits: syntheticHistory(new Date()),
     // Derived from the synthetic roster, so every shipped address is on

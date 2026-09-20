@@ -47,8 +47,8 @@ There is no iPhone 15 Pro simulator on Xcode 26; use an **iPhone 17 Pro**.
 
 - Start the server: `npm run dev -- -p 3123` in the repo root.
 - Xcode → any iPhone simulator → Run.
-- **Simulator → Features → Location → Custom Location…** and enter `40.4372, -79.9230` (Squirrel Hill) to stand where a commuting student stands.
-- The map should show you, the stop at Forbes + Shady, the live 61A or 61B moving toward it, the ride to Fifth + University, and the walk to the Cathedral, with the verdict at the top of the sheet.
+- **Simulator → Features → Location → Custom Location…** and enter `40.7196, -74.0430` (Home, Jersey City) to stand where a commuting student stands.
+- The map should show you, Marin Boulevard station, the next Hudson-Bergen Light Rail to Hoboken Terminal (a timetable, marked as such), the calling points, and the walk up to Babbio, with the verdict at the top of the sheet. Pittsburgh is still behind `ORBIT_REGION=oakland` on the server.
 
 ## What each file does
 

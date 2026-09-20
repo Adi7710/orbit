@@ -19,6 +19,14 @@ import hudson from "../../data/njt-hudson.json";
  * Both slices share one schema, so nothing downstream knows the difference.
  */
 export const REGION = (process.env.ORBIT_REGION ?? "hudson") as "hudson" | "oakland";
+
+/**
+ * Where a "book a room" proposal points, per region. Hillman is Pitt's
+ * library; a Stevens student is sent to the Samuel C. Williams Library. This
+ * was the last Pittsburgh name on the Plan-my-day path -- beat 2 of the demo
+ * was proposing a room in a building four hundred miles from the student.
+ */
+export const STUDY_SPOT = REGION === "oakland" ? "Hillman" : "Williams Library";
 const schedule = REGION === "oakland" ? oakland : hudson;
 
 export interface Departure { stop: string; trip: string; route: string; dir: number; headsign: string; service: string; sec: number; seq: number; tripStart: number }
