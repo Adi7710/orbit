@@ -22,6 +22,7 @@ struct ScheduleOverviewView: View {
     @State private var expanded: Today.DayBlock?
     @State private var completing: Completion?
     @State private var showingVoice = false
+    @State private var showingLedger = false
     @Namespace private var deck
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -107,6 +108,11 @@ struct ScheduleOverviewView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase != .active { voice.closeMicForBackground() }
         }
+        .sheet(isPresented: $showingLedger) {
+            if let day = store.day {
+                LedgerSheet(ledger: day.ledger, cuts: day.cuts ?? [])
+            }
+        }
         .sheet(isPresented: $showingVoice) {
             VoiceSheetView(session: voice) { showingVoice = false }
         }
@@ -144,6 +150,7 @@ struct ScheduleOverviewView: View {
                 .padding(.top, 8)
             }
 
+            plainRow { fitsCard(day) }
             atRiskSection(day)
             timelineSection(day)
             windowsSection(day)
@@ -155,15 +162,55 @@ struct ScheduleOverviewView: View {
             friendsSection(day)
             learnedSection(day)
 
-            // Room for the dock, so the last card is never trapped under it.
+            // Room for the dock AND the tab bar under it. 104 was enough when
+            // the dock was the only thing down there; with a tab bar as well
+            // the last card was ending up under both.
             Color.clear
-                .frame(height: 104)
+                .frame(height: 168)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .refreshable { await store.refresh() }
+    }
+
+    /// The whole ledger reduced to the two lines that change behaviour.
+    /// Everything else is one tap away, which is the point: the first glance
+    /// stays readable.
+    private func fitsCard(_ day: Today) -> some View {
+        Button {
+            showingLedger = true
+        } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(day.ledger.overCommitted
+                         ? "Today is \(OrbitDuration.hm(day.ledger.slack)) over."
+                         : "You have \(OrbitDuration.hm(day.ledger.slack)) spare today.")
+                        .font(.headline)
+                        .foregroundStyle(OrbitClassic.ink)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2)
+                        .foregroundStyle(OrbitClassic.inkFaint)
+                }
+                Text(day.ledger.overCommitted
+                     ? "The rest isn't happening, and that's fine — you can stop carrying it until tomorrow."
+                     : "After \(OrbitDuration.hm(day.ledger.frictionMinutes)) of walking, eating and getting ready.")
+                    .font(.subheadline)
+                    .foregroundStyle(OrbitClassic.inkSoft)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(OrbitClassic.surface)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     /// Deadlines the work no longer fits in front of. Renders nothing when

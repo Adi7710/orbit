@@ -26,6 +26,9 @@ struct Today: Decodable {
     /// What the weekly review has worked out about this student. Optional so a
     /// build still decodes against a server deployed before the field existed;
     /// empty renders nothing rather than an "all clear" card.
+    /// What to let go of when the day will not fit. Empty unless
+    /// `ledger.overCommitted`.
+    let cuts: [Cut]?
     let learned: [LearnedFact]?
     /// Deadlines the remaining work no longer fits in front of.
     let atRisk: [AtRiskTask]?
@@ -175,6 +178,17 @@ struct Today: Decodable {
             let startText: String
             let minutesAway: Int
         }
+    }
+
+    struct Cut: Decodable, Identifiable, Hashable {
+        let task: CutTask
+        let minutesSaved: Int
+
+        struct CutTask: Decodable, Hashable {
+            let title: String
+        }
+
+        var id: String { task.title }
     }
 
     struct LearnedFact: Decodable, Identifiable, Hashable {

@@ -11,6 +11,8 @@
 		0841783F4092BD877911E4F4 /* VoiceSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BCAD0F79684B7E6F7E0C5DD /* VoiceSheetView.swift */; };
 		1824B3D7F68C7E6DF0357D54 /* VoiceSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3DE6E42F12E16BED3C4AC86 /* VoiceSession.swift */; };
 		19D3A6420E4D22F0D5E9D21C /* TimelineHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FB050B4E7EA5697AD030911 /* TimelineHeaderView.swift */; };
+		1C042C272123866190F49BEE /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220F5848873C7E776E27FFCD /* RootTabView.swift */; };
+		1DC5CAD358EDB739E2752D90 /* LedgerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B87621E6BF74CB850FD824EE /* LedgerSheet.swift */; };
 		23560F9CE849A3C8F802338B /* GradientTagView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B650103B5B717D6C0427398F /* GradientTagView.swift */; };
 		23D85DF4FBE23CE167728E4E /* Color+Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03BBB73B9338103EFFA8AFF /* Color+Theme.swift */; };
 		28D0581EE291B1EB71C024AF /* OrbitMarkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9293A95B5ADA36FBF5921A97 /* OrbitMarkView.swift */; };
@@ -51,6 +53,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		220F5848873C7E776E27FFCD /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
 		2495E968508B6E7557A26A16 /* OrbitModeChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrbitModeChrome.swift; sourceTree = "<group>"; };
 		2E4DDA472485D787F8B10C91 /* CompleteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompleteSheet.swift; sourceTree = "<group>"; };
 		36625DE5DBA1F2A672A50EA4 /* GapCardRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GapCardRow.swift; sourceTree = "<group>"; };
@@ -76,6 +79,7 @@
 		B74C6BC763E00FD91024D63A /* OrbitUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OrbitUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B77F80D4C8C7EDD0895EB22B /* ScheduleOverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleOverviewView.swift; sourceTree = "<group>"; };
 		B78E764C894AE7B94D29992A /* Today.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Today.swift; sourceTree = "<group>"; };
+		B87621E6BF74CB850FD824EE /* LedgerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerSheet.swift; sourceTree = "<group>"; };
 		BE05E028E7E8EF1D4023D7BB /* JourneyMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JourneyMapView.swift; sourceTree = "<group>"; };
 		CDDDBABCED4BEC90EA065323 /* OrbitAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrbitAPI.swift; sourceTree = "<group>"; };
 		D021CDDFACE1BCA7856813D1 /* Voice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Voice.swift; sourceTree = "<group>"; };
@@ -129,6 +133,7 @@
 			children = (
 				50C6CCDD345E93BBB214523E /* ClassDetailView.swift */,
 				2E4DDA472485D787F8B10C91 /* CompleteSheet.swift */,
+				B87621E6BF74CB850FD824EE /* LedgerSheet.swift */,
 				B77F80D4C8C7EDD0895EB22B /* ScheduleOverviewView.swift */,
 				E9296419EC39DE2345CA2633 /* TodayStore.swift */,
 			);
@@ -151,6 +156,7 @@
 			children = (
 				3FAB9704229DAD9175AFB2B8 /* Info.plist */,
 				951F3B84656303BDE6A889CB /* OrbitApp.swift */,
+				220F5848873C7E776E27FFCD /* RootTabView.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -297,6 +303,7 @@
 				23560F9CE849A3C8F802338B /* GradientTagView.swift in Sources */,
 				7E2503E7638FFEDFEC6D1CA3 /* JourneyMapView.swift in Sources */,
 				06ABF608717732B056939566 /* LedgerRingsView.swift in Sources */,
+				1DC5CAD358EDB739E2752D90 /* LedgerSheet.swift in Sources */,
 				94EE4A2A835CE1A460A82941 /* OrbitAPI+Today.swift in Sources */,
 				FEA9EEFDB89FC1A67E84C6CF /* OrbitAPI+Voice.swift in Sources */,
 				4FAF39E8EDF2839EAC50913D /* OrbitAPI.swift in Sources */,
@@ -307,6 +314,7 @@
 				6F7DC3F6792914FF496467CE /* OrbitMotion.swift in Sources */,
 				9EA7C736C26EA00D559E0F94 /* OrbitVoice.swift in Sources */,
 				AA4E499B4B17B3485770990A /* RadialDialView.swift in Sources */,
+				1C042C272123866190F49BEE /* RootTabView.swift in Sources */,
 				89579DBB87E43F82385DE932 /* ScheduleOverviewView.swift in Sources */,
 				F2BE3876C49189197C12999C /* SpeakButton.swift in Sources */,
 				19D3A6420E4D22F0D5E9D21C /* TimelineHeaderView.swift in Sources */,

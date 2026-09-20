@@ -30,6 +30,30 @@ actor OrbitAPI {
         guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
         return try decoder.decode(Journey.self, from: data)
     }
+
+    /// The destination picker's contents. The map used to carry a hard-coded
+    /// list, which still named Pittsburgh buildings after the demo moved to
+    /// Hoboken; this is the server's own list for whichever region is on.
+    func places() async throws -> [TransitPlace] {
+        var req = URLRequest(url: base.appendingPathComponent("api/transit/places"))
+        req.cachePolicy = .reloadIgnoringLocalCacheData
+        req.timeoutInterval = 10
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        guard (resp as? HTTPURLResponse)?.statusCode == 200 else { throw URLError(.badServerResponse) }
+        return try decoder.decode(TransitPlacesResponse.self, from: data).places
+    }
+}
+
+/// Mirrors `GET /api/transit/places`.
+struct TransitPlacesResponse: Decodable {
+    let places: [TransitPlace]
+}
+
+struct TransitPlace: Decodable, Identifiable, Hashable {
+    let id: String
+    let label: String
+    let isHome: Bool
+    let hasClassToday: Bool
 }
 
 // MARK: - Models (mirror /api/transit/journey exactly)
