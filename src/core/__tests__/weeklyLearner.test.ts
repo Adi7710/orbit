@@ -59,11 +59,14 @@ describe("the learner learns from one week", () => {
     expect(w2.memory.memos.map((m) => m.week)).toEqual([1, 2]);
   });
 
-  it("clamps an absurd multiplier but keeps the model's judgement inside the rail", async () => {
+  it("refuses to move past what the week actually showed, whatever the model asks for", async () => {
     reply([{ category: "big_assignment", multiplier: 50, reason: "" }]);
     const { memory, lesson } = await learnFromWeek(week1, emptyMemory(), 1, ASPECT);
-    expect(memory.multipliers.big_assignment).toBe(CLAMP_MAX);
-    expect(lesson.changes[0].clamped).toBe(true);
+    // The week ran about 1.33x, so that is as far as one review may go, even
+    // though the safety rail alone would have allowed 3.
+    expect(memory.multipliers.big_assignment).toBeCloseTo(1.33, 2);
+    expect(memory.multipliers.big_assignment).toBeLessThan(CLAMP_MAX);
+    expect(lesson.refused.some((r) => /past this week/.test(r.reason))).toBe(true);
   });
 
   it("ignores a kind it did not see this week, or one outside the aspect", async () => {

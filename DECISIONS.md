@@ -338,3 +338,13 @@ Affects: src/lib/learned.ts.
 Decision: Recorded so it is not mistaken for a code fault. The stored key is 29 characters; a valid nvapi key is about 69. `/v1/models` returns 200 because that endpoint needs no auth, which makes the key look healthy on the diagnostics route while every chat completion fails with 403 Forbidden.
 Why: The weekly review degraded to the running average for every aspect and kept working, which is the designed behaviour, but the learning is not Nemotron's until the key is replaced. Re-paste it in full.
 Affects: .env.local, and anyone reading /api/nvidia as proof the key works.
+
+## 2026-09-20 03:50 ET · Jatin · One learned profile per person, never a shared one
+Decision: The learned state is keyed by user id (`learned(userId)`, `resetLearned(userId)`, `knownUsers()`), not held in a single global slot. Two students with identical tasks end up with different multipliers, different planned minutes and different sentences; a test seeds two people from the same task list and asserts one runs long, the other short, and that neither profile touches the other.
+Why: Nothing in the numbers was ever hard-coded — every multiplier is derived from that person's own completions and the sentence only supplies the wording around it — but the storage had no user identity, so two users on one server would have shared a brain. That defeats the whole point of personalisation.
+Affects: src/lib/learned.ts, and anything that later persists this to Postgres: the row key is the user.
+
+## 2026-09-20 03:50 ET · Jatin · A multiplier may move toward the week's evidence but never past it
+Decision: Added `towardEvidence` to the weekly learner. Any number the model returns, for a global pace or a category, is confined to the interval between where it stood and what the week actually showed. Going past is refused and the reason is recorded.
+Why: Found while verifying the live run. Reviewing the same week repeatedly ratcheted big assignments from 1.37 to 1.75 to 1.85 while the week's own ratio stayed near 1.4, and the model wrote "the multiplier must stay above 1.85" to justify it. An estimate that inflates on every review is worse than one that never learned. The earlier idempotency test only checked a single repeat, so the slow drift passed; there is now a test that reviews the same week six times and asserts it settles.
+Affects: src/agents/weeklyLearner.ts. It also subsumes the safety rail in practice: a model answering 50 now lands on the week's 1.33 rather than the clamp's 3.

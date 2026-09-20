@@ -4,7 +4,7 @@ import type { HabitRecord } from "../habits";
 import { reset, store } from "../../lib/store";
 import {
   OFFER_FLOOR, buildLearningInput, currentWeek, deadlineRisk, factor, isActive,
-  learned, learnedFacts, planningMinutes, resetLearned, reviewWeek, weekIndex, worthOffering, worthProposing,
+  knownUsers, learned, learnedFacts, planningMinutes, resetLearned, reviewWeek, weekIndex, worthOffering, worthProposing,
 } from "../../lib/learned";
 
 const at = (day: number, hour = 10) => new Date(Date.UTC(2026, 8, day, hour + 4));
@@ -231,5 +231,66 @@ describe("weeks and evidence", () => {
     const fit = ASPECTS.proposal_fit.collect(input);
     expect(fit).toHaveLength(1);
     expect(fit[0]).toMatchObject({ category: "move_task", estimate: DEFAULTS.rate, actual: 0.5 });
+  });
+});
+
+describe("learning is personal, and never a constant", () => {
+  const weekOf = (n: number) => at(7 + n * 7);
+  /** Same tasks, same estimates, two different people. */
+  function seedPerson(userId: string, mult: number) {
+    const s = store();
+    s.user.id = userId;
+    s.habits = [];
+    for (let w = 1; w <= 3; w++) {
+      s.habits.push(rec({ title: `Problem Set ${w}`, plannedMinutes: 90, actualMinutes: Math.round(90 * mult), completedAt: weekOf(w) }));
+      s.habits.push(rec({ title: `Essay draft ${w}`, plannedMinutes: 150, actualMinutes: Math.round(150 * mult), completedAt: weekOf(w) }));
+    }
+    resetLearned(userId);
+    learned(userId).epoch = weekOf(1).toISOString();
+  }
+
+  it("gives two people different numbers from the same tasks, and keeps them apart", async () => {
+    resetLearned();
+    seedPerson("maya", 1.4);
+    for (let w = 1; w <= 3; w++) await reviewWeek(w, { useModel: false });
+    const mayaFactor = factor("work_length", "big_assignment");
+    const mayaPlan = planningMinutes({ id: "x", title: "Problem Set 9", domain: "build", estimateMinutes: 90, source: "manual" });
+    const mayaSaid = learnedFacts()[0].sentence;
+
+    seedPerson("jordan", 0.75);
+    for (let w = 1; w <= 3; w++) await reviewWeek(w, { useModel: false });
+    const jordanFactor = factor("work_length", "big_assignment");
+    const jordanPlan = planningMinutes({ id: "x", title: "Problem Set 9", domain: "build", estimateMinutes: 90, source: "manual" });
+    const jordanSaid = learnedFacts()[0].sentence;
+
+    // One runs long, the other runs short. Nothing about this is fixed.
+    expect(mayaFactor).toBeGreaterThan(1.1);
+    expect(jordanFactor).toBeLessThan(0.95);
+    expect(mayaPlan).toBeGreaterThan(jordanPlan + 20);
+    expect(mayaSaid).toMatch(/longer/);
+    expect(jordanSaid).toMatch(/less/);
+    expect(mayaSaid).not.toBe(jordanSaid);
+
+    // Maya's profile is untouched by anything Jordan did.
+    expect(knownUsers().sort()).toEqual(["jordan", "maya"]);
+    expect(learned("maya").aspects.work_length.memory.multipliers.big_assignment).toBeCloseTo(mayaFactor, 5);
+    store().user.id = "maya";
+    expect(factor("work_length", "big_assignment")).toBeCloseTo(mayaFactor, 5);
+  });
+
+  it("settles instead of inflating when the same week is reviewed over and over", async () => {
+    resetLearned();
+    seedPerson("drifty", 1.4);
+    const seen: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      await reviewWeek(2, { useModel: false });
+      seen.push(factor("work_length", "big_assignment"));
+    }
+    // It converges on what the week actually said (1.4x) and stops there.
+    expect(seen.at(-1)!).toBeLessThanOrEqual(1.45);
+    expect(seen.at(-1)!).toBeGreaterThan(1.0);
+    // Every step moves toward the evidence, never past it.
+    for (let i = 1; i < seen.length; i++) expect(seen[i]).toBeLessThanOrEqual(seen[i - 1] + 0.001 + Math.max(0, 1.4 - seen[i - 1]));
+    expect(Math.abs(seen.at(-1)! - seen.at(-2)!)).toBeLessThan(0.05);
   });
 });

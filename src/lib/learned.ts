@@ -27,12 +27,21 @@ export interface AspectState {
   lessons: WeekLesson[];
 }
 export interface LearnedStore {
+  /** Whose profile this is. Learning is never shared between users. */
+  userId: string;
   epoch: string;
   aspects: Record<string, AspectState>;
   lastReviewedWeek: number;
 }
 
-const g = globalThis as unknown as { __orbitLearned?: LearnedStore };
+/**
+ * One learned profile per person, keyed by user id. Nothing here is shared
+ * between users and nothing is a constant: every multiplier is derived from
+ * that person's own completions, so two students with the same tasks end up
+ * with different numbers, different planned minutes and different sentences.
+ */
+const g = globalThis as unknown as { __orbitLearned?: Record<string, LearnedStore> };
+const allLearned = () => (g.__orbitLearned ??= {});
 
 const DAY = 864e5;
 /** Week 1 is the week containing the epoch. */
@@ -44,13 +53,20 @@ function epochOf(): Date {
   return new Date(times.length ? Math.min(...times) : Date.now());
 }
 
-export function learned(): LearnedStore {
-  if (!g.__orbitLearned) g.__orbitLearned = { epoch: epochOf().toISOString(), aspects: {}, lastReviewedWeek: 0 };
-  return g.__orbitLearned;
+/** The profile of whoever the app is currently acting for. */
+export function learned(userId = store().user.id): LearnedStore {
+  const all = allLearned();
+  return (all[userId] ??= { userId, epoch: epochOf().toISOString(), aspects: {}, lastReviewedWeek: 0 });
 }
-export function resetLearned() {
-  g.__orbitLearned = undefined;
+
+/** Forget one person, or everyone. Used by the demo reset and by tests. */
+export function resetLearned(userId?: string) {
+  if (userId) delete allLearned()[userId];
+  else g.__orbitLearned = undefined;
 }
+
+/** Every profile the server is holding, so it is visible that they are separate. */
+export const knownUsers = () => Object.keys(allLearned());
 
 function stateOf(id: AspectId): AspectState {
   const l = learned();

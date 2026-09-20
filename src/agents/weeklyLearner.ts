@@ -193,6 +193,19 @@ const clampTo = (n: number, a: AspectSpec) => round2(Math.min(a.clamp?.max ?? CL
  * "walks 16% slower", and the model answered 0.84, which is 1/1.18. It had
  * flipped the ratio, and the displayed walking times would have collapsed.
  */
+/**
+ * A number may move toward the evidence but never past it. Without this the
+ * model ratchets: asked about the same week repeatedly it kept nudging big
+ * assignments up, 1.37 to 1.75 to 1.85, writing "the multiplier must stay above
+ * 1.85" while the week's own ratio was well below that. An estimate that
+ * inflates every review is worse than one that never learned.
+ */
+export function towardEvidence(from: number, to: number, observed: number): number {
+  const lo = Math.min(from, observed);
+  const hi = Math.max(from, observed);
+  return round2(Math.min(hi, Math.max(lo, to)));
+}
+
 export function isInverted(proposed: number, observed: number): boolean {
   if (Math.abs(observed - 1) < 0.05) return false;
   return Math.abs(proposed - 1 / observed) < Math.abs(proposed - observed);
@@ -289,7 +302,11 @@ export async function learnFromWeek(
     const to = clampTo(Number(r.data.pace), aspect);
     const from = memory.global ?? 1;
     if (isInverted(to, overall)) refused.push({ category: g.noun, reason: `answered ${to} when the week ran ${overall}x, which is the ratio upside down` });
-    else if (to !== from) globalChange = { from, to, reason: "overall pace" };
+    else {
+      const settled = towardEvidence(from, to, overall);
+      if (settled !== to) refused.push({ category: g.noun, reason: `wanted ${to}, which is past this week's ${overall}x; moved to ${settled}` });
+      if (settled !== from) globalChange = { from, to: settled, reason: "overall pace" };
+    }
   }
 
   for (const m of r.data.multipliers ?? []) {
@@ -307,8 +324,10 @@ export async function learnFromWeek(
     const from = multiplierFor(memory, category);
     const own = ratioOf(sessions.filter((x) => x.category === category));
     if (isInverted(to, own)) { refused.push({ category, reason: `answered ${to} when it ran ${own}x, which is the ratio upside down` }); continue; }
-    if (to === from) continue;
-    changes.push({ category, from, to, reason: (m.reason ?? "").trim().slice(0, 120), clamped: to !== round2(raw) });
+    const settled = towardEvidence(from, to, own);
+    if (settled !== to) refused.push({ category, reason: `wanted ${to}, which is past this week's ${own}x; moved to ${settled}` });
+    if (settled === from) continue;
+    changes.push({ category, from, to: settled, reason: (m.reason ?? "").trim().slice(0, 120), clamped: to !== round2(raw) });
   }
   return settle(changes, globalChange, (r.data.memo ?? "").trim().slice(0, 300), refused, evidence, { provider: "nemotron-hosted", model: r.model, latencyMs: r.latencyMs });
 }
