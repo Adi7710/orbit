@@ -307,7 +307,7 @@ export function learnedFacts(): LearnedFact[] {
     // model when it answered, the rules when it did not. Said on screen, so
     // "learned by Nemotron" is never claimed for a week the model missed.
     const lastModel = [...st.lessons].reverse().find((l) => l.provider === "nemotron-hosted");
-    const learnedBy = st.lessons.at(-1)?.provider === "nemotron-hosted" || (lastModel && st.lessons.at(-1)?.provider === "none") ? "nemotron-hosted" : (st.lessons.at(-1)?.provider ?? "heuristic");
+    const learnedBy: string = st.lessons.at(-1)?.provider ?? "heuristic";
     const memo = lastModel?.memo || st.memory.memos.at(-1)?.text || undefined;
     const push = (category: string, m: number) => {
       if (seen.has(category) || Math.abs(m - 1) < 0.05) return;
