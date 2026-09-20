@@ -26,6 +26,8 @@ type Today = {
   shared: { startText: string; endText: string; minutes: number; names: string[] }[];
   tasks: { id: string; title: string; planningMinutes: number; estimateMinutes: number; courseCode?: string; dueAt?: string }[];
   cuts: { task: { title: string }; minutesSaved: number; reason: string }[];
+  opportunities?: { opportunity: { id: string; name: string; kind: string; where: string; hours: number; url: string }; inDays: number; fit: number; reason: string }[];
+  growth?: string[];
   calibration: { key: string; samples: number; multiplier: number }[];
   proposals: { id: string; status: string; proposal: { kind: string; reason: string; body?: string; to?: string; subject?: string; courseCode?: string; building?: string; message?: string } }[];
   events: { seq: number; ts: string; actor: string; type: string; payload: unknown }[];
@@ -431,6 +433,31 @@ export default function TodayClient() {
         <h2 className="mt-5 text-sm font-medium text-ink-2">Crew this week</h2>
         <ol className="mt-2 text-sm">{board.map((r) => <li key={r.name} className="flex justify-between gap-3"><span className="min-w-0 truncate">{r.rank}. {r.name}</span><span className="shrink-0">{r.xpWeek} XP · {r.streakWeeks}wk</span></li>)}</ol>
         {board.length === 0 && <p className="mt-2 text-sm text-ink-2">{boardError ? "The board did not load." : "Nobody on the board yet."}</p>}
+      </section>
+
+      <section className="rounded-2xl border border-line p-5 md:col-span-2">
+        <h2 className="text-sm font-medium text-ink-2">Coming up for you</h2>
+        {(t.growth ?? []).length > 0 && (
+          <ul className="mt-2 space-y-1 text-sm">
+            {(t.growth ?? []).map((g) => <li key={g} className="break-words">{g}</li>)}
+          </ul>
+        )}
+        {(t.opportunities ?? []).length ? (
+          <ul className="mt-3 grid gap-2 sm:grid-cols-3">
+            {(t.opportunities ?? []).map((r) => (
+              <li key={r.opportunity.id} className="rounded-xl bg-surface p-3 text-sm">
+                <div className="flex items-baseline justify-between gap-2">
+                  <a href={r.opportunity.url} target="_blank" rel="noreferrer" className="font-medium text-ink underline-offset-2 hover:underline">{r.opportunity.name}</a>
+                  <span className="text-xs text-ink-3">{r.opportunity.kind}</span>
+                </div>
+                <p className="mt-1 break-words text-ink-2">{r.reason}</p>
+                <p className="mt-1 text-xs text-ink-3">{r.opportunity.hours}h · fit {Math.round(r.fit * 100)}%</p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 text-sm text-ink-3">Nothing in the next few months. That is fine.</p>
+        )}
       </section>
 
       <section className="rounded-2xl border p-5 md:col-span-2">

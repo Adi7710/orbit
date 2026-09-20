@@ -348,12 +348,20 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
         log("voice", "voice_get_coach", { source: result.provider, insights: result.insights.length });
         return { ok: true, text: said.join(" "), data: { provider: result.provider, kinds: result.insights.map((i) => i.kind) } };
       }
+      // The growth plan and the one opportunity to aim at come from the same
+      // buildToday() the page shows, written by code from the learned
+      // multipliers, the queue and the calendar. The coach is the same
+      // sentences read aloud, so the phone and the voice cannot disagree.
+      const t = await buildToday();
       const said = ["Here is what I have worked out about you."];
-      for (const f of facts.slice(0, 3)) said.push(speakNumbers(f.sentence));
+      for (const f of facts.slice(0, 2)) said.push(speakNumbers(f.sentence));
+      for (const g of (t.growth ?? []).slice(0, 2)) if (!said.some((x) => x === speakNumbers(g))) said.push(speakNumbers(g));
+      const top = t.opportunities?.[0];
+      if (top) said.push(speakNumbers(`Coming up: ${top.reason}`));
       const risky = s.tasks.filter((t) => !t.completedAt).map((t) => ({ t, r: deadlineRisk(t) })).filter((x) => x.r?.atRisk);
       if (risky.length) said.push(`One thing to watch: you usually start ${risky[0].t.title} about ${spokenDuration(Math.round(risky[0].r!.startsInHours * 60))} before it is due, and it needs ${spokenDuration(risky[0].r!.needsMinutes)}.`);
-      log("voice", "voice_get_coach", { facts: facts.length, atRisk: risky.length });
-      return { ok: true, text: said.join(" "), data: { facts: facts.length } };
+      log("voice", "voice_get_coach", { facts: facts.length, atRisk: risky.length, opportunity: top?.opportunity.id });
+      return { ok: true, text: said.join(" "), data: { facts: facts.length, opportunity: top?.opportunity.id } };
     }
 
     case "draft_email": {

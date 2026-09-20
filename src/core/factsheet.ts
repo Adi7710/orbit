@@ -36,6 +36,8 @@ export interface TodayLike {
   tasks: { id: string; title: string; planningMinutes: number; estimateMinutes: number; courseCode?: string; dueAt?: Date | string }[];
   bus: { route: string; leaveByText: string; departsText: string; arrivalText: string; status: string; rideMinutes: number; walkToStop: number; from: string; to: string; verdict: { makesIt: boolean; marginMin: number } | null; classAtText: string | null } | null;
   calibration: { key: string; samples: number; multiplier: number }[];
+  opportunities?: { opportunity: { id: string; name: string; hours: number }; inDays: number; reason: string }[];
+  growth?: string[];
   quests?: { title: string; xp: number }[];
   cuts?: { task: { title: string }; minutesSaved: number }[];
   transit?: {
@@ -195,6 +197,15 @@ export function buildFactsheet(t: TodayLike): Fact[] {
       numbers: n(next?.minutesAway),
       source: `transitNeed in src/core/transitRelevance.ts: ${t.transit.reason ?? "idle"}`,
     });
+  }
+
+  // The world outside the timetable. The reason is already a sentence with
+  // its numbers in it, so it is licensed as written.
+  for (const r of t.opportunities ?? []) {
+    f.push({ key: `opportunity.${r.opportunity.id}`, text: r.reason, numbers: n(r.inDays, r.opportunity.hours, ...(r.reason.match(/\d+/g) ?? []).map(Number)), source: "recommendOpportunities in src/core/opportunities.ts, from the calibration, the queue and the calendar" });
+  }
+  if (t.growth && t.growth.length) {
+    f.push({ key: "growth", text: t.growth.join(" "), numbers: n(...(t.growth.join(" ").match(/\d+/g) ?? []).map(Number)), source: "growthPlan in src/core/opportunities.ts, from what the weekly review learned" });
   }
 
   if (t.user) {
