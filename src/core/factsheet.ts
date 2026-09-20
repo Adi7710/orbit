@@ -36,7 +36,17 @@ export interface TodayLike {
   calibration: { key: string; samples: number; multiplier: number }[];
   quests?: { title: string; xp: number }[];
   cuts?: { task: { title: string }; minutesSaved: number }[];
-  transit?: { clockText: string; realtimeOk: boolean };
+  transit?: {
+    clockText: string;
+    realtimeOk: boolean;
+    /** Why there is or is not a trip to plan: "class" | "home" | "asked" | "idle". */
+    reason?: string;
+    /** That reason as a sentence a person could read. */
+    why?: string;
+    planned?: boolean;
+    /** Who publishes the timetable, so a bus fact cites the right agency. */
+    agency?: string;
+  };
 }
 
 export function buildFactsheet(t: TodayLike): Fact[] {
@@ -107,7 +117,7 @@ export function buildFactsheet(t: TodayLike): Fact[] {
       key: "bus.leave",
       text: `To get from ${b.from} to ${b.to} you should leave at ${b.leaveByText} for the ${b.route}, which departs ${b.departsText} and arrives ${b.arrivalText}.`,
       numbers: [],
-      source: `buildJourney, ${b.status} data from Pittsburgh Regional Transit`,
+      source: `buildJourney, ${b.status} data from ${t.transit?.agency ?? "the transit agency"}`,
     });
     f.push({ key: "bus.legs", text: `That trip is ${b.walkToStop} minutes walking to the stop and ${b.rideMinutes} minutes riding.`, numbers: n(b.walkToStop, b.rideMinutes), source: "buildJourney leg times" });
     if (b.verdict) {
@@ -131,6 +141,34 @@ export function buildFactsheet(t: TodayLike): Fact[] {
         source: "no upcoming class block after the current time",
       });
     }
+  } else if (t.transit) {
+    // Orbit computes no journey when there is nowhere to be -- that is the
+    // demand-driven design working, and it cost us the three most important
+    // questions in the bank. "When do I need to leave?" and "Will I make it to
+    // class on time?" matched no fact and fell through to a blanket "I do not
+    // have anything on that", which a person reads as broken rather than as
+    // "there is nothing to catch". Not having a trip is itself a fact, and it
+    // has to be sayable.
+    // The wording is load-bearing, not decoration. The first version said only
+    // "no bus to work out", and "will I make it to class on time?" still fell
+    // through to a refusal -- the fact shared not one word with the question,
+    // so the ranker had nothing to match on. A fact the matcher cannot reach
+    // is the same as a fact that does not exist.
+    //
+    // The version after that overcorrected into three sentences of keywords,
+    // which passed the bank and sounded like a form letter. Everything in the
+    // list has to survive being read aloud, so this is one sentence that still
+    // names what people ask about: the class, being late, the departure, the
+    // walk.
+    const idle = t.transit.reason === "idle";
+    f.push({
+      key: "bus.idle",
+      text: idle
+        ? `There is no class left to travel to, so there is nothing to be late for, no departure to leave for and no walking or riding to work out.`
+        : `${t.transit.why ?? "There is no trip to plan right now."} There is no departure to leave for and no walking or riding to work out.`,
+      numbers: [],
+      source: `transitNeed in src/core/transitRelevance.ts: ${t.transit.reason ?? "idle"}`,
+    });
   }
 
   if (t.user) {
@@ -145,7 +183,7 @@ export function buildFactsheet(t: TodayLike): Fact[] {
     f.push({ key: `cut.${c.task.title}`, text: `Dropping ${c.task.title} would give back ${c.minutesSaved} minutes.`, numbers: n(c.minutesSaved), source: "suggestCuts in src/core/ledger.ts" });
   }
   if (t.transit) {
-    f.push({ key: "clock", text: `It is ${t.transit.clockText}, and the live transit feed is ${t.transit.realtimeOk ? "up" : "down"}.`, numbers: [], source: "PRT GTFS-realtime" });
+    f.push({ key: "clock", text: `It is ${t.transit.clockText}, and the live transit feed is ${t.transit.realtimeOk ? "up" : "down"}.`, numbers: [], source: `live feed from ${t.transit.agency ?? "the transit agency"}` });
   }
 
   return f;

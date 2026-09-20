@@ -8,7 +8,7 @@ import { Estimator } from "@/core/estimator";
 import { t } from "@/core/time";
 import type { HabitRecord } from "@/core/habits";
 import { syntheticHistory } from "@/core/habitSeed";
-import type { Contact } from "@/core/contacts";
+import { SAMPLE_ROSTER, type Contact } from "@/core/contacts";
 
 /**
  * In-memory store for the hackathon. Swap for Postgres (drizzle) by keeping
@@ -41,10 +41,16 @@ interface Store {
 
 const g = globalThis as unknown as { __orbit?: Store };
 
+/** The "build" course with seeded history, per region. Same six sessions either way. */
+const SEED_COURSE = (process.env.ORBIT_REGION ?? "hudson") === "oakland" ? "MATH 0220" : "FE 621";
+
 function seed(): Store {
   const estimator = new Estimator();
-  // Six prior sessions for MATH 0220 so the multiplier is already live (hand-checked ~1.6x).
-  for (const a of [95, 100, 90, 105, 98, 92]) estimator.record("MATH 0220", "build", 60, a);
+  // Six prior sessions so the multiplier is already live (hand-checked ~1.6x).
+  // The course follows the region: the seeded history has to belong to a class
+  // the student is actually shown, or the calibration card names a course from
+  // another university on an otherwise coherent screen.
+  for (const a of [95, 100, 90, 105, 98, 92]) estimator.record(SEED_COURSE, "build", 60, a);
   return {
     user: { id: "me", name: process.env.ORBIT_USER_NAME ?? "Adi", group: "Tower A", streakWeeks: 2, xpWeek: 340, ringsClosed: 4 },
     profile: fixtureProfile,
@@ -68,7 +74,11 @@ function seed(): Store {
       { userId: "lee", name: "Lee", xpWeek: 520, streakWeeks: 5, ringsClosed: 7, group: "Tower B" },
     ],
     habits: syntheticHistory(new Date()),
-    instructors: { "MATH 0220": "prof.lee@pitt.edu", "CS 0441": "prof.chen@pitt.edu", "ENGCMP 0200": "prof.ortiz@pitt.edu" },
+    // Derived from the synthetic roster, so every shipped address is on
+    // example.edu -- reserved, and incapable of delivering. The old literal
+    // was three invented names on @pitt.edu, a real domain, which is exactly
+    // the kind of address the email rules exist to keep out of the repo.
+    instructors: Object.fromEntries(SAMPLE_ROSTER.map((c) => [c.courseCode, c.email])),
     contacts: [],
     selfEval: [],
   };

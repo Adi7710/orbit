@@ -1,63 +1,99 @@
 # Orbit
 
-Your calendar says you have eleven free hours today. You have nine hours forty-nine minutes. Orbit counts the walk, the meal and the settling-in, finds the real gaps between classes, puts one thing in each, tells you when to stand up for the bus, and turns the whole day into quests you can only complete by actually doing them.
+Your calendar says you have 13h 35m free today. You have 9h 07m. Orbit counts the commute, the meals and the settling-in, finds the real windows between classes, puts one thing in each, tells you when to stand up for your train, takes "that took ninety-five minutes" by voice, drafts the email to your professor, and turns the day into quests you can only complete by actually doing them.
 
-Built at SteelHacks XIII, Sept 19-20 2026. All code in this repository was started after 11:00 AM EST on Sept 19 2026. AI tools used: Claude (Anthropic) for scaffolding and code review, Claude Sonnet 5 at runtime as the day agent, NVIDIA Nemotron at runtime for task estimation, ElevenLabs for voice.
+Built at SteelHacks XIII, 19-20 September 2026, for a student living in Jersey City and studying at Stevens. All code in this repository was started after 11:00 AM EST on 19 September 2026. AI tools used: Claude (Anthropic) via Claude Code for design, code and review, and as the runtime Day Agent and Critic; NVIDIA Nemotron at runtime for task-minute estimation and syllabus parsing; ElevenLabs for the voice.
+
+## The numbers on the screen, and where they come from
+
+| The ledger says | Minutes | Source |
+|---|---|---|
+| Your calendar claims free | 815 (13h 35m) | awake window minus classes |
+| Travel it never counted | 88 | 44 minutes each way, Jersey City to Babbio: walk to Marin Boulevard, Hudson-Bergen Light Rail, the climb from Hoboken Terminal |
+| Meals | 115 | profile |
+| Settling in | 65 | profile |
+| **Actually usable** | **547 (9h 07m)** | `computeLedger` in `src/core/ledger.ts` |
+
+Every number Orbit says out loud is computed in `src/core/`, which has no framework and no network and is covered by 220 tests. The language model never does arithmetic: the server composes the sentence and the model reads it.
+
+## What is real and what is synthetic
+
+- **Classes and deadlines:** imported from a real Canvas calendar feed (`POST /api/import`). The seeded day mirrors the three courses on that feed.
+- **Transit:** NJ TRANSIT rail GTFS (Hudson-Bergen Light Rail) and PATH GTFS, both public, both keyless. PATH departures are live from the Port Authority's RidePATH board. The light rail is a timetable and the app says so, per departure, rather than dressing a schedule row as a prediction. See `docs/transit.md`.
+- **Instructor addresses:** synthetic, on `@example.edu`, which cannot deliver. A real address is typed in at runtime and never persisted. See `docs/email.md`.
+- **Estimator history:** six seeded sessions so a calibration multiplier is live on first load; real completions replace them.
+- **Keys:** live only in `.env.local`. Nothing in the demo depends on one being present. Every model call records which provider answered, so degraded mode is visible rather than silent.
 
 ## Tracks
 
-- NVIDIA "Beyond the Chatbot": Nemotron estimates task minutes and domains (not chat) and is evaluated against a synthetic session log at `/api/eval` (MAE, within-25% hit rate, latency, provider). Nemotron Parse (hosted) reads syllabus PDFs into deadlines with bounding-box provenance.
-- ElevenLabs "Out Loud": a voice agent gives the morning briefing from the real ledger, takes the evening "how long did it really take" check-in that feeds the estimator, and switches modes by voice.
-- LANXESS "Xtract": every imported deadline links back to its source (ICS uid or syllabus page and box).
+- **NVIDIA "Beyond the Chatbot":** Nemotron estimates task minutes and domains (not chat), clamped to the student's own calibration, and is scored against a session log at `/api/eval`: MAE, within-25% hit rate, latency, provider. Nemotron Parse reads syllabus PDFs into deadlines with bounding-box provenance.
+- **ElevenLabs "Out Loud":** a voice agent with nine server tools gives the briefing from the real ledger, takes the evening "how long did it really take" check-in that moves the calibration, answers open questions from an enumerable factsheet, and can defend any answer with `why`. See `docs/voice.md` and `docs/selfeval.md`.
+- **LANXESS "Xtract":** every imported deadline links back to its source: an ICS uid, or a syllabus page and box.
 - General.
 
 ## Architecture
 
 ```
-src/core            pure, tested arithmetic (no framework, no network)
-  time.ts           minutes-from-midnight, past-midnight bedtimes
-  ledger.ts         awake - classes - travel - meals - routines = usable; cut suggestions
-  gaps.ts           between-class holes with walk + settle removed, >= 25 min, one task per gap
-  estimator.ts      guess vs actual per course, 5 samples, trimmed, capped 3x; title heuristics
-  ics.ts            RFC 5545 reader: folding, TZID, RRULE weekly/daily, EXDATE, Canvas titles
-  game.ts           XP that cannot be farmed, ring ratchet, weekly board, quests from real gaps
-  overlap.ts        shared free windows with opted-in friends (classes never exposed)
-  bus.ts            leave-by from gap end + walk + live arrivals; ghost-trip detection
+src/core                pure, tested arithmetic: no framework, no network
+  ledger.ts             awake - classes - travel - meals - routines = usable; cut suggestions
+  gaps.ts               between-class windows with the walk and settle removed; clipped to now
+  estimator.ts          guess vs actual per course; trimmed, capped, clamped to [0.5x, 2x] of baseline
+  ics.ts                RFC 5545 reader: folding, TZID, RRULE, EXDATE, Canvas titles, course codes
+  factsheet.ts          every fact Orbit may say, keyed and sourced
+  answerCheck.ts        an answer may not contain a number the factsheet did not license
+  questionBank.ts       24 questions the app must answer, or honestly refuse, every ten minutes
+  transitRelevance.ts   whether a trip is worth computing right now (idle = nothing fetched)
+  say.ts                natural durations and clock times for speech
+  emailDraft.ts, contacts.ts, game.ts, overlap.ts, habits.ts, travel.ts, time.ts
 src/agents
-  models.ts         model registry: Nemotron via NVIDIA hosted API (id discovery, JSON-schema calls, heuristic fallback); Claude
-  parse.ts          Nemotron Parse via the hosted API: page image -> markdown + bounding boxes
-  syllabus.ts       parsed pages -> dated tasks; every task must quote the document verbatim or it is dropped
-  estimate.ts       Nemotron's non-chat job: minutes + domain from a title, JSON-schema constrained
-  dayAgent.ts       Claude with four tools; every tool is a PROPOSAL, humans approve in /api/proposals
-  voice.ts          ElevenLabs token minting; briefing text built from the ledger
-src/services/schedule.ts  PRT static timetable slice (data/prt-oakland.json): service days, departures per stop, ride times
-src/services/prt.ts       PRT GTFS-realtime overlay (public trip updates), ghost detection, demo clock
-src/lib/transit.ts        the two legs a commuter has: Home -> first class, last class -> Home
-src/lib             in-memory store (swap for Postgres), today builder
-src/app/api         today, plan, proposals/[id], complete, leaderboard, mode, voice/token, voice/tool, eval, syllabus, nvidia
-src/app             Today screen
+  dayAgent.ts           proposes; every tool call is a proposal a human approves
+  ask.ts                grounded open questions, verified before they are spoken
+  critic.ts             LLM-as-judge with a reward ledger; can only lower trust, never raise it
+  emailAgent.ts         drafts, never sends
+  watcher.ts            two-tier autonomy: acts on small things, proposes the rest
+  habitAgent.ts, estimate.ts, parse.ts, syllabus.ts, voiceTools.ts, models.ts
+src/services
+  schedule.ts           GTFS slice, indexed by stop and by trip; ORBIT_REGION picks the city
+  path.ts               PATH live departures
+  prt.ts, alerts.ts, vehicles.ts   GTFS-realtime (Pittsburgh region only)
+src/lib
+  journey.ts            one journey builder for the map, the card and the voice
+  today.ts              everything the Today screen needs
+  store.ts              in-memory store, seeded per region
+src/app/api             today, plan, proposals/[id], complete, import, email, transit/*, voice/*, eval, selfeval, ...
+src/app                 Today, the map, the email modal
+ios/Orbit               SwiftUI views against the same API; plays Orbit's voice from /api/voice/speak
+scripts                 gtfs-extract-hudson, setup-voice-agent, tune-voice, tunnel (with watchdog), selfeval-loop
 ```
 
-Invariants: only `/api/proposals/[id]` turns a proposal into an action; agents have no tool that books, sends or moves anything; XP is computed server-side from planned vs actual minutes and is capped; friends' classes are never shared, only overlapping free windows; every model call records which provider answered so degraded mode is visible.
-
-## Transit data
-
-Pittsburgh Regional Transit publishes its timetable (GTFS) and realtime trip updates openly under its Developer License Agreement. `scripts/gtfs-extract.mjs` downloads the current GTFS zip and writes the Oakland / Squirrel Hill slice to `data/prt-oakland.json` (10 stops, 16 routes, about 17,000 departures). At runtime the app reads that file for scheduled departures and overlays the live feed at `https://truetime.portauthority.org/gtfsrt-bus/trips` (cached 30 seconds). A trip that should already be on the road but is missing from the live feed is shown as a ghost. Set `DEMO_CLOCK=2026-09-22T13:10` to plan against a weekday timetable during weekend judging. `GET /api/transit/journey?from=Home&to=Cathedral&lat=..&lon=..` returns everything the bus map draws: walk legs, the next four buses with live predictions and live vehicle positions, the ride, the arrival, and the verdict against the class start (spec in `docs/bus-map.md`).
+Invariants: only `/api/proposals/[id]` turns a proposal into an action; agents have no tool that books, sends or moves anything; XP is computed server-side and capped; friends' classes are never shared, only overlapping free windows; the voice tools return finished sentences so the model never computes a number; a Critic can lower trust in an agent but nothing automated can raise it.
 
 ## Run
 
 ```
-cp .env.example .env.local   # keys optional; everything degrades to deterministic demo mode
+cp .env.example .env.local        # keys optional; everything degrades to deterministic mode
 npm install
-npm test                      # 15 tests, hand-computed fixture
-npm run dev                   # http://localhost:3000
+npm test                          # 220 tests
+npm run dev -- -p 3123            # http://localhost:3123
+node scripts/tunnel.mjs 3123      # public URL for the ElevenLabs webhooks; re-points the tools itself
 ```
 
-## Demo
+`ORBIT_REGION=hudson` (default) plans Jersey City to Stevens; `oakland` is Pittsburgh, kept because the transit regression tests are pinned to it. `DEMO_CLOCK=2026-09-22T11:10` pins the planning clock to a weekday for weekend judging. `node scripts/selfeval-loop.mjs` asks the question bank every ten minutes and writes the trend to `docs/selfeval.md`.
 
-1. Open Today. The ledger shows 9h 49m real vs 13h 35m claimed, two gaps, a bus leave-by time, friends free at the same time, and the Tower A board.
-2. Plan my day. The agent proposes: move Problem Set 4 into the 11:05 gap, book a Hillman room, invite Sam and Priya. Approve one.
-3. Mark the task done, enter the real minutes. XP appears with reasons; the MATH 0220 multiplier updates.
-4. Switch to Crisis by voice or button. Non-coursework disappears, XP pauses, streak survives.
-5. Overload the day (add a 400-minute task); the agent drafts the extension email with the ledger numbers in it. Approve to send.
-6. `/api/eval` for the Nemotron vs heuristic table.
+## The demo, five beats
+
+1. **The ledger.** 13h 35m crossed out, 9h 07m real, the missing 268 minutes itemised.
+2. **Plan my day.** The agent proposes one task per window; approve one and it lands.
+3. **The train.** Tap through to the map: which light rail, from which stop, when to leave, and whether you make it.
+4. **Voice.** "The problem set took ninety-five minutes." XP fires and the calibration multiplier moves on screen. Then: "When do I need to leave?" and "Why?"
+5. **The eval.** What the estimator gets wrong, what the Critic caught, what changed.
+
+## Not done, said plainly
+
+- `ANTHROPIC_API_KEY` and `NVIDIA_API_KEY` were not available at build time; the Day Agent and Critic run deterministic fallbacks, and `/api/eval` shows the harness with all three rows falling back to the heuristic.
+- The store is in memory and resets on restart. No transfers between lines, no Stevens shuttle, no rate limiting, no `GOOGLE_MAPS_API_KEY` (walks are straight-line estimates and marked as such).
+- `ios/` holds the SwiftUI views but not an Xcode project; it cannot be built from this repository alone.
+
+## Docs
+
+`docs/transit.md` · `docs/voice.md` · `docs/selfeval.md` · `docs/eval.md` · `docs/email.md` · `docs/data-and-learning.md` · `docs/bus-map.md` · `docs/theme.md` · `docs/copy.md` · `docs/future-signals.md` · `DECISIONS.md` (append-only log of every decision and why)

@@ -94,9 +94,20 @@ const SYSTEM = [
 
 const factBlock = (facts: Fact[]) => facts.map((f, i) => `${i + 1}. [${f.key}] ${f.text}`).join("\n");
 
-/** When no model is reachable, the facts themselves are the answer. */
+/**
+ * When no model is reachable, the facts themselves are the answer.
+ *
+ * rank() appends the headline ledger fact to most answers so a model has the
+ * day's budget in view when it composes. A model uses that as context; read
+ * aloud verbatim it is a non sequitur -- "when do I need to leave?" answered
+ * with "...and you have six hundred fifteen usable minutes today". So when
+ * the ledger was not what scored, it is not what gets said. It stays in
+ * `because`, where `why` can still show it.
+ */
 function speakFacts(facts: Fact[]): string {
-  return facts.slice(0, 3).map((f) => f.text).join(" ");
+  const last = facts[facts.length - 1];
+  const appended = facts.length > 1 && last?.key === "ledger.usable" && !facts[0].key.startsWith("ledger");
+  return (appended ? facts.slice(0, -1) : facts).slice(0, 3).map((f) => f.text).join(" ");
 }
 
 export async function ask(question: string, today: TodayLike): Promise<Answer> {

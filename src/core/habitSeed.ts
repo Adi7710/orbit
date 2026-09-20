@@ -35,12 +35,19 @@ const at = (h: number, m = 0) => h * 60 + m;
 
 interface Slot { title: string; domain: HabitRecord["domain"]; course?: string; planned: number; start: number; ratio: number; dueAfterH?: [number, number] }
 
+// The courses follow the region, so the Patterns card and `get_coach` talk
+// about classes the student actually has. Shapes and ratios are identical in
+// both cities; only the labels change.
+const HUDSON = (process.env.ORBIT_REGION ?? "hudson") !== "oakland";
+const READ_COURSE = HUDSON ? "FE 570" : "CS 0441";
+const BUILD_COURSE = HUDSON ? "FE 621" : "MATH 0220";
+
 const WEEK: Record<number, Slot[]> = {
-  1: [{ title: "Reading", domain: "learn", course: "CS 0441", planned: 40, start: at(11, 10), ratio: 0.8 }, { title: "Problem Set", domain: "build", course: "MATH 0220", planned: 90, start: at(12, 30), ratio: 1.5, dueAfterH: [2, 8] }],
-  2: [{ title: "Reading", domain: "learn", course: "CS 0441", planned: 40, start: at(19), ratio: 1.3 }, { title: "Problem Set", domain: "build", course: "MATH 0220", planned: 90, start: at(20), ratio: 1.9, dueAfterH: [2, 8] }],
-  3: [{ title: "Reading", domain: "learn", course: "CS 0441", planned: 40, start: at(11, 10), ratio: 0.8 }, { title: "Problem Set", domain: "build", course: "MATH 0220", planned: 90, start: at(11, 50), ratio: 1.2, dueAfterH: [2, 8] }],
-  4: [{ title: "Reading", domain: "learn", course: "CS 0441", planned: 40, start: at(19), ratio: 1.3 }, { title: "Problem Set", domain: "build", course: "MATH 0220", planned: 90, start: at(16), ratio: 1.5, dueAfterH: [2, 8] }],
-  5: [{ title: "Reading", domain: "learn", course: "CS 0441", planned: 40, start: at(11, 10), ratio: 0.8 }],
+  1: [{ title: "Reading", domain: "learn", course: READ_COURSE, planned: 40, start: at(11, 10), ratio: 0.8 }, { title: "Problem Set", domain: "build", course: BUILD_COURSE, planned: 90, start: at(12, 30), ratio: 1.5, dueAfterH: [2, 8] }],
+  2: [{ title: "Reading", domain: "learn", course: READ_COURSE, planned: 40, start: at(19), ratio: 1.3 }, { title: "Problem Set", domain: "build", course: BUILD_COURSE, planned: 90, start: at(20), ratio: 1.9, dueAfterH: [2, 8] }],
+  3: [{ title: "Reading", domain: "learn", course: READ_COURSE, planned: 40, start: at(11, 10), ratio: 0.8 }, { title: "Problem Set", domain: "build", course: BUILD_COURSE, planned: 90, start: at(11, 50), ratio: 1.2, dueAfterH: [2, 8] }],
+  4: [{ title: "Reading", domain: "learn", course: READ_COURSE, planned: 40, start: at(19), ratio: 1.3 }, { title: "Problem Set", domain: "build", course: BUILD_COURSE, planned: 90, start: at(16), ratio: 1.5, dueAfterH: [2, 8] }],
+  5: [{ title: "Reading", domain: "learn", course: READ_COURSE, planned: 40, start: at(11, 10), ratio: 0.8 }],
   6: [{ title: "Gym", domain: "body", planned: 60, start: at(17, 30), ratio: 1 }],
   0: [{ title: "Gym", domain: "body", planned: 60, start: at(17, 30), ratio: 1 }],
 };

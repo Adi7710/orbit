@@ -42,12 +42,17 @@ export const QUESTION_BANK: BankQuestion[] = [
   { id: "q11", q: "How long will the case study take me?", expect: ["task.", "calibration."], tag: "tasks" },
   { id: "q12", q: "What is due soonest?", expect: ["tasks.count", "task."], tag: "tasks" },
 
-  // Bus.
-  { id: "q13", q: "When do I need to leave?", expect: ["bus.leave"], tag: "bus" },
+  // Bus. Each of these has two right answers, because Orbit only computes a
+  // journey when one is needed: with a class to catch the answer is the
+  // departure, and with nothing on campus the answer is that there is nothing
+  // to catch. Accepting only the first is what let a blanket refusal pass for
+  // months of wall-clock -- the bank scored 100% every evening and 87.5% the
+  // moment anyone asked at a time when the honest answer was "nowhere to be".
+  { id: "q13", q: "When do I need to leave?", expect: ["bus.leave", "bus.idle"], tag: "bus" },
   // bus.noclass is a legitimate answer: on an evening with no class left,
   // "there is nothing to be late for" is the true one.
-  { id: "q14", q: "Will I make it to class on time?", expect: ["bus.verdict", "bus.noclass"], tag: "bus" },
-  { id: "q15", q: "How much of that trip is walking?", expect: ["bus.legs"], tag: "bus" },
+  { id: "q14", q: "Will I make it to class on time?", expect: ["bus.verdict", "bus.noclass", "bus.idle"], tag: "bus" },
+  { id: "q15", q: "How much of that trip is walking?", expect: ["bus.legs", "bus.idle"], tag: "bus" },
 
   // History: the part that is actually learned.
   { id: "q16", q: "Do I underestimate how long my work takes?", expect: ["calibration."], tag: "history" },

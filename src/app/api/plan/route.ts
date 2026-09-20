@@ -43,7 +43,7 @@ export async function POST() {
     if (w) proposals.push({ kind: "notify_friends", gapId: today.gaps[0]?.id ?? "gap-0", userIds: w.userIds, message: `Free ${w.startText}-${w.endText}, Hillman 2nd floor?`, reason: `${w.names.join(" and ")} are free at the same time` });
     if (today.ledger.slack < -60) {
       const due = today.tasks.filter((t) => t.dueAt).sort((a, b) => a.dueAt!.getTime() - b.dueAt!.getTime())[0];
-      if (due) proposals.push({ kind: "draft_extension", taskId: due.id, newDate: "Friday", to: s.instructors[due.courseCode ?? ""] ?? "instructor@pitt.edu", subject: `${due.title}: extension request`, body: `Hi Professor, I have ${today.ledger.usable} usable minutes this week against ${today.ledger.queued} minutes of assigned work. Could I submit ${due.title} on Friday? Thank you.`, reason: `slack is ${today.ledger.slack} minutes` });
+      if (due) proposals.push({ kind: "draft_extension", taskId: due.id, newDate: "Friday", to: s.instructors[due.courseCode ?? ""] ?? "instructor@example.edu", subject: `${due.title}: extension request`, body: `Hi Professor, I have ${today.ledger.usable} usable minutes this week against ${today.ledger.queued} minutes of assigned work. Could I submit ${due.title} on Friday? Thank you.`, reason: `slack is ${today.ledger.slack} minutes` });
     }
     narration = narration || `Two windows today, ${today.gaps.map((g) => g.usable).join(" and ")} minutes. I picked one thing for each. Leave by ${today.bus?.leaveByText ?? "whenever"} for the bus.`;
   }

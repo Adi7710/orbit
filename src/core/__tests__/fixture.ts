@@ -12,7 +12,7 @@ import { TravelGraph } from "../travel";
  */
 export const profile = defaultProfile("Home");
 
-export const travel = (() => {
+export const oaklandTravel = (() => {
   const g = new TravelGraph("walk");
   g.setDefault("Home", "Sennott", 14);
   g.setDefault("Sennott", "Benedum", 7);
@@ -20,6 +20,39 @@ export const travel = (() => {
   g.setDefault("Cathedral", "Home", 16);
   return g;
 })();
+
+/**
+ * Jersey City to Stevens. Door-to-door minutes from buildJourney() on the
+ * Hudson slice -- nine minutes to Marin Boulevard, the light rail to Hoboken
+ * Terminal, eighteen up to Babbio -- not a guess. The graph is undirected and
+ * the two directions differ by two minutes (44 out, 42 home, different stop
+ * choice), so the larger one is kept: when Orbit is wrong about a commute it
+ * should be wrong by counting too much of it.
+ *
+ * This was the last Pittsburgh number on the Hudson screen. With the Oakland
+ * graph the ledger charged 20 minutes of travel for a day whose own bus card
+ * said 44 each way, and "Orbit counts the walk" is the headline.
+ */
+export const hudsonTravel = (() => {
+  // Fallback of 8: an unknown pair is two campus buildings, a short walk.
+  const g = new TravelGraph("bus", 8);
+  g.setDefault("Home", "Babbio", 44);
+  g.setDefault("Home", "HobokenTerminal", 26);
+  g.setDefault("Home", "Gateway", 49);
+  g.setDefault("Home", "Burchard", 50);
+  g.setDefault("Home", "Howe", 49);
+  g.setDefault("Babbio", "HobokenTerminal", 18);
+  // Babbio is on the waterfront; the rest are up on Castle Point.
+  g.setDefault("Babbio", "Gateway", 7);
+  g.setDefault("Babbio", "Burchard", 8);
+  g.setDefault("Babbio", "Howe", 7);
+  g.setDefault("Gateway", "Burchard", 3);
+  g.setDefault("Gateway", "Howe", 2);
+  g.setDefault("Burchard", "Howe", 3);
+  return g;
+})();
+
+export const travel = (process.env.ORBIT_REGION ?? "hudson") === "oakland" ? oaklandTravel : hudsonTravel;
 
 /**
  * Pitt, Oakland. Pinned by the ledger and gap tests, so it stays exactly as it
@@ -45,9 +78,24 @@ export const hudsonBlocks: FixedBlock[] = [
 
 export const blocks: FixedBlock[] = (process.env.ORBIT_REGION ?? "hudson") === "oakland" ? oaklandBlocks : hudsonBlocks;
 
-export const tasks: Task[] = [
+export const oaklandTasks: Task[] = [
   { id: "ps4", title: "Problem Set 4", domain: "build", estimateMinutes: 90, courseCode: "MATH 0220", source: "canvas", dueAt: new Date(Date.now() + 26 * 36e5) },
   { id: "read", title: "Reading: Chapter 3", domain: "learn", estimateMinutes: 40, courseCode: "CS 0441", source: "manual" },
   { id: "gym", title: "Gym", domain: "body", estimateMinutes: 60, source: "manual" },
   { id: "essay", title: "Essay draft", domain: "build", estimateMinutes: 180, courseCode: "ENGCMP 0200", source: "canvas", dueAt: new Date(Date.now() + 5 * 864e5) },
 ];
+
+// Same ids, same domains, same minutes, same due offsets -- only the courses
+// change. The ids are load-bearing (voice maps "the problem set" to `ps4`),
+// and keeping every number identical means the ledger, the gaps and the
+// hand-computed tests come out the same in both cities. When the app moved
+// to Stevens the blocks moved and the tasks did not, so the Today screen
+// showed a Hoboken commute feeding a University of Pittsburgh course list.
+export const hudsonTasks: Task[] = [
+  { id: "ps4", title: "Problem Set 4", domain: "build", estimateMinutes: 90, courseCode: "FE 621", source: "canvas", dueAt: new Date(Date.now() + 26 * 36e5) },
+  { id: "read", title: "Reading: Chapter 3", domain: "learn", estimateMinutes: 40, courseCode: "FE 570", source: "manual" },
+  { id: "gym", title: "Gym", domain: "body", estimateMinutes: 60, source: "manual" },
+  { id: "essay", title: "Case write-up draft", domain: "build", estimateMinutes: 180, courseCode: "MGT 808", source: "canvas", dueAt: new Date(Date.now() + 5 * 864e5) },
+];
+
+export const tasks: Task[] = (process.env.ORBIT_REGION ?? "hudson") === "oakland" ? oaklandTasks : hudsonTasks;

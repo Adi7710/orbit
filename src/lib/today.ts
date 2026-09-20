@@ -8,6 +8,13 @@ import { MODE_RULES } from "@/core/types";
 import { buildJourney, BUILDINGS } from "./journey";
 import { clock } from "@/services/prt";
 import { transitNeed } from "@/core/transitRelevance";
+import { REGION } from "@/services/schedule";
+
+/** Who publishes the timetable we just quoted, per region. */
+const AGENCY = {
+  hudson: "NJ TRANSIT and the Port Authority of New York and New Jersey",
+  oakland: "Pittsburgh Regional Transit",
+} as const;
 
 const isPlace = (p?: string): p is keyof typeof BUILDINGS => !!p && p in BUILDINGS;
 
@@ -78,13 +85,18 @@ export async function buildToday(opts?: { to?: string }) {
   const need = transitNeed({ nowMin, blocks: s.blocks, askedFor: opts?.to, isPlace });
   const goingToClass = need.reason === "class" || (need.reason === "asked" && need.to !== "Home");
 
-  const leg = !need.needed
+  // A trip needs a destination. transitNeed always supplies one for "class"
+  // and "asked", so the guard is belt-and-braces -- but the old fallback was
+  // a hardcoded "Cathedral", which is a building in Pittsburgh, and a
+  // Pittsburgh building in a New Jersey journey is not a default, it is a bug
+  // waiting for the one code path that reaches it.
+  const leg = !need.needed || (need.reason !== "home" && !need.to)
     ? undefined
     : need.reason === "home"
       ? { from: (need.block?.place ?? lastClass?.place) as keyof typeof BUILDINGS, to: "Home" as const, arriveBySec: undefined, why: "home after your last class" }
       : {
           from: "Home" as const,
-          to: (need.to ?? "Cathedral") as keyof typeof BUILDINGS,
+          to: need.to as keyof typeof BUILDINGS,
           arriveBySec: need.block ? need.block.start * 60 : undefined,
           why: need.block ? `to ${need.block.title}` : `to ${need.to}`,
         };
@@ -150,6 +162,12 @@ export async function buildToday(opts?: { to?: string }) {
       reason: need.reason,
       why: need.why,
       planned: need.needed,
+      // Named here, where the region is known, so nothing downstream has to
+      // guess. The factsheet used to hardcode "Pittsburgh Regional Transit"
+      // into the source of every bus fact, which meant Orbit defended a
+      // Hoboken light rail departure by citing an agency in another state --
+      // in the one feature built to prove it is not bluffing.
+      agency: AGENCY[REGION],
       alerts: journey?.alerts ?? [],
       alertsOk: journey?.realtime.alertsOk ?? false,
     },
