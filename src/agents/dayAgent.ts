@@ -103,10 +103,9 @@ export async function planDayWithNemotron(ctx: DayContext, summary: string): Pro
     // About two seconds when the API is quiet. Twelve is the most a person
     // will watch a spinner on stage before the deterministic plan should
     // simply appear instead.
-    // Seven seconds each on two models: the primary, then the fast one it
-    // fails over to. Fourteen at the very worst before the deterministic
-    // plan; about two when the API is quiet.
-    system, summary, nemotronSchema, () => ({ proposals: [], narration: "" }), 7000,
+    // Ten seconds, during which two models race; the deterministic plan at
+    // the very worst, about two seconds when either model is awake.
+    system, summary, nemotronSchema, () => ({ proposals: [], narration: "" }), 10000,
   );
   if (r.provider === "heuristic") throw new Error(r.error ?? "nemotron unavailable");
 
