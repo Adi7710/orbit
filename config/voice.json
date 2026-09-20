@@ -1,0 +1,10 @@
+{
+  "_comment": "Orbit's voice, in one place. Read by scripts/voice-config.mjs (which configures the ElevenLabs agent) and by src/agents/voiceConfig.ts (which renders speech for clients that cannot host a conversation). Two copies is how the voice silently reset to a default three times in one evening.",
+  "voiceId": "JBFqnCBsd6RMkjVDRZzb",
+  "voiceName": "George - warm storyteller",
+  "ttsModel": "eleven_flash_v2",
+  "stability": 0.45,
+  "similarityBoost": 0.8,
+  "speed": 0.95,
+  "optimizeStreamingLatency": 1
+}

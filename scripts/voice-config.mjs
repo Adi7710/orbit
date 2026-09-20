@@ -61,13 +61,15 @@ export const TURN = {
  *
  * Override per machine with ELEVENLABS_VOICE_ID.
  */
-export const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb"; // George, warm storyteller
+import voice from "../config/voice.json" with { type: "json" };
+
+export const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || voice.voiceId;
 
 export const TTS = {
   voice_id: VOICE_ID,
-  optimize_streaming_latency: 1,
-  speed: 0.95,
-  stability: 0.45,
+  optimize_streaming_latency: voice.optimizeStreamingLatency,
+  speed: voice.speed,
+  stability: voice.stability,
 };
 
 /**

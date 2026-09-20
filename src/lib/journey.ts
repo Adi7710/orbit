@@ -175,6 +175,10 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
   const c = opts.now ?? clock();
   const goingHome = opts.to === "Home";
   const fromB = BUILDINGS[opts.from], toB = BUILDINGS[opts.to];
+  // A place we do not hold is an answer of "no", not a 500. Callers pass
+  // building names from several places and one of them was still hardcoded to
+  // Pittsburgh, which threw on .lat and took the whole request with it.
+  if (!fromB || !toB) return undefined;
   // Stops are chosen from the data, not from a table.
   //
   // The hardcoded board/alight per building meant a new location needed a code

@@ -233,9 +233,14 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
       const nowMin = fromDate(new Date(), "America/New_York");
       const nextClass = ordered.find((b) => b.start > nowMin);
       const goingToClass = !!nextClass && !!dest === false;
-      const to = dest ?? ((nextClass?.place && nextClass.place in BUILDINGS ? nextClass.place : "Cathedral") as keyof typeof BUILDINGS);
-      const from = goingToClass ? "Home" : ((ordered[ordered.length - 1]?.place ?? "Cathedral") as keyof typeof BUILDINGS);
-      const j = await buildJourney({ from: from in BUILDINGS ? from : "Cathedral", to, arriveBySec: goingToClass && nextClass ? nextClass.start * 60 : undefined });
+      // Fall back to a place this region actually has. "Cathedral" is a
+      // building in Pittsburgh and BUILDINGS[it] is undefined in Hudson
+      // County, so every bus question threw on .lat.
+      const somewhere = (Object.keys(BUILDINGS).find((k) => k !== "Home") ?? "Home") as keyof typeof BUILDINGS;
+      const to = dest ?? ((nextClass?.place && nextClass.place in BUILDINGS ? nextClass.place : somewhere) as keyof typeof BUILDINGS);
+      const lastPlace = ordered[ordered.length - 1]?.place;
+      const from = goingToClass ? "Home" : ((lastPlace && lastPlace in BUILDINGS ? lastPlace : somewhere) as keyof typeof BUILDINGS);
+      const j = await buildJourney({ from, to, arriveBySec: goingToClass && nextClass ? nextClass.start * 60 : undefined });
       const o = j?.options[0];
       if (!j || !o) return { ok: false, text: "There is no bus you could still catch in the next hour and a half. Walking is the plan." };
 
