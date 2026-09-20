@@ -114,3 +114,20 @@ describe("voice tools backed by the learning log", () => {
     expect(row.synthetic).toBeUndefined();
   });
 });
+
+describe("speaking clock times and course codes", () => {
+  // Both heard in the Tuesday rehearsal and caught by no test: every fact
+  // with a clock time in it is only reachable on a weekday.
+  it("says a clock time as a time, not as two numbers with a colon", () => {
+    expect(speakNumbers("starts at 14:30")).toBe("starts at two thirty");
+    expect(speakNumbers("from 11:10 to 9:05")).toBe("from eleven ten to nine oh five");
+    expect(speakNumbers("due Monday 12:58 AM")).toBe("due Monday twelve fifty-eight AM");
+  });
+  it("says a course code digit by digit", () => {
+    expect(speakNumbers("MGT 808 and FE 621")).toBe("MGT eight oh eight and FE six two one");
+    expect(speakNumbers("MATH 0220")).toBe("MATH oh two two oh");
+  });
+  it("still says plain quantities as quantities", () => {
+    expect(speakNumbers("144 minutes, 21% faster, 1.53x")).toBe("one hundred forty-four minutes, twenty-one percent faster, one point five three times");
+  });
+});

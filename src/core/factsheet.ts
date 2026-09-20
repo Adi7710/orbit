@@ -12,6 +12,8 @@
  * rather than a second opinion.
  */
 
+import { naturalDuration } from "./say";
+
 export interface Fact {
   /** Stable id, used by the question bank to assert the right fact was used. */
   key: string;
@@ -46,6 +48,8 @@ export interface TodayLike {
     planned?: boolean;
     /** Who publishes the timetable, so a bus fact cites the right agency. */
     agency?: string;
+    /** Set when there is a class later today but it is not yet time to move. */
+    nextClass?: { title: string; startText: string; minutesAway: number } | null;
   };
 }
 
@@ -85,6 +89,19 @@ export function buildFactsheet(t: TodayLike): Fact[] {
   });
   if (t.gaps[0]) {
     f.push({ key: "gap.best", text: `Your best window today is ${t.gaps[0].startText} to ${t.gaps[0].endText}, ${t.gaps[0].usable} minutes.`, numbers: n(t.gaps[0].usable), source: "first window by size from findGaps" });
+  } else {
+    // A day with no window left is still a day someone can ask about. Without
+    // this, every "windows" question after the last gap closed fell through to
+    // a refusal: the bank read 87.5% at eleven at night and 100% at eleven in
+    // the morning, and the difference was not the code but the clock. Same
+    // lesson as bus.idle -- the absence is a fact, and it has to be sayable.
+    // "Nothing fits. Enjoy it." is the approved copy for this state.
+    f.push({
+      key: "gap.none",
+      text: "There is no window left today and no gap to fill; the next free stretch is tomorrow. Nothing fits, so enjoy what is left of the day.",
+      numbers: [],
+      source: "findGaps, clipped to now, returned no window",
+    });
   }
 
   f.push({
@@ -161,12 +178,21 @@ export function buildFactsheet(t: TodayLike): Fact[] {
     // names what people ask about: the class, being late, the departure, the
     // walk.
     const idle = t.transit.reason === "idle";
+    const next = t.transit.nextClass;
     f.push({
       key: "bus.idle",
-      text: idle
-        ? `There is no class left to travel to, so there is nothing to be late for, no departure to leave for and no walking or riding to work out.`
-        : `${t.transit.why ?? "There is no trip to plan right now."} There is no departure to leave for and no walking or riding to work out.`,
-      numbers: [],
+      // Two idle cases, two sentences. The first draft used the "no class
+      // left" line for both, and at eleven on a Tuesday it told a student with
+      // a class at half past two that there was nothing left to go to. The
+      // bank scored that a pass: it can tell an unlicensed number from a
+      // licensed one, not a false sentence from a true one. That is what the
+      // rehearsal under DEMO_CLOCK is for.
+      text: idle && next
+        ? `Nothing to catch yet: your next class, ${next.title}, starts at ${next.startText}, ${naturalDuration(next.minutesAway)} from now, so there is nothing to leave for, nothing to be late for and no walking to plan yet.`
+        : idle
+          ? `There is no class left to travel to, so there is nothing to be late for, no departure to leave for and no walking or riding to work out.`
+          : `${t.transit.why ?? "There is no trip to plan right now."} There is no departure to leave for and no walking or riding to work out.`,
+      numbers: n(next?.minutesAway),
       source: `transitNeed in src/core/transitRelevance.ts: ${t.transit.reason ?? "idle"}`,
     });
   }

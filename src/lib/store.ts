@@ -9,6 +9,7 @@ import { t } from "@/core/time";
 import type { HabitRecord } from "@/core/habits";
 import { syntheticHistory } from "@/core/habitSeed";
 import { SAMPLE_ROSTER, type Contact } from "@/core/contacts";
+import { clock } from "@/services/prt";
 
 /**
  * In-memory store for the hackathon. Swap for Postgres (drizzle) by keeping
@@ -41,6 +42,9 @@ interface Store {
 
 const g = globalThis as unknown as { __orbit?: Store };
 
+/** How far the planning clock is from the wall clock; zero unless DEMO_CLOCK is set. */
+const clockShiftMs = () => clock().epoch * 1000 - Date.now();
+
 /** The "build" course with seeded history, per region. Same six sessions either way. */
 const SEED_COURSE = (process.env.ORBIT_REGION ?? "hudson") === "oakland" ? "MATH 0220" : "FE 621";
 
@@ -56,7 +60,10 @@ function seed(): Store {
     profile: fixtureProfile,
     travel: fixtureTravel,
     blocks: [...fixtureBlocks],
-    tasks: fixtureTasks.map((x) => ({ ...x })),
+    // Seed deadlines are offsets from now, and under DEMO_CLOCK "now" is the
+    // pinned weekday: a task due in twenty-six hours must not read as overdue
+    // the moment the clock is pinned two days ahead for judging.
+    tasks: fixtureTasks.map((x) => ({ ...x, dueAt: x.dueAt ? new Date(x.dueAt.getTime() + clockShiftMs()) : undefined })),
     mode: "normal",
     estimator,
     proposals: [],

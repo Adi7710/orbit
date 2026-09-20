@@ -43,11 +43,17 @@ export async function buildToday(opts?: { to?: string }) {
 
   const ledger = computeLedger(s.blocks, s.profile, s.travel, liveTasks, s.estimator);
   const gaps = findGaps(s.blocks, s.profile, s.travel, nowMin);
-  const picks = new Map(gaps.map((g) => [g.id, bestFit(g, liveTasks, s.estimator)] as const));
-  const seen = new Set<string>();
-  for (const [id, task] of picks) {
-    if (task && seen.has(task.id)) picks.set(id, undefined);
-    if (task) seen.add(task.id);
+  // One task per window, and each task in one window. Picking every window
+  // independently and then blanking the repeats left the evening empty
+  // whenever the same soonest-due task won both -- 446 usable minutes with
+  // nothing in them while three tasks would have fitted. Later windows now
+  // choose from what the earlier ones left.
+  const picks = new Map<string, ReturnType<typeof bestFit>>();
+  const used = new Set<string>();
+  for (const g of gaps) {
+    const t = bestFit(g, liveTasks.filter((x) => !used.has(x.id)), s.estimator);
+    picks.set(g.id, t);
+    if (t) used.add(t.id);
   }
 
   // Which leg matters right now: getting to the next class, or getting home
@@ -162,6 +168,9 @@ export async function buildToday(opts?: { to?: string }) {
       reason: need.reason,
       why: need.why,
       planned: need.needed,
+      // The next class when there is one but it is not yet time to move, so
+      // the factsheet can say "not yet" rather than "nothing today".
+      nextClass: need.reason === "idle" && need.block ? { title: need.block.title, startText: fmt(need.block.start), minutesAway: need.block.start - nowMin } : null,
       // Named here, where the region is known, so nothing downstream has to
       // guess. The factsheet used to hardcode "Pittsburgh Regional Transit"
       // into the source of every bus fact, which meant Orbit defended a

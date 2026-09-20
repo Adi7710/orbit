@@ -13,6 +13,12 @@ import { findContact, mergeRoster, resolveCourse, SAMPLE_ROSTER } from "@/core/c
 import { draftEmail } from "./emailAgent";
 import { ask } from "./ask";
 import { countThings, greetingWord, naturalClock, naturalDue, naturalDuration, partOfDay } from "@/core/say";
+import { clock } from "@/services/prt";
+import { REGION } from "@/services/schedule";
+import { transitNeed } from "@/core/transitRelevance";
+
+/** Who to name in a service notice. Only Pittsburgh publishes them openly today. */
+const AGENCY = REGION === "oakland" ? "Pittsburgh Regional Transit" : "NJ Transit";
 
 /**
  * The voice tool surface.
@@ -122,6 +128,13 @@ export function speakNumbers(text: string): string {
     return frac ? `${spoken(Number(whole))} point ${frac.split("").map((d) => spoken(Number(d))).join(" ")}` : spoken(Number(whole));
   };
   return text
+    // Clock times first, before the generic pass can turn "14:30" into
+    // "fourteen:thirty". Heard in rehearsal, not caught by any test, because
+    // every fact with a clock time in it is only reachable on a weekday.
+    .replace(/\b(\d{1,2}):(\d{2})\b/g, (_, h, m) => spokenClock(Number(h) * 60 + Number(m)))
+    // Course codes are said digit by digit: "MGT eight oh eight", never
+    // "MGT eight hundred eight".
+    .replace(/\b([A-Z]{2,6}) ?(\d{3,4})\b/g, (_, code, digits: string) => `${code} ${digits.split("").map((d) => (d === "0" ? "oh" : spoken(Number(d)))).join(" ")}`)
     .replace(/(\d+(?:\.\d+)?)%/g, (_, n) => `${say(n)} percent`)
     .replace(/(\d+(?:\.\d+)?)x\b/g, (_, n) => `${say(n)} times`)
     .replace(/\d+(?:\.\d+)?/g, (n) => say(n));
@@ -229,20 +242,34 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
 
     case "get_bus": {
       const dest = req.destination && req.destination in BUILDINGS ? (req.destination as keyof typeof BUILDINGS) : undefined;
+      // The same clock and the same decision as the Today screen. This used
+      // to read the wall clock and work out "next class" on its own, so under
+      // DEMO_CLOCK it planned against Saturday night while the screen showed
+      // Tuesday, found no trip, and said "walking is the plan" beside a map
+      // listing four trains. One planner, or the card and the voice disagree.
+      const c = clock();
+      const nowMin = Math.floor(c.sec / 60);
+      const isPlace = (p?: string) => !!p && p in BUILDINGS;
+      const need = transitNeed({ nowMin, blocks: s.blocks, askedFor: dest, isPlace });
+      if (!need.needed) {
+        // Idle is an answer, and it has to be the true one: "nothing today"
+        // and "not yet" are different sentences.
+        const b = need.block;
+        const text = b
+          ? `Nothing to catch yet. ${b.title} starts at ${spokenClock(b.start)}, ${naturalDuration(b.start - nowMin)} from now.`
+          : "Nothing on campus to get to today, so there is nothing to catch.";
+        log("voice", "voice_get_bus", { idle: need.reason });
+        return { ok: true, text, data: { reason: need.reason } };
+      }
       const ordered = [...s.blocks].sort((a, b) => a.start - b.start);
-      const nowMin = fromDate(new Date(), "America/New_York");
-      const nextClass = ordered.find((b) => b.start > nowMin);
-      const goingToClass = !!nextClass && !!dest === false;
-      // Fall back to a place this region actually has. "Cathedral" is a
-      // building in Pittsburgh and BUILDINGS[it] is undefined in Hudson
-      // County, so every bus question threw on .lat.
-      const somewhere = (Object.keys(BUILDINGS).find((k) => k !== "Home") ?? "Home") as keyof typeof BUILDINGS;
-      const to = dest ?? ((nextClass?.place && nextClass.place in BUILDINGS ? nextClass.place : somewhere) as keyof typeof BUILDINGS);
-      const lastPlace = ordered[ordered.length - 1]?.place;
-      const from = goingToClass ? "Home" : ((lastPlace && lastPlace in BUILDINGS ? lastPlace : somewhere) as keyof typeof BUILDINGS);
-      const j = await buildJourney({ from, to, arriveBySec: goingToClass && nextClass ? nextClass.start * 60 : undefined });
+      const lastClass = [...ordered].reverse().find((b) => isPlace(b.place));
+      const homeward = need.reason === "home" || (need.reason === "asked" && need.to === "Home");
+      const leg = homeward
+        ? { from: (need.block?.place ?? lastClass?.place ?? "Home") as keyof typeof BUILDINGS, to: "Home" as keyof typeof BUILDINGS, arriveBySec: undefined }
+        : { from: "Home" as keyof typeof BUILDINGS, to: need.to as keyof typeof BUILDINGS, arriveBySec: need.block ? need.block.start * 60 : undefined };
+      const j = await buildJourney({ from: leg.from, to: leg.to, arriveBySec: leg.arriveBySec, now: c });
       const o = j?.options[0];
-      if (!j || !o) return { ok: false, text: "There is no bus you could still catch in the next hour and a half. Walking is the plan." };
+      if (!j || !o) return { ok: false, text: `I cannot see anything running from ${leg.from} to ${leg.to} right now, so the walk is what is left.` };
 
       const leaveIn = Math.round((o.leaveBySec - j.clock.sec) / 60);
       // Past an hour this has to say hours. "Leave in seventy-five minutes" is
@@ -255,14 +282,16 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
           ? `You are at ${j.destination.label} by ${spokenClock(Math.floor(o.arriveSec / 60))}, ${spoken(o.verdict.marginMin)} minutes before class.`
           : `That puts you ${spoken(Math.abs(o.verdict.marginMin))} minutes late. Take the earlier one or walk.`);
       } else {
-        said.push(`You are home by ${spokenClock(Math.floor(o.arriveSec / 60))}.`);
+        // No deadline does not mean going home: an asked-for destination has
+        // no class to be late for either. Name where they actually arrive.
+        said.push(`You are at ${j.destination.label} by ${spokenClock(Math.floor(o.arriveSec / 60))}.`);
       }
       // A stop move is the one thing worth interrupting for. Everything else
       // here tells you when the bus comes; this tells you the pole you are
       // walking to is not there, and no arrival prediction survives that.
       const moved = j.alerts.find((a) => a.movesTheStop);
-      if (moved) said.push(`One thing: Pittsburgh Transit has a notice on this route. ${moved.header.replace(/\.$/, "")}. Check the stop before you settle in.`);
-      else if (j.alerts[0]) said.push(`Pittsburgh Transit also has a notice on this route: ${j.alerts[0].header.replace(/\.$/, "")}.`);
+      if (moved) said.push(`One thing: ${AGENCY} has a notice on this route. ${moved.header.replace(/\.$/, "")}. Check the stop before you settle in.`);
+      else if (j.alerts[0]) said.push(`${AGENCY} also has a notice on this route: ${j.alerts[0].header.replace(/\.$/, "")}.`);
 
       // Say when it is a timetable rather than a prediction, whether that is
       // because the feed is down or because this particular bus is not

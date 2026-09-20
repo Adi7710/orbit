@@ -107,7 +107,9 @@ const factBlock = (facts: Fact[]) => facts.map((f, i) => `${i + 1}. [${f.key}] $
 function speakFacts(facts: Fact[]): string {
   const last = facts[facts.length - 1];
   const appended = facts.length > 1 && last?.key === "ledger.usable" && !facts[0].key.startsWith("ledger");
-  return (appended ? facts.slice(0, -1) : facts).slice(0, 3).map((f) => f.text).join(" ");
+  // Two facts, not three. The first answers; a second can add the number
+  // behind it; a third is the app reading its own notes aloud.
+  return (appended ? facts.slice(0, -1) : facts).slice(0, 2).map((f) => f.text).join(" ");
 }
 
 export async function ask(question: string, today: TodayLike): Promise<Answer> {
