@@ -18,11 +18,14 @@ import SwiftUI
 struct ScheduleOverviewView: View {
 
     @State private var store = TodayStore()
+    @State private var voice = VoiceSession()
     @State private var expanded: Today.DayBlock?
     @State private var completing: Completion?
+    @State private var showingVoice = false
     @Namespace private var deck
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     /// What the Done button is asking about. Identifiable so `.sheet(item:)`
     /// rebuilds the sheet when a different task is tapped.
@@ -71,8 +74,21 @@ struct ScheduleOverviewView: View {
         .animation(OrbitMotion.entrance(reduceMotion), value: store.toast?.id)
         .sensoryFeedback(.success, trigger: store.toast?.id)
         .sensoryFeedback(.impact(weight: .light), trigger: expanded?.id)
-        .task { await store.refresh(showSpinner: true) }
+        .task {
+            // Whatever the agent did by voice landed on the server. Reload the
+            // day so it changes on screen while Orbit is still speaking — the
+            // sheet is short for exactly this reason.
+            voice.onAgentActed = { Task { await store.refresh() } }
+            await store.refresh(showSpinner: true)
+        }
         .task { await store.pollWhileVisible() }
+        // A call that backgrounds mid-hold must not come back still listening.
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { voice.closeMicForBackground() }
+        }
+        .sheet(isPresented: $showingVoice) {
+            VoiceSheetView(session: voice) { showingVoice = false }
+        }
         .sheet(item: $completing) { item in
             CompleteSheet(title: item.title, estimateMinutes: item.estimateMinutes) { minutes in
                 Task { await store.complete(taskId: item.id, title: item.title, actualMinutes: minutes) }
@@ -292,6 +308,23 @@ struct ScheduleOverviewView: View {
             .buttonStyle(.orbitTile)
             .disabled(store.isWorking)
             .orbitBloom(.orbitAccent, active: !store.isWorking, radius: 18)
+
+            // Neutral on purpose. The accent budget allows lime on one primary
+            // action per surface, and on Today that is "Plan my day". The voice
+            // sheet covers the dock, so the orb inside it inherits the lime
+            // rather than adding a fourth.
+            Button {
+                showingVoice = true
+            } label: {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.orbitInk)
+                    .frame(width: 52, height: 52)
+                    .background(Circle().fill(Color.orbitSurface))
+                    .overlay(Circle().strokeBorder(Color.orbitHairline, lineWidth: 1))
+            }
+            .buttonStyle(.orbitTile)
+            .accessibilityLabel("Talk to Orbit")
 
             Button {
                 Task { await store.refresh() }
