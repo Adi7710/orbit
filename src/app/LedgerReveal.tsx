@@ -21,7 +21,12 @@ export interface LedgerNumbers {
   overCommitted: boolean;
 }
 
-const hm = (m: number) => `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
+// Sign is carried once, in front. Formatting the parts separately reads an
+// over-committed day back as "-3h -45m", which is not a duration.
+const hm = (m: number) => {
+  const a = Math.abs(Math.round(m));
+  return `${m < 0 ? "-" : ""}${Math.floor(a / 60)}h ${String(a % 60).padStart(2, "0")}m`;
+};
 const STEP_MS = 900;
 
 export default function LedgerReveal({ l, onReplay }: { l: LedgerNumbers; onReplay?: () => void }) {
