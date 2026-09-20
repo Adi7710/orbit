@@ -32,6 +32,18 @@ struct Today: Decodable {
     let learned: [LearnedFact]?
     /// Deadlines the remaining work no longer fits in front of.
     let atRisk: [AtRiskTask]?
+    /// What this mode asks the screen to do. The server owns the rules so the
+    /// phone and the web app cannot hold different ideas of what Crisis means.
+    /// Optional so a build still decodes against a server deployed before it.
+    let modeConfig: ModeConfig?
+    /// Capacity, which is not the same question as `atRisk`. `atRisk` is the
+    /// procrastination aspect saying this student starts too late; this is
+    /// arithmetic saying the work does not fit even starting now.
+    let feasibility: Feasibility?
+    /// What is due, ranked tightest-first by the server.
+    let deadlines: [DeadlineItem]?
+    /// Crisis only: where the work actually goes, window by window.
+    let workBlocks: [WorkBlock]?
 
     enum Mode: String, Decodable, CaseIterable {
         case normal, crisis, chill
@@ -178,6 +190,72 @@ struct Today: Decodable {
             let startText: String
             let minutesAway: Int
         }
+    }
+
+    struct ModeConfig: Decodable, Hashable {
+        let id: String
+        let name: String
+        let difficulty: String
+        let promise: String
+        let minUsableGap: Int
+        let questsOptional: Bool
+        let questStrategy: String
+        /// "quiet-line" | "due-soon-card" | "drive-day"
+        let deadlineMode: String
+        /// "off" | "suggest-on-shortfall" | "always"
+        let feasibilityMode: String
+        let leaveBy: String
+        let restBreakPerMin: Int?
+
+        /// Whether this mode wants the meter on screen for this day. The rule
+        /// lives here rather than at the call site so Today and any later page
+        /// cannot disagree about it.
+        func showsFeasibility(shortfallMin: Int) -> Bool {
+            switch feasibilityMode {
+            case "always": return true
+            case "suggest-on-shortfall": return shortfallMin > 0
+            default: return false
+            }
+        }
+    }
+
+    struct Feasibility: Decodable, Hashable {
+        let needMin: Int
+        let haveMin: Int
+        let shortfallMin: Int
+        /// Written by code on the server, for the same reason every other
+        /// sentence here is: the words can never disagree with the number.
+        let message: String
+        let deadlines: [Verdict]
+
+        struct Verdict: Decodable, Identifiable, Hashable {
+            let id: String
+            let title: String
+            let fits: Bool
+            let slackMin: Int
+        }
+    }
+
+    struct DeadlineItem: Decodable, Identifiable, Hashable {
+        let id: String
+        let title: String
+        let dueText: String
+        let overdue: Bool
+        let remainingEffortMin: Int
+        let courseCode: String?
+    }
+
+    struct WorkBlock: Decodable, Identifiable, Hashable {
+        let deadlineId: String
+        let title: String
+        let gapId: String
+        let minutes: Int
+        let startText: String
+        let endText: String
+        /// True when this block finishes the thing rather than chipping at it.
+        let completes: Bool
+
+        var id: String { "\(deadlineId)-\(startText)" }
     }
 
     struct Cut: Decodable, Identifiable, Hashable {

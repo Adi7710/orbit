@@ -38,7 +38,13 @@ export async function buildToday(opts?: { to?: string }) {
   const now = new Date();
   const liveTasks = s.tasks.filter((t) => !t.completedAt).filter((t) => {
     if (s.mode === "crisis") return t.domain === "learn" || t.domain === "build";
-    if (s.mode === "chill") return t.dueAt ? (t.dueAt.getTime() - now.getTime()) / 36e5 <= (horizon ?? 72) : false;
+    // A task with no deadline is kept in Chill, not dropped. The old rule
+    // returned false for them, which removed the gym and the reading -- the
+    // small undated things Chill exists to offer -- and left the mode whose
+    // promise is "do one small thing if you feel like it" with nothing to
+    // offer at all. The horizon is for filtering deadlines that are far away,
+    // not for deleting work that never had one.
+    if (s.mode === "chill") return t.dueAt ? (t.dueAt.getTime() - now.getTime()) / 36e5 <= (horizon ?? 72) : true;
     return true;
   });
 
