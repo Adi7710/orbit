@@ -85,7 +85,7 @@ export default function LedgerReveal({ l, onReplay }: { l: LedgerNumbers; onRepl
         <h2 className="text-sm font-medium text-zinc-500">The honest ledger</h2>
         <button
           onClick={() => { run(); onReplay?.(); }}
-          className="rounded-full border px-3 py-1 text-xs text-zinc-500 transition hover:border-zinc-400 hover:text-zinc-800"
+          className="min-h-11 rounded-full border px-4 text-xs text-zinc-500 transition hover:border-zinc-500 hover:text-zinc-800"
         >
           replay
         </button>
@@ -102,7 +102,7 @@ export default function LedgerReveal({ l, onReplay }: { l: LedgerNumbers; onRepl
         </div>
 
         <div className={`transition-opacity duration-500 ${shown > 0 ? "opacity-100" : "opacity-40"}`}>
-          <div className="text-2xl text-zinc-400 line-through tabular-nums">{hm(l.naiveFree)}</div>
+          <div className="text-2xl text-zinc-500 line-through tabular-nums">{hm(l.naiveFree)}</div>
           <div className="mt-1 text-xs text-zinc-500">what your calendar claims</div>
         </div>
       </div>
