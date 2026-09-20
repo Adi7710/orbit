@@ -28,6 +28,7 @@ type Today = {
   cuts: { task: { title: string }; minutesSaved: number; reason: string }[];
   opportunities?: { opportunity: { id: string; name: string; kind: string; where: string; hours: number; url: string }; inDays: number; fit: number; reason: string }[];
   growth?: string[];
+  learned?: { aspect: string; label: string; sentence: string; learnedBy?: string; memo?: string }[];
   calibration: { key: string; samples: number; multiplier: number }[];
   proposals: { id: string; status: string; proposal: { kind: string; reason: string; body?: string; to?: string; subject?: string; courseCode?: string; building?: string; message?: string } }[];
   events: { seq: number; ts: string; actor: string; type: string; payload: unknown }[];
@@ -437,6 +438,22 @@ export default function TodayClient() {
 
       <section className="rounded-2xl border border-line p-5 md:col-span-2">
         <h2 className="text-sm font-medium text-ink-2">Coming up for you</h2>
+        {(t.learned ?? []).length > 0 && (
+          <div className="mt-2 rounded-xl border border-line p-3">
+            <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-ink-3">
+              <span>{(t.learned ?? []).some((f) => f.learnedBy === "nemotron-hosted") ? "Nemotron has learned" : "Orbit has learned"}</span>
+              {(t.learned ?? []).some((f) => f.learnedBy === "nemotron-hosted") && <span className="rounded-full bg-build px-2 py-0.5 text-white">Nemotron</span>}
+            </div>
+            <ul className="mt-2 space-y-1 text-sm">
+              {(t.learned ?? []).map((f) => (
+                <li key={f.aspect + f.sentence} className="break-words">
+                  {f.sentence}
+                  {f.memo && <span className="ml-2 text-xs text-ink-3">— its memo: “{f.memo}”</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         {(t.growth ?? []).length > 0 && (
           <ul className="mt-2 space-y-1 text-sm">
             {(t.growth ?? []).map((g) => <li key={g} className="break-words">{g}</li>)}

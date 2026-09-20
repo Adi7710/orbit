@@ -467,13 +467,22 @@ struct ScheduleOverviewView: View {
     @ViewBuilder
     private func learnedSection(_ day: Today) -> some View {
         if let learned = day.learned, !learned.isEmpty {
-            section("What Orbit has learned") {
+            section(learned.contains { $0.isNemotron } ? "Nemotron has learned" : "What Orbit has learned") {
                 ForEach(learned) { fact in
                     plainRow {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(fact.label)
-                                .orbitEyebrow()
-                                .foregroundStyle(Color.orbitInkFaint)
+                            HStack(spacing: 6) {
+                                Text(fact.label)
+                                    .orbitEyebrow()
+                                    .foregroundStyle(Color.orbitInkFaint)
+                                if fact.isNemotron {
+                                    Text("NEMOTRON")
+                                        .orbitEyebrow()
+                                        .foregroundStyle(Color.orbitOnAccent)
+                                        .padding(.horizontal, 6).padding(.vertical, 2)
+                                        .background(Capsule().fill(Color.classicBuild))
+                                }
+                            }
                             Text(fact.sentence)
                                 .font(.orbitBody)
                                 .foregroundStyle(Color.orbitInkSoft)

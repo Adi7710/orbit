@@ -263,6 +263,10 @@ export interface LearnedFact {
   multiplier: number;
   /** Plain words, written by code so the direction can never disagree with the number. */
   sentence: string;
+  /** Who produced the multiplier in the last review of this aspect: "nemotron-hosted" or "heuristic". Shown on screen, so the credit is exact. */
+  learnedBy: string;
+  /** The last memo the model wrote to itself about this aspect, if it was the model. */
+  memo?: string;
 }
 
 const pct = (m: number) => Math.round(Math.abs(m - 1) * 100);
@@ -299,11 +303,17 @@ export function learnedFacts(): LearnedFact[] {
     if (!st?.active) continue;
     const spec = specFor(id, []);
     const seen = new Set<string>();
+    // The credit is whoever did the last review that changed anything: the
+    // model when it answered, the rules when it did not. Said on screen, so
+    // "learned by Nemotron" is never claimed for a week the model missed.
+    const lastModel = [...st.lessons].reverse().find((l) => l.provider === "nemotron-hosted");
+    const learnedBy = st.lessons.at(-1)?.provider === "nemotron-hosted" || (lastModel && st.lessons.at(-1)?.provider === "none") ? "nemotron-hosted" : (st.lessons.at(-1)?.provider ?? "heuristic");
+    const memo = lastModel?.memo || st.memory.memos.at(-1)?.text || undefined;
     const push = (category: string, m: number) => {
       if (seen.has(category) || Math.abs(m - 1) < 0.05) return;
       seen.add(category);
       const categoryLabel = spec.categoryLabel[category] ?? def.spec.categoryLabel[category] ?? category;
-      out.push({ aspect: id, label: def.label, effect: def.effect, category, categoryLabel, multiplier: m, sentence: sentenceFor(id, categoryLabel, m) });
+      out.push({ aspect: id, label: def.label, effect: def.effect, category, categoryLabel, multiplier: m, sentence: sentenceFor(id, categoryLabel, m), learnedBy, memo });
     };
     for (const [category, m] of Object.entries(st.memory.multipliers)) push(category, m);
     const gm = st.memory.global;
@@ -313,6 +323,7 @@ export function learnedFacts(): LearnedFact[] {
       out.push({
         aspect: id, label: def.label, effect: def.effect, category: "__overall", categoryLabel: noun, multiplier: gm,
         sentence: `Across everything, your ${noun} runs about ${pct(gm)}% ${gm > 1 ? "over" : "under"} what the app assumed.`,
+        learnedBy, memo,
       });
     }
   }
