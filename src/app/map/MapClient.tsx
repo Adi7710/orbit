@@ -27,10 +27,15 @@ type Journey = {
   realtime: { tripsOk: boolean; vehiclesOk: boolean; alertsOk: boolean };
   alerts: { id: string; header: string; effect: string; movesTheStop: boolean }[];
   routeColors: Record<string, string | undefined>;
+  noDirectRoute?: boolean;
+  pathLive?: { station: string; ok: boolean; departures: { target: string; text: string; secondsToArrival: number }[] };
   error?: string;
 };
 
-const PLACES = ["Home", "Cathedral", "Hillman", "Posvar", "Sennott", "Benedum"] as const;
+// Fetched, not hardcoded: the list is Pittsburgh in one region and Stevens in
+// the other, and a dropdown offering Cathedral to somebody in Hoboken is just
+// wrong.
+const FALLBACK_PLACES = ["Home"];
 const REFRESH_MS = 15_000;
 
 export default function MapClient() {
@@ -41,15 +46,41 @@ export default function MapClient() {
   const [j, setJ] = useState<Journey | null>(null);
   // Mirrors `j` for the poll timer, so the interval never depends on state it sets.
   const latest = useRef<Journey | null>(null);
+  // True once the person has panned or zoomed themselves. From then on the
+  // framing is theirs, not ours.
+  const userMoved = useRef(false);
+  // Set while we move the map ourselves, so our own fitBounds does not get
+  // mistaken for the user moving it.
+  const framing = useRef(false);
   const [sel, setSel] = useState(0);
   // Deep link: the Today bus card links here with the exact leg it is showing,
   // so the two screens never open on different journeys.
   const params = useSearchParams();
   const [from, setFrom] = useState<string>(params.get("from") ?? "Home");
-  const [to, setTo] = useState<string>(params.get("to") ?? "Cathedral");
+  // No hardcoded destination: "Cathedral" is a building in the wrong state.
+  // The server says which place it would pick anyway.
+  const [to, setTo] = useState<string>(params.get("to") ?? "");
   const [arriveBy, setArriveBy] = useState(params.get("arriveBy") ?? "15:30");
   const [updatedAgo, setUpdatedAgo] = useState(0);
   const [err, setErr] = useState("");
+  const [places, setPlaces] = useState<string[]>(FALLBACK_PLACES);
+
+  useEffect(() => {
+    fetch("/api/transit/places")
+      .then((r) => r.json())
+      .then((d: { places?: { id: string; lat?: number; lon?: number }[]; suggested?: string | null }) => {
+        if (!d.places?.length) return;
+        const ids = d.places.map((x) => x.id);
+        setPlaces(ids);
+        // Preselect what Orbit would have chosen unasked, so a student going
+        // where they always go taps nothing.
+        setTo((cur) => cur || d.suggested || ids.find((x) => x !== "Home") || ids[0]);
+        // Open on the right city. The initial view was Pittsburgh coordinates.
+        const home = d.places.find((x) => x.id === "Home") ?? d.places[0];
+        if (map.current && !userMoved.current && home.lat && home.lon) map.current.setView([home.lat, home.lon], 14);
+      })
+      .catch(() => {});
+  }, []);
 
   const load = useCallback(async () => {
     const qs = new URLSearchParams({ from, to });
@@ -126,11 +157,15 @@ export default function MapClient() {
       Lref.current = leaflet;
       map.current = leaflet.map(mapEl.current, { zoomControl: false, attributionControl: true }).setView([40.4426, -79.9497], 14);
       leaflet.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-        attribution: '&copy; OpenStreetMap &copy; CARTO · transit data © Pittsburgh Regional Transit',
+        attribution: '&copy; OpenStreetMap &copy; CARTO · transit data © the operating agency',
         maxZoom: 19,
       }).addTo(map.current);
       leaflet.control.zoom({ position: "topright" }).addTo(map.current);
       layers.current = leaflet.layerGroup().addTo(map.current);
+      // dragstart and a zoom that we did not start are the honest signals that
+      // the person took over. Leaflet fires movestart for our own fitBounds too.
+      map.current.on("dragstart", () => { userMoved.current = true; });
+      map.current.on("zoomstart", () => { if (!framing.current) userMoved.current = true; });
     })();
     return () => { cancelled = true; };
   }, []);
@@ -150,6 +185,15 @@ export default function MapClient() {
     for (const w of [j.walkToStop, j.walkToDest]) {
       if (w.polyline.length > 1) leaflet.polyline(w.polyline, { color: "#6b7280", weight: 3, dashArray: "2 7", opacity: 0.9 }).addTo(g);
     }
+    // Every other option, faint. Seeing that three routes run the same way with
+    // one picked out tells you more than a single line on an empty map, and it
+    // makes choosing a different chip read as a change of emphasis rather than
+    // a redraw.
+    j.options.forEach((alt, i) => {
+      if (i === sel || alt.shape.length < 2) return;
+      leaflet.polyline(alt.shape, { color: `#${j.routeColors[alt.route] ?? "94a3b8"}`, weight: 3, opacity: 0.18, interactive: false }).addTo(g);
+    });
+
     // The ride: from the bus (or the stop) to where you get off.
     if (o && o.shape.length > 1) {
       leaflet.polyline(o.shape, { color, weight: 6, opacity: 0.35 }).addTo(g);
@@ -173,7 +217,31 @@ export default function MapClient() {
 
     const pts: [number, number][] = [[j.origin.lat, j.origin.lon], [j.boardStop.lat, j.boardStop.lon], [j.alightStop.lat, j.alightStop.lon], [j.destination.lat, j.destination.lon]];
     if (o?.vehicle) pts.push([o.vehicle.lat, o.vehicle.lon]);
+    // Only frame the journey when the map is still ours to frame.
+    //
+    // This used to run on every redraw, and the page polls -- so panning away
+    // to look at your stop, or zooming in on the bus, got undone a few seconds
+    // later by the next refresh. A map that fights the person holding it is
+    // worse than one that never moves. Once they touch it, framing becomes
+    // their job and the recenter button is how they hand it back.
+    if (!userMoved.current) {
+      framing.current = true;
+      map.current.fitBounds(leaflet.latLngBounds(pts).pad(0.18), { animate: true });
+      framing.current = false;
+    }
+  }, [j, sel]);
+
+  /** Put the journey back in frame, and resume auto-framing. */
+  const recenter = useCallback(() => {
+    const leaflet = Lref.current;
+    if (!leaflet || !map.current || !j) return;
+    userMoved.current = false;
+    const o = j.options[sel];
+    const pts: [number, number][] = [[j.origin.lat, j.origin.lon], [j.boardStop.lat, j.boardStop.lon], [j.alightStop.lat, j.alightStop.lon], [j.destination.lat, j.destination.lon]];
+    if (o?.vehicle) pts.push([o.vehicle.lat, o.vehicle.lon]);
+    framing.current = true;
     map.current.fitBounds(leaflet.latLngBounds(pts).pad(0.18), { animate: true });
+    framing.current = false;
   }, [j, sel]);
 
   const o = j?.options[sel];
@@ -184,12 +252,21 @@ export default function MapClient() {
     <div className="relative h-dvh w-full overflow-hidden bg-zinc-100">
       <div ref={mapEl} className="absolute inset-0" />
 
+      {/* Offered only once framing has become theirs, so it is an answer to a
+          state they created rather than a permanent piece of furniture. */}
+      <button
+        onClick={recenter}
+        className="absolute right-3 top-24 z-[600] rounded-full border border-zinc-200 bg-white/95 px-3 py-2 text-xs font-medium shadow-lg backdrop-blur hover:border-zinc-400"
+      >
+        Recenter
+      </button>
+
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3">
         <div className="pointer-events-auto mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-2xl bg-white/95 p-2 shadow-lg backdrop-blur">
           <a href="/" className="rounded-lg px-2 py-1 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-100" aria-label="Back to today">‹ Orbit</a>
-          <select value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-lg border px-2 py-1 text-sm">{PLACES.map((p) => <option key={p}>{p}</option>)}</select>
+          <select value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-lg border px-2 py-1 text-sm">{places.map((p) => <option key={p}>{p}</option>)}</select>
           <span className="text-zinc-400">→</span>
-          <select value={to} onChange={(e) => setTo(e.target.value)} className="rounded-lg border px-2 py-1 text-sm">{PLACES.map((p) => <option key={p}>{p}</option>)}</select>
+          <select value={to} onChange={(e) => setTo(e.target.value)} className="rounded-lg border px-2 py-1 text-sm">{places.map((p) => <option key={p}>{p}</option>)}</select>
           {to !== "Home" && (
             <label className="flex items-center gap-1 text-sm text-zinc-600">class at
               <input value={arriveBy} onChange={(e) => setArriveBy(e.target.value)} className="w-16 rounded-lg border px-2 py-1" />
@@ -205,7 +282,15 @@ export default function MapClient() {
         <div className="pointer-events-auto mx-auto max-w-3xl rounded-2xl bg-white/97 p-4 shadow-2xl backdrop-blur">
           {err && <p className="text-sm text-red-600">{err}</p>}
           {!j && !err && <p className="text-sm text-zinc-500">Reading the timetable…</p>}
-          {j && j.options.length === 0 && <p className="text-sm text-zinc-600">No bus you could still catch in the next 90 minutes. Walking is the plan.</p>}
+          {j && j.options.length === 0 && (
+            <p className="text-sm text-zinc-600">
+              {/* "No bus" and "no bus without changing" are different answers,
+                  and only one of them means start walking. */}
+              {j.noDirectRoute
+                ? "No direct service between these two stops. Orbit does not plan changes yet, so this one needs the app you already use."
+                : "Nothing you could still catch in the next 90 minutes. Walking is the plan."}
+            </p>
+          )}
 
           {o && j && (
             <>
