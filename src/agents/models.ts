@@ -13,6 +13,21 @@ export const NVIDIA_BASE = process.env.NVIDIA_BASE_URL ?? "https://integrate.api
 export const nvidiaKey = () => process.env.NVIDIA_API_KEY;
 
 /** Preferred text model ids, first available wins. Override with NEMOTRON_MODEL. */
+/**
+ * The model to fail over to when the first one hangs. Measured 20 Sept
+ * 09:53, eight prompt-only estimate calls each, thinking off:
+ *
+ *   nemotron-3.5-lightning-30b-a3b   5/8 answered   median 8.8 s   p90 timeout
+ *   nemotron-3-super-120b-a12b       4/8 answered   median 0.6 s   p90 timeout, 503s
+ *   mistralai/mistral-nemotron       6/8 answered   median 1.0 s   p90 timeout
+ *
+ * Nothing on the free endpoint avoids timeouts this morning, so the answer
+ * is not a model, it is a second model: a short first budget on the primary,
+ * then one attempt on the one with the best median, then the deterministic
+ * tier. Override with NEMOTRON_FALLBACK_MODEL.
+ */
+export const NEMOTRON_FALLBACK_MODEL = process.env.NEMOTRON_FALLBACK_MODEL ?? "mistralai/mistral-nemotron";
+
 export const NEMOTRON_TEXT_CANDIDATES = [
   process.env.NEMOTRON_MODEL,
   "nvidia/nemotron-3.5-lightning-30b-a3b",
@@ -57,7 +72,7 @@ export async function nemotronJson<T>(system: string, user: string, schema: obje
   if (!model) return { data: fallback(), provider: "heuristic", latencyMs: 0, error: "no nemotron model available" };
 
   const started = Date.now();
-  const attempt = async (withSchema: boolean) => {
+  const attempt = async (withSchema: boolean, useModel: string = model) => {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
@@ -65,7 +80,7 @@ export async function nemotronJson<T>(system: string, user: string, schema: obje
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
         body: JSON.stringify({
-          model,
+          model: useModel,
           messages: [
             { role: "system", content: `${system}\nRespond with a single JSON object and nothing else. Schema: ${JSON.stringify(schema)}` },
             { role: "user", content: user },
@@ -120,7 +135,20 @@ export async function nemotronJson<T>(system: string, user: string, schema: obje
     const data = await attempt(false);
     return { data, provider: "nemotron-hosted", model, latencyMs: Date.now() - started };
   } catch (e1) {
-    if (isTimeout(e1)) return { data: fallback(), provider: "heuristic", model, latencyMs: Date.now() - started, error: `timeout after ${timeoutMs}ms` };
+    if (isTimeout(e1)) {
+      // The primary hung. One attempt on the fallback model, same budget,
+      // same prompt; if that hangs too, the deterministic tier takes it.
+      const alt = NEMOTRON_FALLBACK_MODEL;
+      if (alt && alt !== model) {
+        try {
+          const data = await attempt(false, alt);
+          return { data, provider: "nemotron-hosted", model: alt, latencyMs: Date.now() - started };
+        } catch (e2) {
+          return { data: fallback(), provider: "heuristic", model, latencyMs: Date.now() - started, error: `timeout after ${timeoutMs}ms on ${model}; ${isTimeout(e2) ? "timeout" : errText(e2)} on ${alt}` };
+        }
+      }
+      return { data: fallback(), provider: "heuristic", model, latencyMs: Date.now() - started, error: `timeout after ${timeoutMs}ms` };
+    }
     if (!is429(e1) && !isNotJson(e1)) return { data: fallback(), provider: "heuristic", model, latencyMs: Date.now() - started, error: errText(e1) };
     try {
       if (is429(e1)) await new Promise((r) => setTimeout(r, 2500));
