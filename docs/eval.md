@@ -41,7 +41,9 @@ Both variants stay in the code and in the eval. The zero-shot prompt is unchange
 |---|---|---|---|---|
 | Heuristic | 16.3 min | 9/10 | n/a | 0 ms |
 | Nemotron zero-shot | 35.3 min | 8/10 | n/a | 7.6 s |
-| Nemotron anchored | _to fill from a run with the key_ | | | |
+| Nemotron anchored + code clamp | 17.1 min | 9/10 | 0 | 7.3 s |
+
+**Run with a key (2026-09-19, Jatin, posted to #4):** zero-shot re-measured at 33.8 (worst miss still "Quiz 3 prep" 240 vs 50); anchored lands at 17.1, level with the heuristic instead of twice as bad. Two caveats on these exact numbers: only 4/10 zero-shot and 6/10 anchored calls were actually answered by the model before a 15 s timeout or a 429, so both model rows are partly the heuristic's own score, which flatters zero-shot and understates the gap; and `clampFired: 0` means the anchored answers were already inside the window, not that the clamp is inert. Hosted latency is 7 to 10 s and spiky, which is why nothing on the voice path waits on it.
 
 **Run without a key (2026-09-19 16:55, lead):** all three rows come back identical at MAE 16.3, 9/10, because both model variants report `answeredByModel: 0/10` and fall back to the heuristic ten times out of ten with `errors: ["no NVIDIA_API_KEY"]`. That is the harness being honest rather than the model being useless, but it means **this table carries no signal until the key is present** — three copies of one number reads as "the model does nothing". The clamp row is the part that does not need the key: see `clamp.test.ts`.
 

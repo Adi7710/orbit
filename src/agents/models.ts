@@ -50,7 +50,7 @@ export type Provider = "nemotron-hosted" | "claude-fallback" | "heuristic";
 export interface NemotronResult<T> { data: T; provider: Provider; model?: string; latencyMs: number; error?: string }
 
 /** JSON-schema constrained call to hosted Nemotron. Falls back to a JSON-only prompt if the endpoint rejects response_format. */
-export async function nemotronJson<T>(system: string, user: string, schema: object, fallback: () => T, timeoutMs = 15000): Promise<NemotronResult<T>> {
+export async function nemotronJson<T>(system: string, user: string, schema: object, fallback: () => T, timeoutMs = 15000, maxTokens = 512): Promise<NemotronResult<T>> {
   const key = nvidiaKey();
   if (!key) return { data: fallback(), provider: "heuristic", latencyMs: 0, error: "no NVIDIA_API_KEY" };
   const model = await pickModel(NEMOTRON_TEXT_CANDIDATES);
@@ -72,7 +72,7 @@ export async function nemotronJson<T>(system: string, user: string, schema: obje
           ],
           ...(withSchema ? { response_format: { type: "json_schema", json_schema: { name: "out", schema, strict: true } } } : {}),
           temperature: 0,
-          max_tokens: 512,
+          max_tokens: maxTokens,
           chat_template_kwargs: { enable_thinking: false },
         }),
         signal: ctrl.signal,

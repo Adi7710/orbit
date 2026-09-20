@@ -1,5 +1,6 @@
 import type { HabitRecord } from "./habits";
 import { tzOffsetMinutes } from "./ics";
+import { mulberry32 } from "./prng";
 
 /**
  * Three weeks of made-up history so the Patterns card has something to say on
@@ -14,17 +15,8 @@ import { tzOffsetMinutes } from "./ics";
  */
 const TZ = "America/New_York";
 
-function mulberry32(a: number) {
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 /** The instant at which a wall clock in the student's zone reads `minutes` on the given calendar day. */
-function wall(y: number, m: number, d: number, minutes: number): Date {
+export function wall(y: number, m: number, d: number, minutes: number): Date {
   const guess = new Date(Date.UTC(y, m - 1, d, Math.floor(minutes / 60), minutes % 60));
   return new Date(guess.getTime() - tzOffsetMinutes(guess, TZ) * 60000);
 }

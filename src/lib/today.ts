@@ -15,6 +15,7 @@ const AGENCY = {
   hudson: "NJ TRANSIT and the Port Authority of New York and New Jersey",
   oakland: "Pittsburgh Regional Transit",
 } as const;
+import { deadlineRisk, learnedFacts, planner, worthOffering, worthProposing } from "./learned";
 
 const isPlace = (p?: string): p is keyof typeof BUILDINGS => !!p && p in BUILDINGS;
 
@@ -48,10 +49,16 @@ export async function buildToday(opts?: { to?: string }) {
   // whenever the same soonest-due task won both -- 446 usable minutes with
   // nothing in them while three tasks would have fitted. Later windows now
   // choose from what the earlier ones left.
+  //
+  // Two learned corrections apply here (Jatin, PR #27): anything this student
+  // has quietly never done stops taking up their gaps, and the minutes a task
+  // is planned at use what the weekly review has learned about them. Both are
+  // no-ops until an aspect has earned the right to speak.
+  const offerable = liveTasks.filter((t) => worthOffering(t.domain));
   const picks = new Map<string, ReturnType<typeof bestFit>>();
   const used = new Set<string>();
   for (const g of gaps) {
-    const t = bestFit(g, liveTasks.filter((x) => !used.has(x.id)), s.estimator);
+    const t = bestFit(g, offerable.filter((x) => !used.has(x.id)), planner(s.estimator, g));
     picks.set(g.id, t);
     if (t) used.add(t.id);
   }
@@ -181,10 +188,17 @@ export async function buildToday(opts?: { to?: string }) {
       alertsOk: journey?.realtime.alertsOk ?? false,
     },
     shared: shared.map((w) => ({ ...w, startText: fmt(w.start), endText: fmt(w.end), names: w.userIds.map((id) => s.friends.find((f) => f.userId === id)?.name ?? id) })),
-    tasks: liveTasks.map((t) => ({ ...t, planningMinutes: s.estimator.planningMinutes(t) })),
+    tasks: liveTasks.map((t) => ({ ...t, planningMinutes: planner(s.estimator).planningMinutes(t), risk: deadlineRisk(t) ?? null })),
+    /** Deadlines this student starts too late to finish, seen days ahead. */
+    atRisk: liveTasks.flatMap((t) => {
+      const r = deadlineRisk(t);
+      return r?.atRisk ? [{ taskId: t.id, title: t.title, startsInHours: r.startsInHours, needsMinutes: r.needsMinutes }] : [];
+    }),
+    /** What Orbit has worked out about this student, in plain words written by code. */
+    learned: learnedFacts().slice(0, 6),
     cuts,
     calibration: s.estimator.calibration(),
-    proposals: s.proposals,
+    proposals: s.proposals.filter((p) => p.status !== "pending" || worthProposing(p.proposal.kind)),
     events: s.events.slice(-30).reverse(),
   };
 }

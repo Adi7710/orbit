@@ -622,3 +622,127 @@ Affects: ios/. `ORBIT_API_BASE` in ios/Info.plist defaults to http://localhost:3
 Decision: Recorded so it is not chased in the wrong place. The simulator shows "actually usable 10h 15m" against "calendar claims 13h 35m", with the missing 3h 20m itemised, all of which is sane. The web app on the same API at the same moment shows 48h 42m.
 Why: Both clients read the same /api/today, so a number that is right on one and absurd on the other points at the web client's own rendering rather than the ledger arithmetic.
 Affects: src/app/LedgerReveal.tsx or its formatter, not src/core/ledger.ts. Demo beat 1.
+## 2026-09-19 19:20 ET · Jatin · Weekly learning loop, first optimization: assignment time
+Decision: Built the weekly learning loop and evaluated its first optimization. `src/core/student.ts` generates a synthetic student (8 weeks: assignments, readings, labs, exam studying, walking, settle-in and meals, procrastination lead times) with hidden true traits; `src/core/learning.ts` (pure) measures actual/estimate per kind of work each week and proposes shrunk, clamped multipliers; `src/agents/learner.ts` has hosted Nemotron choose adopt, step or hold per kind and write short notes, while code computes every number, refuses changes with under 2 sessions, and verifies each note (numbers, direction, code-computed trend, weeks vs sessions); `GET /api/learning/experiment` replays the student week by week against no learning, the current Estimator, a rules learner and the Nemotron learner. Results are in docs/learning/01-assignments.md. Nothing is wired into live planning yet; that waits for the owner's approval.
+Why: The owner wants the app to learn each student's real pace weekly and plan better next week, one optimization at a time, with a test and a result. Hosted Nemotron cannot be retrained weekly, so the learned profile (multipliers plus Nemotron's notes as memory) is what carries learning forward; weight fine-tuning stays the separate Brev job (#5).
+Affects: src/core/{learning,student,prng}.ts, src/agents/{learner,learningExperiment}.ts, src/app/api/learning/experiment, docs/learning/. `nemotronJson` gained an optional `maxTokens` (default 512, so no other caller changes). HabitRecord gained optional `week` and `startedHoursBeforeDue`.
+
+## 2026-09-19 19:20 ET · Jatin · Finding: for assignment time, rules match or beat Nemotron; Nemotron's value is the notes
+Decision: For the assignment optimization the deciding is left to code in the design's default path, and Nemotron is used for the notes (what the student and the voice agent read), not the numbers. Measured: mean error 6.3 (rules) vs 6.3 (Nemotron) for Maya and 6.5 vs 7.2 for Jordan; Nemotron timed out in 3 of 8 weeks for Maya even at 90 s.
+Why: An honest result. A multiplicative correction does not need a model to decide it; Nemotron is more likely to earn its place on aspects where the structure is not known in advance (procrastination triggers, exam-study spacing). Its notes also proved unreliable without code checks: 10 of 18 notes for the held-out student cited a wrong trend, direction or count.
+Affects: the choice of the next optimization; not yet reflected in the reviewer's default (both paths remain; `useModel` selects).
+
+## 2026-09-19 20:30 ET · Jatin · The weekly learner is incremental: one week in, Nemotron produces next week's numbers
+Decision: Added src/agents/weeklyLearner.ts, where Nemotron sees one week only (never the history), sees what it itself planned against what the work took, carries its own memory (its multipliers plus a memo to its future self), and produces the multiplier. Code only clamps to 0.4-3.0. Only the aspect under test is shown to it. The experiment gained arms weekly-rules (running average, same one-week window, no model) and weekly-nemotron, and a `trace` report showing week by week what it saw, changed and wrote. The earlier cumulative reviewer in learner.ts stays as the comparison arm.
+Why: The owner's test is "does Nemotron learn something from one week's pattern and change the second week". The cumulative design could not answer it: code computed the correction from all of history and the model only voted, which is exactly why plain rules matched it. Scoring a week with the plan the learner held before that week is what makes the answer honest.
+Affects: src/agents/weeklyLearner.ts, learningExperiment.ts, /api/learning/experiment, docs/learning/01-assignments.md.
+
+## 2026-09-19 20:30 ET · Jatin · Aspect 1 passes: Nemotron learns assignment length from one week and beats a running average
+Decision: Assignment time is done and measured. Mean plan error over weeks 2-8: Maya 21.1 (no learning) / 14.8 (app today) / 6.8 (running average) / 3.9 (Nemotron); held-out Jordan 29.7 / 20.0 / 8.5 / 6.7. After week 1 alone Nemotron chose 1.34, 1.07, 1.14 against a hidden truth of 1.33, 1.05, 1.20 (Maya) and 1.58, 1.22, 0.90 against 1.60, 1.20, 0.95 (Jordan). Week 2 error 15.0 -> 2.7 and 18.0 -> 6.7. Latency 1.2-22.6 s, no timeouts.
+Why: This is the first aspect of the owner's list and the gate for moving to the next one. It is also the first job where Nemotron beats the code baseline rather than matching it.
+Affects: docs/learning/01-assignments.md. Still offline: the learned multipliers are not wired into live planning, pending the owner's approval.
+
+## 2026-09-19 20:30 ET · Jatin · Three prompt rules were needed before the model could learn at all
+Decision: The weekly prompt now hands the model the per-kind ratio (it may not do the arithmetic), forbids lowering a multiplier while plans are still coming in short, and forbids contradicting its own memo.
+Why: The first live run flattened every kind of work to 1.1 and then oscillated 1.1 -> 1.0 -> 1.1 for eight weeks while its memo said "consistently underestimates" (mean error 15.0, barely better than no learning). Each rule maps to one observed failure. After them the model beat the running average on both students.
+Affects: src/agents/weeklyLearner.ts SYSTEM prompt. The same lesson applies to the next aspects: give the model the arithmetic, keep the judgement.
+
+## 2026-09-19 21:40 ET · Jatin · One weekly learner serves every aspect
+Decision: Generalized src/agents/weeklyLearner.ts from task kinds to an `AspectSpec` plus generic `Observation { label, category, estimate, actual }`. An aspect supplies its nouns, its categories and a two-sentence brief; only that aspect's records are ever shown to the model. The experiment is now aspect-driven (`observationsByWeek`) and both aspects share the arms, the scoring and the week-by-week trace.
+Why: The owner wants aspects done one at a time, and each was going to need the same machinery. Generalizing after the second aspect (rather than guessing up front) meant the shape was known. Aspects 3 and 4 now cost an ASPECTS entry and a data mapping.
+Affects: weeklyLearner.ts, learningExperiment.ts, weeklyLearner.test.ts. The synthetic student's walks gained per-leg difficulty and their own PRNG stream so that changing them cannot shift the task sessions and the aspect-1 numbers stay reproducible.
+
+## 2026-09-19 21:40 ET · Jatin · Aspect 2 (walking speed): Nemotron learns it but does not earn its place; use the travel graph plus a buffer
+Decision: Walking stays on the existing TravelGraph median, with a safety buffer as the dial for lateness. No Nemotron call for walking. Measured over weeks 2-8: no learning 2.1 min / 99% of walks planned short (Maya); travel graph median 0.8 min / 39%; Nemotron 0.8 min / 40% (Maya) and 1.3 min / 8% against the median's 0.6 min / 46% (Jordan); median plus a 15% buffer 2.1 min / 0% and 1.8 min / 0%. Nemotron did learn the pattern, reaching 1.15/1.15/1.45/1.11 against a truth of 1.15/1.15/1.44/1.09 and naming the uphill leg every week.
+Why: It ties the code on one student and loses on the other. Its only real contribution was refusing to plan short, and a buffer buys that in code with no latency and no call. On Jordan it would not go below 1.0 even though its own memo said he was fast, so the caution is a bias, not judgement.
+Affects: docs/learning/02-walking.md, the `existing-buffered` arm. The buffer size is a product decision that is not yet made; nothing is wired into the live TravelGraph.
+
+## 2026-09-19 21:40 ET · Jatin · Where a model earns its place, from two aspects
+Decision: Use Nemotron for an aspect only when the signal is sparse, noisy and not already modelled. Assignments: 1-3 records a week, wide spread, no existing mechanism, Nemotron 3.9 min against the code baseline's 6.8. Walking: 3 records a week per leg, 10% spread, already a median, Nemotron 0.8 against 0.8.
+Why: It gives a cheap test to apply to the remaining aspects before building them, instead of discovering the answer after a full experiment each time.
+Affects: the order and framing of aspects 3 (procrastination) and 4 (exam studying). Both look sparse and noisy, so both are expected to be closer to assignments than to walking.
+
+## 2026-09-19 23:10 ET · Jatin · Walking is one pace per person plus earned per-leg exceptions, and it is never padded
+Decision: Rebuilt aspect 2 to the owner's specification. The learner holds one walking pace learned from all walks pooled, which applies to every leg including ones never walked; a leg gets its own number only after disagreeing with that pace in 2 separate weeks; nothing changes before week 2. The earlier `existing-buffered` padding is rejected: if the student walks a 10-minute leg in 8, the app shows 8. AspectSpec gained an optional `global` block (warmupWeeks, exceptionMinWeeks, exceptionThreshold) and WeekMemory gained `global` plus a code-kept `evidence` tally, so the same machinery serves aspects that are "one trait plus exceptions".
+Why: The per-leg-only design I built first needed three trips before it knew anything about a leg, so a student who changes buildings gets nothing. Pace is a fact about the person and transfers immediately. Padding upward inflates every gap and contradicts the honest ledger, which is the product's whole premise.
+Affects: weeklyLearner.ts, learningExperiment.ts, student.ts (a fifth leg appearing in week 5 as the transfer test), docs/learning/02-walking.md.
+
+## 2026-09-19 23:10 ET · Jatin · Aspect 2 result: Nemotron learns the pace and the reason; the median is still better on well-travelled legs
+Decision: Recommend a split. Nemotron supplies the person's pace (Maya 1.17 against a truth of 1.15; Jordan 0.93 against 0.92, correctly recognising he is faster than the app assumed) and identifies which leg has a real reason; the travel graph median keeps legs with plenty of history, where it is more accurate (0.8 min against Nemotron's 1.2 for Maya). Unprompted in week 1 it wrote "walks consistently faster than app defaults, except Benedum to Cathedral which has a hill or slow lift", separating the person from the route. Its remaining weakness is overshooting an exception (hill leg 1.58 against 1.44) because it takes it from a single week instead of easing in.
+Why: Each method is better at a different thing, and the pace is the part that transfers to a leg with no history, which the median cannot do at all.
+Affects: docs/learning/02-walking.md. Nothing is wired into the live TravelGraph yet.
+
+## 2026-09-19 23:10 ET · Jatin · Reject any number closer to the reciprocal of the evidence than to the evidence
+Decision: Added `isInverted` to the weekly learner. In week 6 of a live run Nemotron answered a pace of 0.84 for a week that ran 1.18x while its own memo said "walks 16% slower"; 0.84 is 1/1.18, so it had flipped the ratio, and every displayed walking time would have collapsed at once. Code now refuses such a value for both the pace and any exception.
+Why: The guard took mean error from 1.7 to 1.2 and removed the failure from the re-run. The general lesson for the remaining aspects: the model is reliable about direction and reason and unreliable about arithmetic, so every number it returns is checked against the evidence it was handed.
+Affects: weeklyLearner.ts, weeklyLearner.test.ts.
+
+## 2026-09-20 00:20 ET · Jatin · Aspect 3 (procrastination): predict when work gets started, and score it on blown deadlines
+Decision: Added the procrastination aspect. The learner predicts, per kind of work, how many hours before a deadline the student actually begins, against the app's current assumption of 12 hours. It is scored on the prediction error and, more importantly, on how many genuinely blown deadlines it sees coming. The synthetic student now leaves the work it dreads until last (big assignments started closest to the wire despite needing the most time) and its deadlines can really be missed; the floor that used to guarantee every task finished in time was removed. AspectSpec gained an optional `clamp`, because a student who starts two hours before a deadline sits at 0.15 of the app's assumption, far below the usual 0.4 rail.
+Why: This is the third item on the owner's list and the first where the answer is not a duration. The interesting output is not the number but the warning it enables, so the metric had to be blown deadlines caught, not mean error.
+Affects: student.ts (leadFactor, missable deadlines), weeklyLearner.ts (clamp, Observation.meta), learningExperiment.ts, docs/learning/03-procrastination.md.
+
+## 2026-09-20 00:20 ET · Jatin · Aspects 1 and 3 only pay off together
+Decision: Deadline risk is computed with the work length aspect 1 learned, not the student's own estimate. Measured on the held-out student, who blows 8 of 24 deadlines: no learning catches 0, the running average 2, Nemotron 7 with the learned work length and only 4 with the student's own estimate.
+Why: A deadline is blown when the student starts later than the work needs, so predicting it requires both halves. Knowing someone procrastinates is not actionable until you also know their work runs 1.6x what they think. This is the first evidence that the aspects compound rather than being independent features.
+Affects: the case for finishing the remaining aspect, and how the warning should be built if it ships.
+
+## 2026-09-20 00:20 ET · Jatin · Open failure: Nemotron describes its own procrastination numbers backwards
+Decision: Recorded, not yet fixed. Nemotron's memo for Maya says she "completes big assignments and labs quickly but procrastinates on regular assignments" while the multipliers it just chose say the opposite; Jordan's says he "finishes work well ahead of schedule" while the number it chose means he starts fifty minutes before a deadline. The arithmetic is right and the meaning is inverted, which is a different failure from the reciprocal bug in aspect 2 and is not caught by `isInverted`.
+Why: The memo is the model's memory, so a wrong belief is carried into every later week, and the same sentence would tell a student the reassuring opposite of the truth if it ever reached the voice agent. No text from this aspect should be shown to anyone until there is a check that a sentence agrees in direction with the number it accompanies.
+Affects: weeklyLearner.ts, and any plan to surface learning through the voice agent.
+
+## 2026-09-20 00:20 ET · Jatin · Nemotron catches deadline risk by being pessimistic, not by being accurate
+Decision: Noted as a limitation of the current design. Nemotron put the held-out student's big assignments at 0.07 against a truth of 0.183, and that bias is why it catches 7 of 8 blown deadlines while also raising 2 false alarms. On the other student it wandered (0.55, 0.44, 0.75, 0.50, 0.35, 0.25, 0.35, 0.30) rather than settling, where the running average was steadier.
+Why: Catching risk through a uniformly gloomy average is not the same as predicting well. The honest version predicts the spread ("usually 2.2 hours, sometimes 1.4") and warns on the bad tail, instead of moving the mean.
+Affects: a future revision of the procrastination aspect; nothing ships from it yet.
+
+## 2026-09-20 01:10 ET · Jatin · Aspect 4 (exam studying): predict the cram share, warn when the last night cannot hold it
+Decision: Added the exams aspect. The learner predicts what share of revision lands in the final 24 hours per kind of assessment, against the app's assumption of an even third, and is scored on whether it can see in advance that the last night has less usable gap than the cram needs. The synthetic student now sits a weekly quiz plus two midterms, and quizzes get crammed hardest.
+Why: Fourth and last item on the owner's list, and the only one where the target is a distribution rather than a quantity. The useful output is the warning, so the metric is under-capacity nights caught.
+Affects: student.ts (ExamRecord, weekly quizzes), learningExperiment.ts, docs/learning/04-exam-studying.md.
+
+## 2026-09-20 01:10 ET · Jatin · Aspect 4 goes to the running average, not Nemotron
+Decision: Use the running average for exam cramming. Both catch every under-capacity night (2 of 2 for Maya, 4 of 4 for the held-out student) and both reach the same mean error, but Nemotron's learned values are clearly worse: quizzes 1.96 against a truth of 2.94 and midterms left at 1.00 against 2.40. It jumped to 3.0 for quizzes in week 1, pulled back to 1.96 in week 2, then did not move for six weeks while remaining wrong, and never learned midterms at all because they occur twice in eight weeks and the evidence threshold never cleared.
+Why: It reaches the right warning through a wrong number, which holds only while the gap between the cram and the night is wide. The running average is more accurate, learns the sparse category, and costs nothing.
+Affects: docs/learning/04-exam-studying.md. The warning itself is worth building regardless of which produces the number.
+
+## 2026-09-20 01:10 ET · Jatin · All four aspects measured: where a model earns its place
+Decision: Of the owner's four aspects, Nemotron earns its place on two. Assignment length: 3.9 min mean error against the code baseline's 6.8, and it learns nearly the whole pattern from one week. Procrastination: 7 of 8 blown deadlines caught against the baseline's 2. Walking: the travel-graph median is more accurate on well-travelled legs, but only the model produces a transferable pace and a reason ("a hill or slow lift"), so use both. Exam cramming: a tie on the outcome and worse numbers, so use the running average.
+Why: The pattern across all four is that the model pays off where the signal is sparse, noisy and not already modelled, and where the useful output is a judgement or an explanation rather than an average. Where the quantity is frequent, tight, or already has a mechanism, code matches or beats it.
+Affects: what should be wired into live planning, and the case to make for the NVIDIA track.
+
+## 2026-09-20 03:05 ET · Jatin · Learning is a registry, not a feature: one engine, eleven aspects, generic for any user
+Decision: Generalized everything learned across the four measured aspects into a live engine. `src/core/aspects.ts` is a declarative registry: an aspect states what the app currently assumes, how to pull this week's evidence out of what the app already records, and what changes once it is known. `src/lib/learned.ts` runs every aspect weekly, keeps each one's memory, and exposes what the rest of the app reads. Adding an aspect is a registry entry plus one line where its correction applies; it needs no new learner, prompt, route or test scaffolding. Eleven are registered: work length, course load, procrastination, time of day, gap fit, walking, settling in, meals, exam cramming, follow-through and which suggestions the student accepts.
+Why: The goal is pattern recognition for any user across anything in the app, not four hand-built features. Every aspect turned out to be the same question — the app assumes X, what does this person actually do — whose answer is a multiplier on the app's assumption, which is what lets one learner serve all of them.
+Affects: src/core/aspects.ts, src/lib/learned.ts, /api/learning/review, /api/learning/profile, src/lib/today.ts, src/agents/voiceTools.ts.
+
+## 2026-09-20 03:05 ET · Jatin · Layered aspects learn the residual, never the whole error
+Decision: An aspect declares `onTopOf`, and the engine hands it a baseline that already includes those corrections. course_load sits on work_length; time_of_day and gap_fit sit on both.
+Why: Caught in live testing. work_length learned big assignments at 1.37x and course_load learned MATH 0220 at 1.33x from the same completions, so a task that was both got 1.82x and a 90 minute problem set was planned at 164. With the layering it is 127, and the course correctly shows almost no residual of its own once the kind of work is accounted for.
+Affects: src/core/aspects.ts (LearningInput.baseline, AspectDef.onTopOf), src/lib/learned.ts.
+
+## 2026-09-20 03:05 ET · Jatin · Every sentence the student sees is written by code from the multiplier
+Decision: `learnedFacts()` derives its wording from the number itself, and the voice agent's get_coach reads those sentences. Nothing Nemotron phrases is shown to a student.
+Why: In aspects 3 and 4 the model described its own numbers backwards ("completes big assignments quickly" for the student who starts them last). The arithmetic was right and the meaning inverted, which no numeric check catches. Deriving the words from the number makes the disagreement impossible rather than unlikely, and a test asserts direction for every aspect.
+Affects: src/lib/learned.ts, src/agents/voiceTools.ts, src/core/__tests__/aspects.test.ts.
+
+## 2026-09-20 03:05 ET · Jatin · A student the app knows nothing about gets the app exactly as it was
+Decision: Every aspect returns a multiplier of 1 until it has enough evidence, and an aspect whose signal the app does not yet record collects nothing and stays inactive. A test asserts a new user's planning, risk and offers are untouched.
+Why: The learning must be a correction to a working app, never a precondition for one. It also means a new aspect can be registered before the data that feeds it exists, which is how the remaining signals (walks, settling in, meals, exam cramming) are already wired and waiting.
+Affects: src/lib/learned.ts.
+
+## 2026-09-20 03:05 ET · Jatin · The NVIDIA key in .env.local is truncated and chat completions are 403
+Decision: Recorded so it is not mistaken for a code fault. The stored key is 29 characters; a valid nvapi key is about 69. `/v1/models` returns 200 because that endpoint needs no auth, which makes the key look healthy on the diagnostics route while every chat completion fails with 403 Forbidden.
+Why: The weekly review degraded to the running average for every aspect and kept working, which is the designed behaviour, but the learning is not Nemotron's until the key is replaced. Re-paste it in full.
+Affects: .env.local, and anyone reading /api/nvidia as proof the key works.
+
+## 2026-09-20 03:50 ET · Jatin · One learned profile per person, never a shared one
+Decision: The learned state is keyed by user id (`learned(userId)`, `resetLearned(userId)`, `knownUsers()`), not held in a single global slot. Two students with identical tasks end up with different multipliers, different planned minutes and different sentences; a test seeds two people from the same task list and asserts one runs long, the other short, and that neither profile touches the other.
+Why: Nothing in the numbers was ever hard-coded — every multiplier is derived from that person's own completions and the sentence only supplies the wording around it — but the storage had no user identity, so two users on one server would have shared a brain. That defeats the whole point of personalisation.
+Affects: src/lib/learned.ts, and anything that later persists this to Postgres: the row key is the user.
+
+## 2026-09-20 03:50 ET · Jatin · A multiplier may move toward the week's evidence but never past it
+Decision: Added `towardEvidence` to the weekly learner. Any number the model returns, for a global pace or a category, is confined to the interval between where it stood and what the week actually showed. Going past is refused and the reason is recorded.
+Why: Found while verifying the live run. Reviewing the same week repeatedly ratcheted big assignments from 1.37 to 1.75 to 1.85 while the week's own ratio stayed near 1.4, and the model wrote "the multiplier must stay above 1.85" to justify it. An estimate that inflates on every review is worse than one that never learned. The earlier idempotency test only checked a single repeat, so the slow drift passed; there is now a test that reviews the same week six times and asserts it settles.
+Affects: src/agents/weeklyLearner.ts. It also subsumes the safety rail in practice: a model answering 50 now lands on the week's 1.33 rather than the clamp's 3.
