@@ -227,20 +227,37 @@ struct VoiceSheetView: View {
             VoiceOrbView(isOpen: false, turn: .thinking, level: 0)
         case .live:
             VoiceOrbView(isOpen: session.micOpen, turn: session.turn, level: session.level)
-                // Hold, not tap, and `pressing` rather than a `DragGesture`:
-                // it reports false on cancel as well as on lift, which is the
-                // case that matters. A notification or the control centre swipe
-                // takes the touch away without ever ending a drag, and a mic
-                // that stays open because iOS stole the finger is the exact
-                // always-listening behaviour push-to-talk exists to remove.
-                // The generous distance stops a thumb drifting mid-sentence
-                // from hanging up on you.
-                .onLongPressGesture(minimumDuration: .infinity, maximumDistance: 800) {
-                    // Never fires: the press cannot outlast an infinite minimum.
-                } onPressingChanged: { isPressing in
-                    guard !session.handsFree else { return }
-                    session.setMic(open: isPressing)
-                }
+                // Hold to talk, on a drag rather than a long press.
+                //
+                // This was `onLongPressGesture(minimumDuration: .infinity)`
+                // reading `onPressingChanged`, chosen because that reports
+                // false on cancellation as well as on lift. It does — but it
+                // also reports false on its own after a couple of seconds,
+                // so the microphone closed mid-sentence while the finger was
+                // still down. A press that can never succeed is not a press
+                // SwiftUI will hold open indefinitely.
+                //
+                // `DragGesture(minimumDistance: 0)` tracks the finger for as
+                // long as it is down, with no duration of its own, so the mic
+                // is open exactly from touch to lift. No distance limit
+                // either: a thumb drifting mid-sentence no longer hangs up.
+                //
+                // The trade is cancellation. A drag that iOS takes away --
+                // the control centre swipe -- never ends, so the close comes
+                // from `closeMicForBackground()` on scene phase instead,
+                // which already covers every case that leaves the app. A mic
+                // cutting out mid-sentence is the louder failure of the two.
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in
+                            guard !session.handsFree else { return }
+                            session.setMic(open: true)
+                        }
+                        .onEnded { _ in
+                            guard !session.handsFree else { return }
+                            session.setMic(open: false)
+                        }
+                )
                 .sensoryFeedback(.impact(weight: .medium), trigger: session.micOpen)
         }
     }

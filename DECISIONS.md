@@ -1080,3 +1080,10 @@ Affects: src/lib/journey.ts, src/app/map/MapClient.tsx.
 ## 2026-09-20 10:55 ET · Anmol + Claude · The header goes back to 8pt, because the banner can be moved now
 Decision: The header was pushed to 46pt on 20 Sept 10:20 so a pulse notice could not land on the student's own name. Making the notice swipe-away (10:45) fixed the same problem at its source, so the padding is back to 8 and the screen gets that 38pt back at the top. Reserving space for something the student can now dismiss is paying twice for one fix.
 Affects: ios/Orbit/Today/ScheduleOverviewView.swift.
+
+## 2026-09-20 11:05 ET · Anmol + Claude · Push-to-talk holds until you let go
+Decision: The microphone closed itself two or three seconds into a hold, while the finger was still down. The cause was the gesture, not the session: the orb used `onLongPressGesture(minimumDuration: .infinity, maximumDistance: 800)` and read `onPressingChanged`. That was chosen because it reports `false` on cancellation as well as on lift — and it does — but a press that can never succeed is not one SwiftUI holds open indefinitely, so it also reports `false` on its own. The mic was cutting out mid-sentence.
+Now a `DragGesture(minimumDistance: 0)`: it tracks the finger for as long as it is down and has no duration of its own, so the mic is open exactly from touch to lift. Dropping the distance limit as well means a thumb drifting mid-sentence no longer hangs up.
+The trade is honest and recorded: a drag iOS takes away — the control centre swipe — never ends, so that path no longer closes the mic from the gesture. `closeMicForBackground()` on scene phase still covers everything that leaves the app, which is every case a student will actually hit. Between a mic that stays open after iOS steals a touch and a mic that closes two seconds into every sentence, the second is the louder failure, and it is the one being reported.
+`setMic` already guards on `micOpen != open`, so calling it from a drag rather than a press changes nothing downstream.
+Affects: ios/Orbit/Voice/VoiceSheetView.swift.
