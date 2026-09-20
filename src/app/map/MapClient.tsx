@@ -11,7 +11,7 @@ type Option = {
   route: string; headsign: string; tripId: string;
   departsSec: number; departsText: string; scheduledText: string; status: "live" | "scheduled" | "ghost"; delaySec?: number;
   confidence: "high" | "medium" | "low"; rideIsLive: boolean;
-  vehicle?: { id: string; lat: number; lon: number; bearing?: number; ageSec: number; metersToStop: number };
+  vehicle?: { id: string; lat: number; lon: number; bearing?: number; ageSec: number; metersToStop: number; simulated?: boolean };
   leaveBySec: number; leaveByText: string; rideMinutes: number; arriveSec: number; arriveText: string;
   /** Null when there is nothing to be late for. Not the same as making it. */
   verdict: { makesIt: boolean; marginMin: number } | null;
@@ -314,7 +314,12 @@ export default function MapClient() {
       leaflet.marker([o.vehicle.lat, o.vehicle.lon], {
         icon: pin(`<div class="bus" style="--c:${color}"><i style="transform:rotate(${rot}deg)">▲</i><b>${o.route}</b></div>`, [70, 30]),
         zIndexOffset: 1000,
-      }).addTo(g).bindTooltip(`${o.route} · bus ${o.vehicle.id} · ${(o.vehicle.metersToStop / 1000).toFixed(1)} km from your stop · fix ${o.vehicle.ageSec}s old`, { direction: "top" });
+      }).addTo(g).bindTooltip(
+        o.vehicle.simulated
+          ? `${o.route} · scheduled position, not a live fix · ${(o.vehicle.metersToStop / 1000).toFixed(1)} km from your stop`
+          : `${o.route} · bus ${o.vehicle.id} · ${(o.vehicle.metersToStop / 1000).toFixed(1)} km from your stop · fix ${o.vehicle.ageSec}s old`,
+        { direction: "top" },
+      );
     }
 
     const pts: [number, number][] = [[j.origin.lat, j.origin.lon], [j.boardStop.lat, j.boardStop.lon], [j.alightStop.lat, j.alightStop.lon], [j.destination.lat, j.destination.lon]];

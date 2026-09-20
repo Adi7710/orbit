@@ -273,7 +273,7 @@ struct JourneyMapView: View {
         case "ghost": s += " · not on the live feed"
         default: s += " · scheduled"
         }
-        if let v = o.vehicle { s += " · bus \(String(format: "%.1f", Double(v.metersToStop) / 1000)) km away" }
+        if let v = o.vehicle { s += (v.simulated == true ? " · scheduled position " : " · bus ") + "\(String(format: "%.1f", Double(v.metersToStop) / 1000)) km away" }
         return s
     }
 

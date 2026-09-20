@@ -1,7 +1,7 @@
 import { STOP, REGION, bestStopPair, callingPoints, departuresAt, rideMinutes, stopInfo, routeShape, isFeedValid, tripServes } from "@/services/schedule";
 import { clock, realtimeIndex, type Clock } from "@/services/prt";
 import { vehiclePositions, type VehiclePosition } from "@/services/vehicles";
-import { decodePolyline, haversineMeters, nearestIndex, pathMeters, walkMinutes, type LatLon } from "@/core/geo";
+import { decodePolyline, haversineMeters, nearestIndex, pathMeters, scheduledPosition, walkMinutes, type LatLon } from "@/core/geo";
 import { fmt } from "@/core/time";
 import { alertsFor, serviceAlerts, type ServiceAlert } from "@/services/alerts";
 import { nextFrom, pathCodeForStopName, pathDepartures, type PathDeparture } from "@/services/path";
@@ -87,7 +87,7 @@ export function confidenceOf(x: { status: "live" | "scheduled" | "ghost"; vehicl
 export interface BusOption {
   route: string; headsign: string; tripId: string; dir: number;
   departsSec: number; departsText: string; scheduledText: string; status: "live" | "scheduled" | "ghost"; delaySec?: number;
-  vehicle?: { id: string; lat: number; lon: number; bearing?: number; ageSec: number; metersToStop: number; stopsAway?: number };
+  vehicle?: { id: string; lat: number; lon: number; bearing?: number; ageSec: number; metersToStop: number; stopsAway?: number; /** True when placed from the timetable, not from a fix. */ simulated?: boolean };
   leaveBySec: number; leaveByText: string; rideMinutes: number; rideIsLive: boolean; confidence: Confidence; alightSec: number; arriveSec: number; arriveText: string;
   /** Only when there is a class to be late for. Null means nothing to miss. */
   verdict: { makesIt: boolean; marginMin: number } | null;
@@ -273,6 +273,16 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
     const tripRideMinutes = Math.max(1, Math.round((alightSec - departsSec) / 60));
     const arriveSec = alightSec + walkToDest.minutes * 60;
     const margin = opts.arriveBySec === undefined ? 0 : Math.round((opts.arriveBySec - arriveSec) / 60);
+    // Confidence is judged on the real fix only. The scheduled marker below
+    // exists for the map, never for how much to trust the departure.
+    const confidence = confidenceOf({ status, vehicle, liveAlight: !!liveAlight, secondsAway: departsSec - c.sec });
+    if (!vehicle) {
+      // No positions are published here without a developer key. Put the
+      // train where the timetable says it is so the map has a train on it,
+      // and say so on the marker.
+      const sp = scheduledPosition(shape, departsSec, alightSec, c.sec);
+      if (sp) vehicle = { id: "scheduled", lat: sp.lat, lon: sp.lon, bearing: sp.bearing, ageSec: 0, metersToStop: Math.round(haversineMeters(sp, boardStop)), simulated: true };
+    }
     options.push({
       route: d.route,
       // Strip the route out of its own headsign. NJ Transit writes "HBLR 8TH
@@ -283,7 +293,7 @@ export async function buildJourney(opts: { origin?: LatLon; from: keyof typeof B
       departsSec, departsText: fmt(Math.floor(departsSec / 60)), scheduledText: fmt(Math.floor(d.sec / 60)), status, delaySec: liveEpoch ? liveEpoch - schedEpoch : undefined,
       vehicle, leaveBySec: departsSec - walkToStop.minutes * 60 - 120, leaveByText: fmt(Math.floor((departsSec - walkToStop.minutes * 60 - 120) / 60)),
       rideMinutes: tripRideMinutes, rideIsLive: liveRideUsable,
-      confidence: confidenceOf({ status, vehicle, liveAlight: !!liveAlight, secondsAway: departsSec - c.sec }),
+      confidence,
       alightSec, arriveSec, arriveText: fmt(Math.floor(arriveSec / 60)),
       callingAt: callingPoints(d.trip, boardId, alightId).map((x) => ({ id: x.id, name: x.name, lat: x.lat, lon: x.lon, timeText: fmt(Math.floor(x.sec / 60)) })),
       // "you make it" against no deadline is a green badge meaning nothing.

@@ -256,7 +256,8 @@ export async function buildToday(opts?: { to?: string }) {
           walkToStop: journey.walkToStop.minutes,
           walkToDest: journey.walkToDest.minutes,
           rideMinutes: o.rideMinutes,
-          vehicleKm: o.vehicle ? +(o.vehicle.metersToStop / 1000).toFixed(1) : null,
+          // A real fix only. A scheduled marker is for the map, not the card.
+          vehicleKm: o.vehicle && !o.vehicle.simulated ? +(o.vehicle.metersToStop / 1000).toFixed(1) : null,
           verdict: journey.destination.arriveByText ? o.verdict : null,
           classAtText: journey.destination.arriveByText ?? null,
           /** Deep link into the full map with this exact leg selected. */
