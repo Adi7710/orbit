@@ -5,7 +5,7 @@ import { bestFit, betweenClassMinutes, findGaps } from "../gaps";
 import { t, fmt } from "../time";
 import { Estimator, heuristicMinutes } from "../estimator";
 import { courseCode, parseIcs, blocksOn, occursOn, placeFromLocation } from "../ics";
-import { rankBoard, xpFor } from "../game";
+import { rankBoard, standingOf, withShare, xpFor } from "../game";
 import { sharedGaps } from "../overlap";
 import { ghostTrips, leaveBy } from "../bus";
 
@@ -126,6 +126,16 @@ describe("gamification", () => {
     ]);
     expect(board.map((r) => r.userId)).toEqual(["c", "b", "a"]);
     expect(rankBoard(board, "Tower A")[0].userId).toBe("b");
+    // Where "a" stands: second of two in Tower A, tied on XP with "b" who
+    // wins the tiebreak, so 0 XP behind the leader and nobody behind them.
+    const st = standingOf(board, "a", "Tower A")!;
+    expect(st).toMatchObject({ rank: 2, total: 2, xpWeek: 300, ahead: { name: "B", byXp: 0 }, behind: null });
+    // Across everyone, "c" leads by 600 over "b"; shares are against the leader.
+    expect(standingOf(board, "c")).toMatchObject({ rank: 1, total: 3, behind: { name: "B", byXp: 600 }, ahead: null });
+    const shared = withShare(rankBoard(board));
+    expect(shared[0].share).toBe(1);
+    expect(shared[1].share).toBeCloseTo(300 / 900);
+    expect(standingOf(board, "nobody")).toBeNull();
   });
 });
 

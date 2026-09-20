@@ -57,7 +57,7 @@ export default function TodayClient() {
       setLoadError(e instanceof Error ? e.message : String(e));
     }
     try {
-      setBoard((await get("/api/leaderboard?group=Tower%20A")).rows);
+      setBoard((await get("/api/leaderboard")).rows);
     } catch {
       /* the board is decoration; the day is not */
     }
@@ -257,7 +257,7 @@ export default function TodayClient() {
       <section className="rounded-2xl border p-5">
         <h2 className="text-sm font-medium text-zinc-500">Free with you</h2>
         {t.shared.length ? t.shared.map((w) => <div key={w.startText + w.names.join()} className="mt-2 text-sm"><b>{w.names.join(" & ")}</b> · {w.startText}–{w.endText} ({w.minutes} min)</div>) : <div className="mt-2 text-sm text-zinc-500">No overlaps today.</div>}
-        <h2 className="mt-5 text-sm font-medium text-zinc-500">{t.user.group} this week</h2>
+        <h2 className="mt-5 text-sm font-medium text-zinc-500">Crew this week</h2>
         <ol className="mt-2 text-sm">{board.map((r) => <li key={r.name} className="flex justify-between"><span>{r.rank}. {r.name}</span><span>{r.xpWeek} XP · {r.streakWeeks}wk</span></li>)}</ol>
       </section>
 

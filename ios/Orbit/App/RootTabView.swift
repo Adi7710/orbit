@@ -9,7 +9,7 @@ import SwiftUI
 /// exactly that.
 struct RootTabView: View {
 
-    enum Tab: Hashable { case today, calendar, map, settings }
+    enum Tab: Hashable { case today, crew, calendar, map, settings }
 
     @State private var tab: Tab = .today
 
@@ -18,6 +18,10 @@ struct RootTabView: View {
             ScheduleOverviewView()
                 .tabItem { Label("Today", systemImage: "circle.circle") }
                 .tag(Tab.today)
+
+            CrewView()
+                .tabItem { Label("Crew", systemImage: "person.3") }
+                .tag(Tab.crew)
 
             CalendarView()
                 .tabItem { Label("Calendar", systemImage: "calendar") }

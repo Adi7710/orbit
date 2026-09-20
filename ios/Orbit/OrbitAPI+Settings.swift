@@ -37,6 +37,17 @@ extension OrbitAPI {
         return ImportResult(summary: warnings.isEmpty ? head : head + " " + warnings.joined(separator: " "))
     }
 
+    /// The weekly board, everyone or one group. The standing and the gaps in
+    /// it are computed on the server.
+    func crew(group: String?) async throws -> Crew {
+        var path = "api/leaderboard"
+        if let group, let encoded = group.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) {
+            path += "?group=\(encoded)"
+        }
+        let data = try await send(path: path, method: "GET", body: Optional<Empty>.none)
+        return try decoder.decode(Crew.self, from: data)
+    }
+
     /// Back to the opening state. Server-side; the phone only asks.
     func resetDemo() async throws {
         _ = try await send(path: "api/reset", method: "POST", body: Optional<Empty>.none)
