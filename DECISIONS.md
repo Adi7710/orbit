@@ -497,3 +497,13 @@ Affects: scripts/voice-config.mjs, scripts/setup-voice-agent.mjs, scripts/tune-v
 Decision: `tune-voice.mjs` now sets `voice_id` and `model_id` as well as the settings it already pushed, so the sound can be corrected on the live agent. `ELEVENLABS_TTS_MODEL` overrides the model without a code change.
 Why: Recreating the agent rotates every tool URL with it, and a rebuild is how the greeting regressed once already. On demo day the low-risk path has to be the one that does not touch the webhooks.
 Affects: scripts/tune-voice.mjs.
+
+## 2026-09-20 23:40 ET · Jatin · The iOS app had no way to run; it builds and launches now
+Decision: Added the three things that were missing and nothing else: `ios/Orbit/OrbitApp.swift` (there was no `@main` and no `struct: App` anywhere in the 17 Swift files), `ios/Info.plist`, and `ios/Orbit.xcodeproj`. The project uses a `PBXFileSystemSynchronizedRootGroup` so the source folder is referenced as a whole rather than enumerating every file, which means adding a Swift file needs no project edit and two people adding files cannot conflict in the pbxproj. Code signing is off and the target is simulator-only. Verified: BUILD SUCCEEDED, installed and launched on the iPhone 17 Pro simulator against the local dev server, rendering the real ledger.
+Why: `ios/` held views, models and theme but nothing that could be opened or run, so the iOS half of demo beat 3 could not be demonstrated by anyone. Two build failures worth recording: Info.plist inside the synchronized folder is copied as a resource *and* used as the plist, so it has to live outside it; and with `GENERATE_INFOPLIST_FILE = NO` the plist must carry CFBundleIdentifier, CFBundleExecutable and the version keys itself or the simulator refuses to install with "Missing bundle ID".
+Affects: ios/. `ORBIT_API_BASE` in ios/Info.plist defaults to http://localhost:3123; point it at the tunnel URL from #23 to run against the shared server.
+
+## 2026-09-20 23:40 ET · Jatin · The 48-hour ledger bug is web-only
+Decision: Recorded so it is not chased in the wrong place. The simulator shows "actually usable 10h 15m" against "calendar claims 13h 35m", with the missing 3h 20m itemised, all of which is sane. The web app on the same API at the same moment shows 48h 42m.
+Why: Both clients read the same /api/today, so a number that is right on one and absurd on the other points at the web client's own rendering rather than the ledger arithmetic.
+Affects: src/app/LedgerReveal.tsx or its formatter, not src/core/ledger.ts. Demo beat 1.
