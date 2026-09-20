@@ -66,11 +66,20 @@ struct LedgerRingsView: View {
         ].compactMap { $0 }
     }
 
-    /// Primary at 100 / 72 / 52 / 36 percent. The lightest still clears 3:1
-    /// against white as a 14pt arc because it sits on its own 16 percent track.
+    /// Four depths of the primary, one set per appearance, each measured
+    /// against its own ground. The first version used opacity, and opacity
+    /// blends toward the ground: 36 percent on white was 1.64:1 and on black
+    /// 1.45:1, which fails as an arc in both modes. So in light mode the
+    /// depths go darker (toward black) and in dark mode lighter (toward
+    /// white), and every one clears 3:1 on both the page and a card:
+    ///
+    ///   light  2F6FE4 4.65  2557B2 6.81  1B4084 9.94  132C5B 13.64  (on white)
+    ///   dark   2F6FE4 4.51  6393EB 6.90  93B4F1 10.04 BCD1F6 13.59  (on black)
     private static func tint(_ depth: Int) -> Color {
-        let opacities: [Double] = [1.0, 0.72, 0.52, 0.36]
-        return Color(hex: OrbitClassic.primary).opacity(opacities[min(depth, opacities.count - 1)])
+        let light: [UInt32] = [0x2F6FE4, 0x2557B2, 0x1B4084, 0x132C5B]
+        let dark: [UInt32] = [0x2F6FE4, 0x6393EB, 0x93B4F1, 0xBCD1F6]
+        let i = min(depth, light.count - 1)
+        return Color.orbit(light: light[i], dark: dark[i])
     }
 
     /// The whole the arcs are drawn against: the waking day, which every band

@@ -335,11 +335,11 @@ export default function MapClient() {
   }, [j, sel]);
 
   const o = j?.options[sel];
-  const verdictTone = !o?.verdict ? "" : !o.verdict.makesIt ? "bg-red-500" : o.verdict.marginMin < 5 ? "bg-amber-500" : "bg-emerald-500";
+  const verdictTone = !o?.verdict ? "" : !o.verdict.makesIt ? "bg-danger" : o.verdict.marginMin < 5 ? "bg-warn" : "bg-build";
   const leaveInMin = o && j ? Math.round((o.leaveBySec - j.clock.sec) / 60) : 0;
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-zinc-100">
+    <div className="relative h-dvh w-full overflow-hidden bg-surface-2">
       <div ref={mapEl} className="absolute inset-0" />
 
       {/* Destination first.
@@ -348,10 +348,10 @@ export default function MapClient() {
           means every number that follows is an answer to something they said.
           It disappears the moment they choose, and never comes back. */}
       {!j && (
-        <div className="absolute inset-0 z-[700] flex items-end justify-center bg-zinc-900/30 p-4 backdrop-blur-sm sm:items-center">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+        <div className="absolute inset-0 z-[700] flex items-end justify-center bg-black/40 p-4 backdrop-blur-sm sm:items-center">
+          <div className="w-full max-w-sm rounded-2xl bg-background p-5 shadow-xl">
             <h2 className="text-lg font-semibold tracking-tight">Where are you going?</h2>
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-ink-2">
               {here ? "Planning from where you are now." : "Planning from home until you share a location."}
             </p>
 
@@ -360,26 +360,26 @@ export default function MapClient() {
                 <button
                   key={p}
                   onClick={() => { setTo(p); setArriveBy(classAt[p]?.startText ?? ""); }}
-                  className="rounded-xl border border-zinc-200 px-3 py-2.5 text-left text-sm hover:border-zinc-900"
+                  className="rounded-xl border border-line px-3 py-2.5 text-left text-sm hover:border-primary"
                 >
                   <span className="font-medium">{p}</span>
-                  {classAt[p] && <span className="block text-xs text-zinc-500">{classAt[p].startText} · {classAt[p].title}</span>}
+                  {classAt[p] && <span className="block text-xs text-ink-2">{classAt[p].startText} · {classAt[p].title}</span>}
                 </button>
               ))}
-              <button onClick={() => setTo("Home")} className="rounded-xl border border-zinc-200 px-3 py-2.5 text-left text-sm hover:border-zinc-900">
+              <button onClick={() => setTo("Home")} className="rounded-xl border border-line px-3 py-2.5 text-left text-sm hover:border-primary">
                 <span className="font-medium">Home</span>
-                <span className="block text-xs text-zinc-500">head back</span>
+                <span className="block text-xs text-ink-2">head back</span>
               </button>
             </div>
 
             <button
               onClick={locate}
               disabled={locating}
-              className="mt-4 w-full rounded-full bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+              className="mt-4 w-full rounded-full bg-primary px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50"
             >
               {locating ? "Finding you…" : here ? "Using your location" : "Use my location"}
             </button>
-            {locError && <p className="mt-2 text-xs text-amber-700">{locError}</p>}
+            {locError && <p className="mt-2 text-xs text-warn">{locError}</p>}
           </div>
         </div>
       )}
@@ -388,7 +388,7 @@ export default function MapClient() {
           state they created rather than a permanent piece of furniture. */}
       <button
         onClick={recenter}
-        className="absolute right-3 top-24 z-[600] min-h-11 rounded-full border border-zinc-200 bg-white/95 px-4 text-xs font-medium shadow-lg backdrop-blur hover:border-zinc-500"
+        className="absolute right-3 top-24 z-[600] min-h-11 rounded-full border border-line bg-background/95 px-4 text-xs font-medium shadow-lg backdrop-blur hover:border-line"
       >
         Recenter
       </button>
@@ -398,43 +398,43 @@ export default function MapClient() {
         onClick={locate}
         disabled={locating}
         title={here ? "Planning from your location" : "Plan from where you are"}
-        className={`absolute right-3 top-36 z-[600] rounded-full border bg-white/95 px-3 py-2 text-xs font-medium shadow-lg backdrop-blur disabled:opacity-50 ${here ? "border-blue-500 text-blue-700" : "border-zinc-200 hover:border-zinc-500"}`}
+        className={`absolute right-3 top-36 z-[600] rounded-full border bg-background/95 px-3 py-2 text-xs font-medium shadow-lg backdrop-blur disabled:opacity-50 ${here ? "border-primary text-primary" : "border-line hover:border-line"}`}
       >
         {locating ? "…" : here ? "Using you" : "Locate me"}
       </button>
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3">
-        <div className="pointer-events-auto mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-2xl bg-white/95 p-2 shadow-lg backdrop-blur">
-          <a href="/" className="flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-100" aria-label="Back to today">‹ Orbit</a>
+        <div className="pointer-events-auto mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-2xl bg-background/95 p-2 shadow-lg backdrop-blur">
+          <a href="/" className="flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-ink transition hover:bg-surface-2" aria-label="Back to today">‹ Orbit</a>
           <select value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Travelling from" className="min-h-11 rounded-lg border px-2 text-sm">{places.map((p) => <option key={p}>{p}</option>)}</select>
-          <span aria-hidden="true" className="text-zinc-500">→</span>
+          <span aria-hidden="true" className="text-ink-2">→</span>
           <select value={to} onChange={(e) => setTo(e.target.value)} aria-label="Travelling to" className="min-h-11 rounded-lg border px-2 text-sm">{places.map((p) => <option key={p}>{p}</option>)}</select>
           {/* The timetable knows when you have to be there. Typing a time is
               how the map ended up measuring against a class five hours past,
               so this states what Orbit read and offers to drop it, rather
               than asking a student to supply a fact about their own day. */}
           {classAt[to] ? (
-            <span className="flex items-center gap-2 rounded-lg bg-zinc-100 px-2 py-1 text-sm text-zinc-700">
+            <span className="flex items-center gap-2 rounded-lg bg-surface-2 px-2 py-1 text-sm text-ink">
               {classAt[to].title} at {classAt[to].startText}
               {arriveBy && (
-                <button onClick={() => setArriveBy("")} className="min-h-11 min-w-11 text-zinc-500 hover:text-zinc-900" aria-label="Ignore the class deadline">×</button>
+                <button onClick={() => setArriveBy("")} className="min-h-11 min-w-11 text-ink-2 hover:text-ink" aria-label="Ignore the class deadline">×</button>
               )}
             </span>
           ) : (
-            <span className="text-sm text-zinc-500">nothing to catch</span>
+            <span className="text-sm text-ink-2">nothing to catch</span>
           )}
-          <span className="ml-auto pr-2 text-xs text-zinc-500">
+          <span className="ml-auto pr-2 text-xs text-ink-2">
             {j?.clock.simulated ? `demo clock ${j.clock.text}` : `now ${j?.clock.text ?? "--:--"}`} · {j?.realtime.tripsOk ? "PRT live" : "schedule only"} · updated {updatedAgo}s ago
           </span>
         </div>
       </div>
 
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[500] p-3">
-        <div className="pointer-events-auto mx-auto max-w-3xl rounded-2xl bg-white/97 p-4 shadow-2xl backdrop-blur">
-          {err && <p className="text-sm text-red-600">{err}</p>}
-          {!j && !err && <p className="text-sm text-zinc-500">Reading the timetable…</p>}
+        <div className="pointer-events-auto mx-auto max-w-3xl rounded-2xl bg-background/97 p-4 shadow-2xl backdrop-blur">
+          {err && <p className="text-sm text-danger">{err}</p>}
+          {!j && !err && <p className="text-sm text-ink-2">Reading the timetable…</p>}
           {j && j.options.length === 0 && (
-            <p className="text-sm text-zinc-600">
+            <p className="text-sm text-ink-2">
               {/* "No bus" and "no bus without changing" are different answers,
                   and only one of them means start walking. */}
               {j.noDirectRoute
@@ -449,7 +449,7 @@ export default function MapClient() {
                 <div>
                   <div className="text-2xl font-semibold tracking-tight">
                     {leaveInMin <= 0 ? "Leave now" : `Leave in ${compactDuration(leaveInMin)}`}
-                    <span className="ml-2 text-base font-normal text-zinc-500">({o.leaveByText})</span>
+                    <span className="ml-2 text-base font-normal text-ink-2">({o.leaveByText})</span>
                   </div>
                 </div>
                 {/* A verdict needs something to be late for. With no class
@@ -458,11 +458,11 @@ export default function MapClient() {
                     number a person wanted anyway. */}
                 {o.verdict ? (
                   <div className={`flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium text-white ${verdictTone}`}>
-                    <span className="h-2 w-2 rounded-full bg-white/90" />
+                    <span className="h-2 w-2 rounded-full bg-background/90" />
                     {o.verdict.makesIt ? `you make it, ${o.verdict.marginMin} min to spare` : `you miss it by ${Math.abs(o.verdict.marginMin)} min`}
                   </div>
                 ) : (
-                  <div className="rounded-full bg-zinc-900 px-3 py-1 text-sm font-medium text-white">
+                  <div className="rounded-full bg-primary px-3 py-1 text-sm font-medium text-white">
                     {compactDuration(o.totalMinutes)} door to door
                   </div>
                 )}
@@ -474,12 +474,12 @@ export default function MapClient() {
                   publishes no trip ids: these are real trains, but they cannot
                   honestly be attached to a timetable row above. */}
               {j.pathLive?.ok && j.pathLive.departures.length > 0 && (
-                <div className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2">
-                  <div className="text-xs font-medium text-zinc-500">PATH from {j.pathLive.station} · live</div>
+                <div className="mt-3 rounded-xl border border-line bg-surface px-3 py-2">
+                  <div className="text-xs font-medium text-ink-2">PATH from {j.pathLive.station} · live</div>
                   <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm">
                     {j.pathLive.departures.map((d, i) => (
                       <span key={i} className="tabular-nums">
-                        <b>{d.target}</b> <span className="text-zinc-600">{d.text}</span>
+                        <b>{d.target}</b> <span className="text-ink-2">{d.text}</span>
                       </span>
                     ))}
                   </div>
@@ -492,47 +492,47 @@ export default function MapClient() {
               {j.alerts?.length > 0 && (
                 <ul className="mt-3 space-y-1.5">
                   {j.alerts.slice(0, 2).map((a) => (
-                    <li key={a.id} className={`rounded-xl border px-3 py-2 text-xs ${a.movesTheStop ? "border-amber-300 bg-amber-50 text-amber-900" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
+                    <li key={a.id} className={`rounded-xl border px-3 py-2 text-xs ${a.movesTheStop ? "border-warn bg-warn/10 text-warn" : "border-line bg-surface text-ink-2"}`}>
                       <span className="font-medium">{a.movesTheStop ? "Stop moved" : "Notice"}</span>
-                      <span className="mx-1.5 text-zinc-500">·</span>
+                      <span className="mx-1.5 text-ink-2">·</span>
                       {a.header}
-                      {a.movesTheStop && <span className="mt-0.5 block text-amber-800">Check the pole before you settle in — the times below assume the usual one.</span>}
+                      {a.movesTheStop && <span className="mt-0.5 block text-warn">Check the pole before you settle in — the times below assume the usual one.</span>}
                     </li>
                   ))}
                 </ul>
               )}
 
               <ol className="mt-3 space-y-1.5 text-sm">
-                <li className="flex gap-3"><span className="w-6">🚶</span><span className="w-16 tabular-nums text-zinc-500">{compactDuration(j.walkToStop.minutes)}</span><span>walk to {j.boardStop.name.toLowerCase()}{j.walkToStop.source === "estimate" && <span className="ml-2 rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-800">estimated</span>}</span></li>
-                <li className="flex gap-3"><span className="w-6">🚌</span><span className="w-16 tabular-nums text-zinc-500">{o.departsText}</span>
+                <li className="flex gap-3"><span className="w-6">🚶</span><span className="w-16 tabular-nums text-ink-2">{compactDuration(j.walkToStop.minutes)}</span><span>walk to {j.boardStop.name.toLowerCase()}{j.walkToStop.source === "estimate" && <span className="ml-2 rounded bg-warn/10 px-1.5 py-0.5 text-xs text-warn">estimated</span>}</span></li>
+                <li className="flex gap-3"><span className="w-6">🚌</span><span className="w-16 tabular-nums text-ink-2">{o.departsText}</span>
                   <span>
                     <b>{o.route}</b> {o.headsign.toLowerCase()}
-                    {o.status === "live" && <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800">live{o.delaySec && Math.abs(o.delaySec) > 59 ? ` · ${Math.round(o.delaySec / 60)} min ${o.delaySec > 0 ? "late" : "early"}` : ""}</span>}
-                    {o.status === "scheduled" && <span className="ml-2 rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600">scheduled {o.scheduledText}</span>}
-                    {o.status === "ghost" && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">not on the live feed</span>}
-                    {o.vehicle && <span className="ml-2 text-zinc-500">bus {o.vehicle.id} is {(o.vehicle.metersToStop / 1000).toFixed(1)} km away</span>}
+                    {o.status === "live" && <span className="ml-2 rounded bg-build/10 px-1.5 py-0.5 text-xs text-build">live{o.delaySec && Math.abs(o.delaySec) > 59 ? ` · ${Math.round(o.delaySec / 60)} min ${o.delaySec > 0 ? "late" : "early"}` : ""}</span>}
+                    {o.status === "scheduled" && <span className="ml-2 rounded bg-surface-2 px-1.5 py-0.5 text-xs text-ink-2">scheduled {o.scheduledText}</span>}
+                    {o.status === "ghost" && <span className="ml-2 rounded bg-warn/10 px-1.5 py-0.5 text-xs text-warn">not on the live feed</span>}
+                    {o.vehicle && <span className="ml-2 text-ink-2">bus {o.vehicle.id} is {(o.vehicle.metersToStop / 1000).toFixed(1)} km away</span>}
                     {/* "The 61B is at 20:33" reads the same whether it came
                         from a bus four hundred metres away or a timetable
                         printed in August. Say which. */}
-                    <span className={`ml-2 rounded px-1.5 py-0.5 text-xs ${o.confidence === "high" ? "bg-emerald-50 text-emerald-700" : o.confidence === "medium" ? "bg-zinc-100 text-zinc-600" : "bg-amber-50 text-amber-800"}`}>
+                    <span className={`ml-2 rounded px-1.5 py-0.5 text-xs ${o.confidence === "high" ? "bg-build/10 text-build" : o.confidence === "medium" ? "bg-surface-2 text-ink-2" : "bg-warn/10 text-warn"}`}>
                       {o.confidence === "high" ? "confident" : o.confidence === "medium" ? "rough" : "timetable only"}
                     </span>
                   </span>
                 </li>
                 {o.waitMinutes > 2 && (
-                  <li className="flex gap-3 text-zinc-500"><span className="w-6">⏳</span><span className="w-16 tabular-nums">{compactDuration(o.waitMinutes)}</span><span>wait at the stop</span></li>
+                  <li className="flex gap-3 text-ink-2"><span className="w-6">⏳</span><span className="w-16 tabular-nums">{compactDuration(o.waitMinutes)}</span><span>wait at the stop</span></li>
                 )}
-                <li className="flex gap-3"><span className="w-6">🪑</span><span className="w-16 tabular-nums text-zinc-500">{compactDuration(o.rideMinutes)}</span><span>ride to {j.alightStop.name.toLowerCase()}{o.rideIsLive ? <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800">live prediction</span> : <span className="ml-2 text-xs text-zinc-500">scheduled</span>}</span></li>
-                <li className="flex gap-3"><span className="w-6">🚶</span><span className="w-16 tabular-nums text-zinc-500">{compactDuration(j.walkToDest.minutes)}</span><span>walk to {j.destination.label}{j.walkToDest.source === "estimate" && <span className="ml-2 rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-800">estimated</span>}</span></li>
+                <li className="flex gap-3"><span className="w-6">🪑</span><span className="w-16 tabular-nums text-ink-2">{compactDuration(o.rideMinutes)}</span><span>ride to {j.alightStop.name.toLowerCase()}{o.rideIsLive ? <span className="ml-2 rounded bg-build/10 px-1.5 py-0.5 text-xs text-build">live prediction</span> : <span className="ml-2 text-xs text-ink-2">scheduled</span>}</span></li>
+                <li className="flex gap-3"><span className="w-6">🚶</span><span className="w-16 tabular-nums text-ink-2">{compactDuration(j.walkToDest.minutes)}</span><span>walk to {j.destination.label}{j.walkToDest.source === "estimate" && <span className="ml-2 rounded bg-warn/10 px-1.5 py-0.5 text-xs text-warn">estimated</span>}</span></li>
                 <li className="flex gap-3 font-medium"><span className="w-6">🎓</span><span className="w-16 tabular-nums">{o.arriveText}</span><span>arrive{j.destination.arriveByText ? ` · class at ${j.destination.arriveByText}` : ` · ${compactDuration(o.totalMinutes)} door to door`}</span></li>
               </ol>
 
               <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                 {j.options.map((opt, i) => (
                   <button key={opt.tripId} onClick={() => setSel(i)}
-                    className={`shrink-0 rounded-xl border px-3 py-2 text-left text-xs ${i === sel ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 bg-white hover:border-zinc-500"} ${opt.status === "ghost" ? "line-through opacity-60" : ""}`}>
+                    className={`shrink-0 rounded-xl border px-3 py-2 text-left text-xs ${i === sel ? "border-primary bg-primary text-white" : "border-line bg-background hover:border-line"} ${opt.status === "ghost" ? "line-through opacity-60" : ""}`}>
                     <div className="font-semibold">{opt.route} · {opt.departsText}</div>
-                    <div className={i === sel ? "text-zinc-300" : "text-zinc-500"}>leave {opt.leaveByText} · arrive {opt.arriveText}</div>
+                    <div className={i === sel ? "text-ink-3" : "text-ink-2"}>leave {opt.leaveByText} · arrive {opt.arriveText}</div>
                   </button>
                 ))}
               </div>

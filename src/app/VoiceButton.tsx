@@ -152,10 +152,10 @@ export default function VoiceButton({ onChange, voiceActive }: { onChange?: () =
           onClick={live || state === "connecting" ? stop : start}
           disabled={state === "unavailable"}
           className={`flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-medium transition disabled:opacity-40 ${
-            live ? "bg-red-600 text-white" : "bg-zinc-900 text-white hover:bg-zinc-700"
+            live ? "bg-danger text-white" : "bg-primary text-white hover:bg-primary"
           }`}
         >
-          <span aria-hidden="true" className={`h-2 w-2 rounded-full bg-white ${live ? "animate-pulse" : ""}`} />
+          <span aria-hidden="true" className={`h-2 w-2 rounded-full bg-background ${live ? "animate-pulse" : ""}`} />
           {state === "connecting" ? "Connecting…" : live ? "End call" : "Talk to Orbit"}
         </button>
 
@@ -174,7 +174,7 @@ export default function VoiceButton({ onChange, voiceActive }: { onChange?: () =
             // callout/selection rules stop iOS offering to copy the label.
             style={{ touchAction: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" }}
             className={`select-none rounded-full px-6 py-3 text-sm font-medium transition ${
-              micOpen ? "bg-emerald-600 text-white shadow-inner" : "border border-zinc-300 text-zinc-700 hover:border-zinc-400"
+              micOpen ? "bg-build text-white shadow-inner" : "border border-line text-ink hover:border-line"
             }`}
           >
             {micOpen ? "Listening — release to send" : hasKeyboard ? "Hold to talk  (or hold space)" : "Hold to talk"}
@@ -182,13 +182,13 @@ export default function VoiceButton({ onChange, voiceActive }: { onChange?: () =
         )}
 
         {live && (
-          <label className="flex min-h-11 cursor-pointer items-center gap-1.5 text-xs text-zinc-500">
+          <label className="flex min-h-11 cursor-pointer items-center gap-1.5 text-xs text-ink-2">
             <input type="checkbox" checked={handsFree} onChange={toggleHandsFree} className="accent-zinc-900" />
             hands-free
           </label>
         )}
 
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-ink-2">
           {state === "unavailable"
             ? `Voice is off: ${note}. The briefing below is the same text it would read.`
             : live
@@ -199,19 +199,19 @@ export default function VoiceButton({ onChange, voiceActive }: { onChange?: () =
         </p>
       </div>
 
-      {note && state !== "unavailable" && <p role="alert" className="mt-2 text-xs break-words text-red-600">{note}</p>}
+      {note && state !== "unavailable" && <p role="alert" className="mt-2 text-xs break-words text-danger">{note}</p>}
 
       {lines.length > 0 ? (
         <ol className="mt-3 space-y-1.5 text-sm">
           {lines.map((l, i) => (
-            <li key={i} className={`break-words ${l.role === "you" ? "text-zinc-500" : "font-medium text-zinc-900"}`}>
-              <span className="mr-2 text-[10px] uppercase tracking-wide text-zinc-500">{l.role}</span>
+            <li key={i} className={`break-words ${l.role === "you" ? "text-ink-2" : "font-medium text-ink"}`}>
+              <span className="mr-2 text-[10px] uppercase tracking-wide text-ink-2">{l.role}</span>
               {l.text}
             </li>
           ))}
         </ol>
       ) : (
-        briefing && <p className="mt-3 border-l-2 border-zinc-200 pl-3 text-sm break-words italic text-zinc-600">{briefing}</p>
+        briefing && <p className="mt-3 border-l-2 border-line pl-3 text-sm break-words italic text-ink-2">{briefing}</p>
       )}
     </section>
   );

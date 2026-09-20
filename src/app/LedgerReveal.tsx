@@ -82,10 +82,10 @@ export default function LedgerReveal({ l, onReplay }: { l: LedgerNumbers; onRepl
   return (
     <section className="relative overflow-hidden rounded-2xl border p-5 md:col-span-2">
       <div className="flex items-start justify-between">
-        <h2 className="text-sm font-medium text-zinc-500">The honest ledger</h2>
+        <h2 className="text-sm font-medium text-ink-2">The honest ledger</h2>
         <button
           onClick={() => { run(); onReplay?.(); }}
-          className="min-h-11 rounded-full border px-4 text-xs text-zinc-500 transition hover:border-zinc-500 hover:text-zinc-800"
+          className="min-h-11 rounded-full border px-4 text-xs text-ink-2 transition hover:border-line hover:text-ink"
         >
           replay
         </button>
@@ -96,14 +96,14 @@ export default function LedgerReveal({ l, onReplay }: { l: LedgerNumbers; onRepl
           <div className={`text-5xl font-semibold tabular-nums tracking-tight transition-colors duration-500 ${done ? "text-primary" : "text-ink"}`}>
             {hm(display)}
           </div>
-          <div className="mt-1 text-xs text-zinc-500">
+          <div className="mt-1 text-xs text-ink-2">
             {done ? "what you actually have" : "counting what nobody counts"}
           </div>
         </div>
 
         <div className={`transition-opacity duration-500 ${shown > 0 ? "opacity-100" : "opacity-40"}`}>
-          <div className="text-2xl text-zinc-500 line-through tabular-nums">{hm(l.naiveFree)}</div>
-          <div className="mt-1 text-xs text-zinc-500">what your calendar claims</div>
+          <div className="text-2xl text-ink-2 line-through tabular-nums">{hm(l.naiveFree)}</div>
+          <div className="mt-1 text-xs text-ink-2">what your calendar claims</div>
         </div>
       </div>
 
@@ -114,12 +114,12 @@ export default function LedgerReveal({ l, onReplay }: { l: LedgerNumbers; onRepl
             className={`flex items-center gap-3 text-sm transition-all duration-500 ${i < shown ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}
           >
             <span className="w-14 text-right font-medium tabular-nums text-ink-2">-{s.minutes}</span>
-            <span className="text-zinc-600">{s.label}</span>
+            <span className="text-ink-2">{s.label}</span>
           </li>
         ))}
         <li className={`flex items-center gap-3 border-t pt-2 text-sm transition-opacity duration-700 ${done ? "opacity-100" : "opacity-0"}`}>
           <span className="w-14 text-right font-semibold tabular-nums">{lost}</span>
-          <span className="text-zinc-600">minutes your calendar never showed you</span>
+          <span className="text-ink-2">minutes your calendar never showed you</span>
         </li>
       </ul>
 

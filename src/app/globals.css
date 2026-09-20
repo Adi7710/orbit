@@ -8,9 +8,16 @@
  * web and a screenshot of the phone read as one product. docs/theme.md
  * section 2 records the contrast and colour-blindness check they passed.
  *
- * Light surface on purpose, and the system font on purpose: docs/theme.md
- * section 4. The system face ships instantly, scales with the OS, and cannot
- * drift from the phone.
+ * Dark mode from the start, both apps (docs/theme.md section 9). The greys
+ * are Apple's system greys so the web and the phone sit on the same ground
+ * in each appearance; the hues do not change between modes, because every
+ * one of them clears 3:1 on both white and black. Every token is defined on
+ * bare :root first: a colour whose only definition sits inside a media query
+ * renders one theme's text on the other theme's ground for everyone on the
+ * default "system" setting.
+ *
+ * The system font on purpose: docs/theme.md section 4. It ships instantly,
+ * scales with the OS, and cannot drift from the phone.
  */
 :root {
   --background: #ffffff;
@@ -32,7 +39,41 @@
   --life: #9a4dbf;
   --on-accent: #ffffff;
 
-  color-scheme: light;
+  /* A real system problem, and a destructive confirmation. Never the
+     student doing badly (docs/theme.md section 2.4). */
+  --warn: #8a5a00;
+  --danger: #9b2c2c;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: #000000;
+    --foreground: #f2f2f7;
+    --surface: #1c1c1e;
+    --surface-2: #2c2c2e;
+    --line: #38383a;
+    --ink: #f2f2f7;
+    --ink-2: #aeaeb2;
+    --ink-3: #8e8e93;
+    --warn: #e0a94d;
+    --danger: #e08585;
+  }
+}
+
+/* Repeated so an explicit toggle wins over the system setting. */
+:root[data-theme="dark"] {
+  --background: #000000;
+  --foreground: #f2f2f7;
+  --surface: #1c1c1e;
+  --surface-2: #2c2c2e;
+  --line: #38383a;
+  --ink: #f2f2f7;
+  --ink-2: #aeaeb2;
+  --ink-3: #8e8e93;
+  --warn: #e0a94d;
+  --danger: #e08585;
 }
 
 @theme inline {
@@ -51,6 +92,8 @@
   --color-build: var(--build);
   --color-body: var(--body);
   --color-life: var(--life);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
@@ -88,4 +131,16 @@ body {
   width: 44px !important;
   height: 44px !important;
   line-height: 44px !important;
+}
+
+/* OpenStreetMap tiles are light. In dark mode they are inverted and
+   hue-rotated back so roads read as roads and water stays blue, which is the
+   standard way to darken a raster basemap without a second tile provider. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9);
+  }
+}
+:root[data-theme="dark"] .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9);
 }

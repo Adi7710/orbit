@@ -198,11 +198,11 @@ export default function TodayClient() {
         {loadError ? (
           <>
             <h1 className="text-lg font-semibold">Could not load your day</h1>
-            <p className="mt-2 text-sm text-zinc-600">{loadError}</p>
+            <p className="mt-2 text-sm text-ink-2">{loadError}</p>
             <button onClick={refresh} className="mt-4 min-h-11 rounded-full bg-primary px-4 text-sm text-white">Try again</button>
           </>
         ) : (
-          <p className="text-zinc-500">Loading your day…</p>
+          <p className="text-ink-2">Loading your day…</p>
         )}
       </main>
     );
@@ -214,10 +214,10 @@ export default function TodayClient() {
           <h1 className="text-2xl font-semibold tracking-tight">
             Hey {t.user.name}! Welcome to your Orbit
           </h1>
-          <p className="text-sm text-zinc-500">Your calendar lies about how much time you have. Orbit doesn&apos;t.</p>
-          <p className="mt-1 text-sm break-words text-zinc-600">
+          <p className="text-sm text-ink-2">Your calendar lies about how much time you have. Orbit doesn&apos;t.</p>
+          <p className="mt-1 text-sm break-words text-ink-2">
             <span className="font-medium">{t.modeConfig.name}</span>
-            <span className="text-zinc-500"> · {t.modeConfig.difficulty} · {t.modeConfig.promise}</span>
+            <span className="text-ink-2"> · {t.modeConfig.difficulty} · {t.modeConfig.promise}</span>
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm">
@@ -229,7 +229,7 @@ export default function TodayClient() {
       </header>
 
       {actionError && (
-        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm break-words text-red-700 md:col-span-3">
+        <p role="alert" className="rounded-xl border border-danger bg-danger/10 px-4 py-2 text-sm break-words text-danger md:col-span-3">
           {actionError}
         </p>
       )}
@@ -248,22 +248,22 @@ export default function TodayClient() {
       {/* Need versus have. Chill never shows it; Normal only when the day does
           not fit; Crisis always, because in Crisis it is the question. */}
       {t.feasibility && (t.modeConfig.feasibilityMode === "always" || (t.modeConfig.feasibilityMode === "suggest-on-shortfall" && t.feasibility.shortfallMin > 0)) && (
-        <section className={`rounded-2xl border p-5 md:col-span-1 ${t.feasibility.shortfallMin > 0 ? "border-red-200 bg-red-50/50" : ""}`}>
-          <h2 className="text-sm font-medium text-zinc-500">Will it fit?</h2>
-          <p className={`mt-2 text-sm break-words ${t.feasibility.shortfallMin > 0 ? "text-red-700" : "text-emerald-700"}`}>{t.feasibility.message}</p>
-          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-200" role="img" aria-label={`${t.feasibility.needMin} minutes of work against ${t.feasibility.haveMin} minutes of windows`}>
+        <section className={`rounded-2xl border p-5 md:col-span-1 ${t.feasibility.shortfallMin > 0 ? "border-danger bg-danger/10" : ""}`}>
+          <h2 className="text-sm font-medium text-ink-2">Will it fit?</h2>
+          <p className={`mt-2 text-sm break-words ${t.feasibility.shortfallMin > 0 ? "text-danger" : "text-build"}`}>{t.feasibility.message}</p>
+          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-surface-2" role="img" aria-label={`${t.feasibility.needMin} minutes of work against ${t.feasibility.haveMin} minutes of windows`}>
             <div
-              className={`h-full rounded-full ${t.feasibility.shortfallMin > 0 ? "bg-red-500" : "bg-emerald-600"}`}
+              className={`h-full rounded-full ${t.feasibility.shortfallMin > 0 ? "bg-danger" : "bg-build"}`}
               style={{ width: `${Math.min(100, t.feasibility.haveMin ? (t.feasibility.needMin / t.feasibility.haveMin) * 100 : 0)}%` }}
             />
           </div>
-          <p className="mt-1.5 text-xs text-zinc-500 tabular-nums">{t.feasibility.needMin} min of work · {t.feasibility.haveMin} min of windows before the last deadline</p>
+          <p className="mt-1.5 text-xs text-ink-2 tabular-nums">{t.feasibility.needMin} min of work · {t.feasibility.haveMin} min of windows before the last deadline</p>
         </section>
       )}
 
       {t.deadlines.length > 0 && t.modeConfig.deadlineMode !== "quiet-line" && (
         <section className={`rounded-2xl border p-5 ${t.modeConfig.deadlineMode === "drive-day" ? "md:col-span-2" : ""}`}>
-          <h2 className="text-sm font-medium text-zinc-500">
+          <h2 className="text-sm font-medium text-ink-2">
             {t.modeConfig.deadlineMode === "drive-day" ? "What is due, tightest first" : "Due soon"}
           </h2>
           <ol className="mt-2 space-y-1.5 text-sm">
@@ -272,10 +272,10 @@ export default function TodayClient() {
               return (
                 <li key={d.id} className="flex items-baseline justify-between gap-3">
                   <span className="min-w-0 break-words">
-                    {d.courseCode && <span className="mr-1.5 text-xs text-zinc-500">{d.courseCode}</span>}
+                    {d.courseCode && <span className="mr-1.5 text-xs text-ink-2">{d.courseCode}</span>}
                     {d.title}
                   </span>
-                  <span className={`shrink-0 text-xs tabular-nums ${d.overdue ? "text-red-600" : v && !v.fits ? "text-red-600" : "text-zinc-500"}`}>
+                  <span className={`shrink-0 text-xs tabular-nums ${d.overdue ? "text-danger" : v && !v.fits ? "text-danger" : "text-ink-2"}`}>
                     {d.remainingEffortMin} min · due {d.dueText}
                     {v && !v.fits ? ` · ${Math.abs(v.slackMin)} short` : ""}
                   </span>
@@ -287,43 +287,43 @@ export default function TodayClient() {
       )}
 
       {t.modeConfig.deadlineMode === "quiet-line" && t.deadlines.length > 0 && (
-        <p className="text-sm break-words text-zinc-500 md:col-span-3">
+        <p className="text-sm break-words text-ink-2 md:col-span-3">
           {t.deadlines.length} thing{t.deadlines.length === 1 ? "" : "s"} due in the next three days. Nothing is on fire.
         </p>
       )}
       {t.cuts.length > 0 && (
-        <section className="rounded-2xl border border-red-200 bg-red-50/50 p-5 md:col-span-2">
+        <section className="rounded-2xl border border-danger bg-danger/10 p-5 md:col-span-2">
           <h2 className="text-sm font-medium text-ink-2">The day will not fit. Cheapest way back:</h2>
-          <ul className="mt-2 text-sm text-zinc-700">{t.cuts.map((c) => <li key={c.task.title}>Drop <b>{c.task.title}</b> · saves {c.minutesSaved} min · {c.reason}</li>)}</ul>
+          <ul className="mt-2 text-sm text-ink">{t.cuts.map((c) => <li key={c.task.title}>Drop <b>{c.task.title}</b> · saves {c.minutesSaved} min · {c.reason}</li>)}</ul>
         </section>
       )}
 
       <section className="rounded-2xl border p-5">
         <div className="flex items-baseline justify-between gap-2">
-          <h2 className="text-sm font-medium text-zinc-500">Bus</h2>
-          <span className="text-[11px] text-zinc-500">
+          <h2 className="text-sm font-medium text-ink-2">Bus</h2>
+          <span className="text-[11px] text-ink-2">
             {t.transit.simulated ? `demo clock ${t.transit.clockText}` : t.transit.realtimeOk ? "PRT live" : "timetable only"}
           </span>
         </div>
 
         {t.bus ? (
-          <a href={t.bus.mapHref} className="group mt-2 block rounded-xl transition hover:bg-zinc-50">
-            <div className="text-xs text-zinc-500">{t.bus.from} → {t.bus.to} · {t.bus.why}</div>
+          <a href={t.bus.mapHref} className="group mt-2 block rounded-xl transition hover:bg-surface">
+            <div className="text-xs text-ink-2">{t.bus.from} → {t.bus.to} · {t.bus.why}</div>
             <div className="mt-1 flex items-baseline gap-2">
               <span className="text-3xl font-semibold tracking-tight">{t.bus.leaveByText}</span>
-              <span className="text-sm text-zinc-500">leave by</span>
+              <span className="text-sm text-ink-2">leave by</span>
             </div>
 
             {t.bus.verdict && (
-              <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-white ${!t.bus.verdict.makesIt ? "bg-red-500" : t.bus.verdict.marginMin < 5 ? "bg-amber-500" : "bg-emerald-600"}`}>
-                <span className="h-1.5 w-1.5 rounded-full bg-white/90" />
+              <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-white ${!t.bus.verdict.makesIt ? "bg-danger" : t.bus.verdict.marginMin < 5 ? "bg-warn" : "bg-build"}`}>
+                <span className="h-1.5 w-1.5 rounded-full bg-background/90" />
                 {t.bus.verdict.makesIt ? `you make ${t.bus.classAtText} with ${t.bus.verdict.marginMin} min to spare` : `${Math.abs(t.bus.verdict.marginMin)} min late for ${t.bus.classAtText}`}
               </div>
             )}
 
-            <ol className="mt-3 space-y-1 text-xs text-zinc-600">
-              <li className="flex gap-2"><span aria-hidden="true" className="w-4">🚶</span><span className="w-10 tabular-nums text-zinc-500">{t.bus.walkToStop}m</span><span className="truncate">to {t.bus.stopName.toLowerCase()}</span></li>
-              <li className="flex gap-2"><span aria-hidden="true" className="w-4">🚌</span><span className="w-10 tabular-nums text-zinc-500">{t.bus.departsText}</span>
+            <ol className="mt-3 space-y-1 text-xs text-ink-2">
+              <li className="flex gap-2"><span aria-hidden="true" className="w-4">🚶</span><span className="w-10 tabular-nums text-ink-2">{t.bus.walkToStop}m</span><span className="truncate">to {t.bus.stopName.toLowerCase()}</span></li>
+              <li className="flex gap-2"><span aria-hidden="true" className="w-4">🚌</span><span className="w-10 tabular-nums text-ink-2">{t.bus.departsText}</span>
                 <span className="truncate">
                   <b>{t.bus.route}</b>
                   {t.bus.live && <span className="ml-1 text-build">live{t.bus.delaySec && Math.abs(t.bus.delaySec) > 59 ? `, ${Math.abs(Math.round(t.bus.delaySec / 60))} min ${t.bus.delaySec > 0 ? "late" : "early"}` : ""}</span>}
@@ -331,25 +331,25 @@ export default function TodayClient() {
                   {t.bus.vehicleKm !== null && <span className="ml-1 text-ink-3">· {t.bus.vehicleKm} km out</span>}
                 </span>
               </li>
-              <li className="flex gap-2"><span aria-hidden="true" className="w-4">🪑</span><span className="w-10 tabular-nums text-zinc-500">{t.bus.rideMinutes}m</span><span className="truncate">to {t.bus.alightName.toLowerCase()}</span></li>
-              <li className="flex gap-2"><span aria-hidden="true" className="w-4">🚶</span><span className="w-10 tabular-nums text-zinc-500">{t.bus.walkToDest}m</span><span>to {t.bus.to}</span></li>
-              <li className="flex gap-2 font-medium text-zinc-800"><span aria-hidden="true" className="w-4">🎓</span><span className="w-10 tabular-nums">{t.bus.arrivalText}</span><span>arrive</span></li>
+              <li className="flex gap-2"><span aria-hidden="true" className="w-4">🪑</span><span className="w-10 tabular-nums text-ink-2">{t.bus.rideMinutes}m</span><span className="truncate">to {t.bus.alightName.toLowerCase()}</span></li>
+              <li className="flex gap-2"><span aria-hidden="true" className="w-4">🚶</span><span className="w-10 tabular-nums text-ink-2">{t.bus.walkToDest}m</span><span>to {t.bus.to}</span></li>
+              <li className="flex gap-2 font-medium text-ink"><span aria-hidden="true" className="w-4">🎓</span><span className="w-10 tabular-nums">{t.bus.arrivalText}</span><span>arrive</span></li>
             </ol>
 
-            <div className="mt-3 flex items-center gap-1 text-xs font-medium text-zinc-500 group-hover:text-zinc-900">
+            <div className="mt-3 flex items-center gap-1 text-xs font-medium text-ink-2 group-hover:text-ink">
               Open the map <span className="transition group-hover:translate-x-0.5">›</span>
             </div>
           </a>
         ) : (
-          <div className="mt-2 text-sm text-zinc-500">No bus leg right now. Everything today is a walk.</div>
+          <div className="mt-2 text-sm text-ink-2">No bus leg right now. Everything today is a walk.</div>
         )}
 
         {t.arrivals.length > 1 && (
-          <ul className="mt-3 border-t pt-2 text-xs text-zinc-500">
+          <ul className="mt-3 border-t pt-2 text-xs text-ink-2">
             {t.arrivals.slice(1).map((a) => (
               <li key={a.route + a.text} className={`flex justify-between ${a.status === "ghost" ? "line-through opacity-60" : ""}`}>
                 <span>{a.route} {a.text}{a.status === "live" ? " · live" : ""}</span>
-                <span className="text-zinc-500">leave {a.leaveByText}</span>
+                <span className="text-ink-2">leave {a.leaveByText}</span>
               </li>
             ))}
           </ul>
@@ -358,24 +358,24 @@ export default function TodayClient() {
 
       <section className="rounded-2xl border p-5 md:col-span-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-medium text-zinc-500">
+          <h2 className="text-sm font-medium text-ink-2">
             {t.modeConfig.questStrategy === "deadline-blocks" ? "Gaps and the work that goes in them" : t.modeConfig.questsOptional ? "Gaps, and one thing if you want it" : "Gaps and quests"}
           </h2>
           <button disabled={busy} onClick={plan} className="min-h-11 shrink-0 rounded-full bg-primary px-4 text-sm text-white disabled:opacity-50">{busy ? "Thinking…" : "Plan my day"}</button>
         </div>
-        {narration && <p className="mt-2 text-sm italic break-words text-zinc-600">{narration}</p>}
+        {narration && <p className="mt-2 text-sm italic break-words text-ink-2">{narration}</p>}
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {t.gaps.map((g) => (
-            <div key={g.id} className="rounded-xl bg-zinc-50 p-4">
+            <div key={g.id} className="rounded-xl bg-surface p-4">
               <div className="text-lg font-semibold">{g.startText} → {g.endText}</div>
-              <div className="text-xs text-zinc-500">{g.usable} usable min · from {g.fromPlace}{g.isEvening ? " · evening" : ""}</div>
+              <div className="text-xs text-ink-2">{g.usable} usable min · from {g.fromPlace}{g.isEvening ? " · evening" : ""}</div>
               {t.workBlocks.filter((b) => b.gapId === g.id).map((b) => (
-                <div key={b.deadlineId + b.startText} className="mt-2 rounded-lg bg-white p-2 text-sm">
+                <div key={b.deadlineId + b.startText} className="mt-2 rounded-lg bg-background p-2 text-sm">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="min-w-0 break-words font-medium">{b.title}</span>
-                    <span className="shrink-0 text-xs tabular-nums text-zinc-500">{b.startText}–{b.endText}</span>
+                    <span className="shrink-0 text-xs tabular-nums text-ink-2">{b.startText}–{b.endText}</span>
                   </div>
-                  <div className="text-xs text-zinc-500">{b.minutes} min{b.completes ? " · finishes it" : " · part of it"}</div>
+                  <div className="text-xs text-ink-2">{b.minutes} min{b.completes ? " · finishes it" : " · part of it"}</div>
                 </div>
               ))}
               {g.pick ? (
@@ -397,15 +397,15 @@ export default function TodayClient() {
                       onKeyDown={(e) => { if (e.key === "Escape") setLogging(null); }}
                       className="min-h-11 w-20 rounded-xl border px-2 text-sm tabular-nums"
                     />
-                    <span className="text-xs text-zinc-600">min it took</span>
-                    <button type="submit" className="ml-auto min-h-11 rounded-full bg-zinc-900 px-4 text-xs text-white">Log</button>
-                    <button type="button" onClick={() => setLogging(null)} className="min-h-11 rounded-full px-2 text-xs text-zinc-600">Cancel</button>
+                    <span className="text-xs text-ink-2">min it took</span>
+                    <button type="submit" className="ml-auto min-h-11 rounded-full bg-primary px-4 text-xs text-white">Log</button>
+                    <button type="button" onClick={() => setLogging(null)} className="min-h-11 rounded-full px-2 text-xs text-ink-2">Cancel</button>
                   </form>
                 ) : (
                   <div className="mt-2 flex items-center justify-between gap-2 text-sm">
                     <span className="min-w-0 break-words">
                       {g.pick.title}
-                      {t.modeConfig.questsOptional && <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 text-[10px] font-medium tracking-wide text-zinc-600 uppercase">optional</span>}
+                      {t.modeConfig.questsOptional && <span className="ml-2 rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-medium tracking-wide text-ink-2 uppercase">optional</span>}
                     </span>
                     <button
                       onClick={() => setLogging({ taskId: g.pick!.id, minutes: String(g.pick!.estimateMinutes) })}
@@ -415,48 +415,48 @@ export default function TodayClient() {
                     </button>
                   </div>
                 )
-              ) : <div className="mt-2 text-sm text-zinc-500">Nothing fits. Enjoy it.</div>}
+              ) : <div className="mt-2 text-sm text-ink-2">Nothing fits. Enjoy it.</div>}
             </div>
           ))}
         </div>
-        <ul className="mt-3 space-y-1 text-sm">{t.quests.map((q) => <li key={q.id} className="flex justify-between gap-3"><span className="min-w-0 break-words">{q.title}</span><span className="shrink-0 text-amber-700">+{q.xp} XP · by {q.expiresText}</span></li>)}</ul>
-        {t.quests.length === 0 && <p className="mt-3 text-sm text-zinc-500">No quests yet. They appear once the day has a plan.</p>}
+        <ul className="mt-3 space-y-1 text-sm">{t.quests.map((q) => <li key={q.id} className="flex justify-between gap-3"><span className="min-w-0 break-words">{q.title}</span><span className="shrink-0 text-warn">+{q.xp} XP · by {q.expiresText}</span></li>)}</ul>
+        {t.quests.length === 0 && <p className="mt-3 text-sm text-ink-2">No quests yet. They appear once the day has a plan.</p>}
       </section>
 
       <section className="rounded-2xl border p-5">
-        <h2 className="text-sm font-medium text-zinc-500">Free with you</h2>
-        {t.shared.length ? t.shared.map((w) => <div key={w.startText + w.names.join()} className="mt-2 text-sm"><b>{w.names.join(" & ")}</b> · {w.startText}–{w.endText} ({w.minutes} min)</div>) : <div className="mt-2 text-sm text-zinc-500">No overlaps today.</div>}
-        <h2 className="mt-5 text-sm font-medium text-zinc-500">Crew this week</h2>
+        <h2 className="text-sm font-medium text-ink-2">Free with you</h2>
+        {t.shared.length ? t.shared.map((w) => <div key={w.startText + w.names.join()} className="mt-2 text-sm"><b>{w.names.join(" & ")}</b> · {w.startText}–{w.endText} ({w.minutes} min)</div>) : <div className="mt-2 text-sm text-ink-2">No overlaps today.</div>}
+        <h2 className="mt-5 text-sm font-medium text-ink-2">Crew this week</h2>
         <ol className="mt-2 text-sm">{board.map((r) => <li key={r.name} className="flex justify-between gap-3"><span className="min-w-0 truncate">{r.rank}. {r.name}</span><span className="shrink-0">{r.xpWeek} XP · {r.streakWeeks}wk</span></li>)}</ol>
-        {board.length === 0 && <p className="mt-2 text-sm text-zinc-500">{boardError ? "The board did not load." : "Nobody on the board yet."}</p>}
+        {board.length === 0 && <p className="mt-2 text-sm text-ink-2">{boardError ? "The board did not load." : "Nobody on the board yet."}</p>}
       </section>
 
       <section className="rounded-2xl border p-5 md:col-span-2">
-        <h2 className="text-sm font-medium text-zinc-500">Proposals (the agent proposes, you decide)</h2>
+        <h2 className="text-sm font-medium text-ink-2">Proposals (the agent proposes, you decide)</h2>
         <ul className="mt-2 space-y-2">
           {t.proposals.filter((p) => p.status === "pending").map((p) => (
-            <li key={p.id} className="rounded-xl bg-zinc-50 p-3 text-sm">
+            <li key={p.id} className="rounded-xl bg-surface p-3 text-sm">
               <div className="font-medium">{p.proposal.kind.replace("_", " ")}{p.proposal.building ? ` · ${p.proposal.building}` : ""}{p.proposal.to ? ` · to ${p.proposal.to}` : ""}</div>
-              <div className="break-words text-zinc-600">{p.proposal.reason}</div>
-              {p.proposal.body && <pre className="mt-1 overflow-x-auto rounded bg-white p-2 text-xs break-words whitespace-pre-wrap">{p.proposal.body}</pre>}
+              <div className="break-words text-ink-2">{p.proposal.reason}</div>
+              {p.proposal.body && <pre className="mt-1 overflow-x-auto rounded bg-background p-2 text-xs break-words whitespace-pre-wrap">{p.proposal.body}</pre>}
               {p.proposal.message && <div className="mt-1 text-xs break-words">“{p.proposal.message}”</div>}
               <div className="mt-2 flex gap-2"><button onClick={() => decide(p.id, "approve")} className="min-h-11 rounded-full bg-build px-4 text-xs text-white">Approve</button><button onClick={() => decide(p.id, "decline")} className="min-h-11 rounded-full border px-4 text-xs">Decline</button></div>
             </li>
           ))}
-          {t.proposals.filter((p) => p.status === "pending").length === 0 && <li className="text-sm text-zinc-500">Nothing pending. Hit “Plan my day”.</li>}
+          {t.proposals.filter((p) => p.status === "pending").length === 0 && <li className="text-sm text-ink-2">Nothing pending. Hit “Plan my day”.</li>}
         </ul>
       </section>
 
       <section className="rounded-2xl border p-5">
-        <h2 className="text-sm font-medium text-zinc-500">Calibration</h2>
+        <h2 className="text-sm font-medium text-ink-2">Calibration</h2>
         <ul className="mt-2 text-sm">{t.calibration.map((c) => <li key={c.key}>{c.key.replace("::", " · ")}: ×{c.multiplier.toFixed(2)} ({c.samples} sessions)</li>)}</ul>
-        <h2 className="mt-5 text-sm font-medium text-zinc-500">Timeline</h2>
-        <ul tabIndex={0} aria-label="Event timeline" className="mt-2 max-h-48 overflow-auto text-xs text-zinc-600">{t.events.map((e) => <li key={e.seq}>{new Date(e.ts).toLocaleTimeString()} · {e.actor} · {e.type}</li>)}</ul>
+        <h2 className="mt-5 text-sm font-medium text-ink-2">Timeline</h2>
+        <ul tabIndex={0} aria-label="Event timeline" className="mt-2 max-h-48 overflow-auto text-xs text-ink-2">{t.events.map((e) => <li key={e.seq}>{new Date(e.ts).toLocaleTimeString()} · {e.actor} · {e.type}</li>)}</ul>
       </section>
 
       <section className="rounded-2xl border p-5 md:col-span-3">
-        <h2 className="text-sm font-medium text-zinc-500">Bring your own calendar</h2>
-        <p className="mt-1 text-xs text-zinc-500">Paste the .ics links from your timetable and from Canvas. Links are fetched by the server and only https is accepted.</p>
+        <h2 className="text-sm font-medium text-ink-2">Bring your own calendar</h2>
+        <p className="mt-1 text-xs text-ink-2">Paste the .ics links from your timetable and from Canvas. Links are fetched by the server and only https is accepted.</p>
         <div className="mt-3 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
           <input value={timetableUrl} onChange={(e) => setTimetableUrl(e.target.value)} placeholder="Timetable .ics link" aria-label="Timetable .ics link" className="min-h-11 rounded-xl border px-3 text-sm" />
           <input value={canvasUrl} onChange={(e) => setCanvasUrl(e.target.value)} placeholder="Canvas calendar .ics link" aria-label="Canvas calendar .ics link" className="min-h-11 rounded-xl border px-3 text-sm" />
@@ -465,11 +465,11 @@ export default function TodayClient() {
             <button disabled={importing} onClick={() => importCalendars(true)} className="min-h-11 rounded-full border px-4 text-sm disabled:opacity-50">Use sample data</button>
           </div>
         </div>
-        {importNote && <p className="mt-2 text-sm break-words text-zinc-600">{importNote}</p>}
+        {importNote && <p className="mt-2 text-sm break-words text-ink-2">{importNote}</p>}
       </section>
 
       <section className="rounded-2xl border p-5 md:col-span-3">
-        <h2 className="text-sm font-medium text-zinc-500">Where the day went, under {t.modeConfig.name}&apos;s rules</h2>
+        <h2 className="text-sm font-medium text-ink-2">Where the day went, under {t.modeConfig.name}&apos;s rules</h2>
         <p className="mt-2 text-sm break-words text-ink-2">{t.wrapUpText}</p>
         {t.stats && (
           <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-ink-3 sm:grid-cols-4">

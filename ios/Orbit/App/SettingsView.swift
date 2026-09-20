@@ -11,6 +11,8 @@ struct SettingsView: View {
     @State private var user: Today.User?
     @State private var confirmingReset = false
     @State private var note: String?
+    @State private var checking = false
+    @State private var checkLines: [String] = []
 
     private var serverURL: String {
         (Bundle.main.object(forInfoDictionaryKey: "ORBIT_API_BASE") as? String) ?? "http://localhost:3123"
@@ -29,6 +31,34 @@ struct SettingsView: View {
                     row("Region", "Jersey City → Stevens")
                     row("Voice", "George")
                     row("Server", serverURL)
+                }
+
+                // When voice does not work, this says which of the three
+                // steps failed: reaching the server, minting the token, or
+                // getting audio back. Three lines beat a dead button.
+                Section {
+                    Button {
+                        Task {
+                            checking = true
+                            checkLines = await OrbitAPI.shared.checkConnection()
+                            checking = false
+                        }
+                    } label: {
+                        HStack {
+                            Text(checking ? "Checking…" : "Check connection")
+                            if checking { Spacer(); ProgressView() }
+                        }
+                    }
+                    .disabled(checking)
+                    ForEach(checkLines, id: \.self) { line in
+                        Text(line)
+                            .font(.footnote)
+                            .foregroundStyle(OrbitClassic.inkSoft)
+                    }
+                } header: {
+                    Text("Connection")
+                } footer: {
+                    Text("Voice needs all three: the server, a token, and audio. Microphone permission is asked for separately, the first time you hold the button.")
                 }
 
                 Section {

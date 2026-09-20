@@ -105,39 +105,39 @@ export default function EmailModal({ pending, onDone }: { pending?: Pending; onD
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-900/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Email draft"
       onMouseDown={(e) => { if (e.target === e.currentTarget) void close("decline"); }}
     >
-      <div ref={panel} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl">
+      <div ref={panel} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-background p-5 shadow-xl sm:rounded-2xl">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-zinc-900">Orbit wrote this for you</h2>
-            <p className="mt-0.5 text-xs text-zinc-500">
+            <h2 className="text-sm font-semibold text-ink">Orbit wrote this for you</h2>
+            <p className="mt-0.5 text-xs text-ink-2">
               {pending.proposal.reason}. Edit anything — nothing has been sent.
             </p>
           </div>
-          <button ref={closer} onClick={() => close("decline")} disabled={busy} className="min-h-11 min-w-11 shrink-0 rounded-full px-2 text-lg leading-none text-zinc-500 hover:text-zinc-900" aria-label="Discard draft">×</button>
+          <button ref={closer} onClick={() => close("decline")} disabled={busy} className="min-h-11 min-w-11 shrink-0 rounded-full px-2 text-lg leading-none text-ink-2 hover:text-ink" aria-label="Discard draft">×</button>
         </div>
 
-        <label className="mt-4 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">To</label>
+        <label className="mt-4 block text-[11px] font-medium uppercase tracking-wide text-ink-2">To</label>
         <div className="mt-1 flex flex-wrap gap-2">
           <input value={to} onChange={(e) => setTo(e.target.value)} className="min-h-11 min-w-0 flex-1 rounded-xl border px-3 text-sm" aria-label="Recipient" />
-          <button onClick={saveAddress} className="min-h-11 rounded-full border px-4 text-xs text-zinc-600 hover:border-zinc-500">Remember for this course</button>
+          <button onClick={saveAddress} className="min-h-11 rounded-full border px-4 text-xs text-ink-2 hover:border-line">Remember for this course</button>
         </div>
         {synthetic && (
-          <p className="mt-1.5 text-xs text-amber-700">
+          <p className="mt-1.5 text-xs text-warn">
             This is a sample address on <code>example.edu</code> and cannot receive mail. Put a real one in to actually send — your own address is the safest way to test.
           </p>
         )}
-        {saved && <p className="mt-1.5 text-xs text-emerald-700">{saved}</p>}
+        {saved && <p className="mt-1.5 text-xs text-build">{saved}</p>}
 
-        <label className="mt-3 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Subject</label>
+        <label className="mt-3 block text-[11px] font-medium uppercase tracking-wide text-ink-2">Subject</label>
         <input value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-1 min-h-11 w-full rounded-xl border px-3 text-sm" aria-label="Subject" />
 
-        <label className="mt-3 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Message</label>
+        <label className="mt-3 block text-[11px] font-medium uppercase tracking-wide text-ink-2">Message</label>
         <textarea
           ref={bodyRef}
           value={body}
@@ -151,19 +151,19 @@ export default function EmailModal({ pending, onDone }: { pending?: Pending; onD
           <button onClick={() => open(outlook)} disabled={busy || !to.trim()} className="rounded-full bg-[#0f6cbd] px-4 py-2 text-sm font-medium text-white disabled:opacity-40">
             Open in Outlook
           </button>
-          <button onClick={() => open(mailto)} disabled={busy || !to.trim()} className="rounded-full border px-4 py-2 text-sm hover:border-zinc-400 disabled:opacity-40">
+          <button onClick={() => open(mailto)} disabled={busy || !to.trim()} className="rounded-full border px-4 py-2 text-sm hover:border-line disabled:opacity-40">
             Open in mail app
           </button>
           <button
             onClick={() => { void navigator.clipboard?.writeText(`To: ${to}\nSubject: ${subject}\n\n${body}`).then(() => setSaved("Copied")).catch(() => setSaved("could not copy")); }}
-            className="rounded-full border px-4 py-2 text-sm hover:border-zinc-400"
+            className="rounded-full border px-4 py-2 text-sm hover:border-line"
           >
             Copy
           </button>
-          <button onClick={() => close("decline")} disabled={busy} className="ml-auto min-h-11 px-2 text-sm text-zinc-500 hover:text-zinc-900">Discard</button>
+          <button onClick={() => close("decline")} disabled={busy} className="ml-auto min-h-11 px-2 text-sm text-ink-2 hover:text-ink">Discard</button>
         </div>
 
-        <p className="mt-3 text-[11px] leading-relaxed text-zinc-500">
+        <p className="mt-3 text-[11px] leading-relaxed text-ink-2">
           Orbit holds no mailbox credential and cannot send on your behalf. Both buttons open the message in your own client, from your own address, with Send still yours to press.
         </p>
       </div>
