@@ -127,6 +127,10 @@ export async function judge(c: Candidate): Promise<Judgement> {
     ].join("\n"),
     schema,
     () => ({ ...fb.scores, note: fb.note }),
+    // The rule-based judge is the floor and it is instant. The model may
+    // sharpen a verdict within a few seconds or not at all; the self-eval
+    // asks 24 questions in a row and cannot spend fifteen seconds on each.
+    4000,
   );
 
   const clamp = (n: number) => Math.max(0, Math.min(5, Math.round(Number(n) || 0)));

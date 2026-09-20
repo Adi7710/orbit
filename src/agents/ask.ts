@@ -148,12 +148,27 @@ export async function ask(question: string, today: TodayLike): Promise<Answer> {
     } catch { /* fall through */ }
   }
 
-  if (!text && process.env.NVIDIA_API_KEY) {
+  // Off unless asked for. First live run with a key, "When do I need to
+  // leave?" was handed the fact "your next class starts at 9:05, so there is
+  // nothing to leave for" and came back "You need to leave at nine oh five."
+  // The number was licensed, so the arithmetic check passed it, and the
+  // meaning was inverted -- the same backwards-description failure the
+  // weekly learner showed in two aspects. Rewording a spoken fact is a chat
+  // job, and it is the one job the model is not trusted with here. Nemotron
+  // keeps the non-chat work: planning, estimating, parsing, judging,
+  // learning.
+  if (!text && process.env.NVIDIA_API_KEY && process.env.ORBIT_ASK_MODEL === "nemotron") {
+    // The facts already answer the question; the model only rewords them.
+    // So it gets a short budget, not the default: with the key present, the
+    // voice tool waited 15 s for a timeout and then spoke the same facts it
+    // could have spoken at once. A person asking their schedule a question
+    // will not wait fifteen seconds for nicer phrasing.
     const r = await nemotronJson<{ answer: string }>(
       SYSTEM + " Reply as JSON: {\"answer\": string}.",
       prompt,
       { type: "object", properties: { answer: { type: "string" } }, required: ["answer"], additionalProperties: false },
       () => ({ answer: "" }),
+      2500,
     );
     if (r.provider !== "heuristic" && r.data.answer) { text = String(r.data.answer).trim(); provider = "nemotron"; }
   }
