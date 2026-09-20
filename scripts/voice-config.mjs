@@ -54,8 +54,55 @@ export const TURN = {
 export const TTS = {
   optimize_streaming_latency: 1,
   speed: 0.95,
-  stability: 0.45,
+  /**
+   * `stability` is a trade, not a quality dial. Low is expressive but wobbles
+   * between sentences; high is steady but flat and reads as synthetic. 0.5 is
+   * the point where it stays recognisably the same person across a turn
+   * without going monotone.
+   *
+   * `similarity_boost` is what actually stops it sounding generic: it holds
+   * the timbre of the chosen voice instead of drifting toward the model's
+   * average. It was absent entirely, which is a large part of why the output
+   * sounded like a text-to-speech engine rather than a person.
+   *
+   * `style` above 0 adds intonation and costs latency. A little is the
+   * difference between reading a sentence and meaning it.
+   */
+  stability: 0.5,
+  similarity_boost: 0.8,
+  style: 0.25,
+  use_speaker_boost: true,
 };
+
+/**
+ * Which voice, in order of preference.
+ *
+ * No voice was ever chosen, so the agent used whatever ElevenLabs hands out by
+ * default. These are resolved by name against the account's actual voice list
+ * at setup time rather than pinned to an id, because ids differ between
+ * accounts and a wrong one fails silently back to the default.
+ *
+ * The brief from docs/voice.md: someone who keeps your diary and is walking
+ * next to you. Warm, unhurried, not a newsreader and not a customer-service
+ * bot.
+ */
+export const VOICE_PREFERENCES = ["Matilda", "Jessica", "Charlotte", "Sarah", "Lily", "Rachel", "Bella", "Alice"];
+
+/**
+ * Picks the first preferred voice the account actually has. Returns undefined
+ * rather than guessing when none match, so the caller can say so out loud
+ * instead of shipping the default voice a second time.
+ */
+export async function resolveVoiceId(listVoices) {
+  const voices = await listVoices();
+  const byName = new Map(voices.map((v) => [String(v.name ?? "").toLowerCase(), v]));
+  for (const want of VOICE_PREFERENCES) {
+    const hit = byName.get(want.toLowerCase());
+    if (hit) return { voice_id: hit.voice_id ?? hit.id, name: hit.name };
+  }
+  const first = voices[0];
+  return first ? { voice_id: first.voice_id ?? first.id, name: first.name, fallback: true } : undefined;
+}
 
 /**
  * The words. The hard rule about numbers is unchanged and never softens:

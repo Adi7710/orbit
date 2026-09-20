@@ -12,7 +12,7 @@
  * the webhook URL changes every time the tunnel rotates.
  */
 import fs from "node:fs";
-import { FIRST_MESSAGE, SYSTEM_PROMPT, conversationConfig } from "./voice-config.mjs";
+import { FIRST_MESSAGE, SYSTEM_PROMPT, conversationConfig, resolveVoiceId } from "./voice-config.mjs";
 
 const API = "https://api.elevenlabs.io/v1";
 const ENV = ".env.local";
@@ -121,7 +121,11 @@ const TOOLS = [
 
 const LLM_CANDIDATES = ["claude-sonnet-4-5", "claude-3-7-sonnet", "claude-3-5-sonnet", "gemini-2.5-flash", "gpt-4o"];
 // English agents are restricted to the turbo/flash v2 families.
-const TTS_CANDIDATES = ["eleven_flash_v2", "eleven_turbo_v2", "eleven_flash_v2_5", "eleven_turbo_v2_5"];
+// Ordered by how human it sounds, not by how fast it starts. Flash is the
+// latency-optimised family: it commits to the start of a sentence before it
+// knows the shape of the end, which is what made the agent sound clipped and
+// synthetic. Turbo keeps the prosody for a delay nobody notices in a room.
+const TTS_CANDIDATES = ["eleven_turbo_v2_5", "eleven_turbo_v2", "eleven_flash_v2_5", "eleven_flash_v2"];
 
 async function main() {
   console.log(`webhook base: ${BASE}`);
@@ -175,6 +179,10 @@ async function main() {
     console.log(`  tool ${t.name} -> ${id}`);
   }
 
+  const picked = await resolveVoiceId(async () => (await call("/convai/voices").catch(() => call("/voices"))).voices ?? []).catch(() => undefined);
+  if (picked) console.log(`  voice: ${picked.name}${picked.fallback ? " (no preferred voice on this account, used the first available)" : ""}`);
+  else console.log("  voice: could not read the voice list, ElevenLabs will use the account default");
+
   let lastError;
   for (const tts of TTS_CANDIDATES) {
   for (const llm of LLM_CANDIDATES) {
@@ -190,7 +198,7 @@ async function main() {
               prompt: { prompt: SYSTEM_PROMPT, llm, temperature: 0.3, tool_ids: toolIds },
             },
             ...conversationConfig(),
-            tts: { ...conversationConfig().tts, model_id: tts },
+            tts: { ...conversationConfig().tts, model_id: tts, ...(picked ? { voice_id: picked.voice_id } : {}) },
             conversation: { max_duration_seconds: 300 },
           },
           // The opening line is composed per call and sent as a first_message
