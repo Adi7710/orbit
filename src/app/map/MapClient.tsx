@@ -130,8 +130,12 @@ export default function MapClient() {
   }, []);
 
   const load = useCallback(async () => {
-    // Nothing to ask for until the places list has said where we are going.
-    if (!to) return;
+    // Opening /map with no query params meant one render with `to` still
+    // empty, before the places list came back and preselected a destination.
+    // That render fired a journey request for nowhere, which the API answers
+    // 400, and the page showed "unknown place" to anyone who reached the map
+    // by its own URL rather than by tapping the bus card.
+    if (!from || !to) return;
     const qs = new URLSearchParams({ from, to });
     if (to !== "Home" && arriveBy) qs.set("arriveBy", arriveBy);
     // The server picks the nearest served stop to wherever this actually is,
@@ -384,7 +388,7 @@ export default function MapClient() {
           state they created rather than a permanent piece of furniture. */}
       <button
         onClick={recenter}
-        className="absolute right-3 top-24 z-[600] rounded-full border border-zinc-200 bg-white/95 px-3 py-2 text-xs font-medium shadow-lg backdrop-blur hover:border-zinc-400"
+        className="absolute right-3 top-24 z-[600] min-h-11 rounded-full border border-zinc-200 bg-white/95 px-4 text-xs font-medium shadow-lg backdrop-blur hover:border-zinc-500"
       >
         Recenter
       </button>
@@ -394,17 +398,17 @@ export default function MapClient() {
         onClick={locate}
         disabled={locating}
         title={here ? "Planning from your location" : "Plan from where you are"}
-        className={`absolute right-3 top-36 z-[600] rounded-full border bg-white/95 px-3 py-2 text-xs font-medium shadow-lg backdrop-blur disabled:opacity-50 ${here ? "border-blue-500 text-blue-700" : "border-zinc-200 hover:border-zinc-400"}`}
+        className={`absolute right-3 top-36 z-[600] rounded-full border bg-white/95 px-3 py-2 text-xs font-medium shadow-lg backdrop-blur disabled:opacity-50 ${here ? "border-blue-500 text-blue-700" : "border-zinc-200 hover:border-zinc-500"}`}
       >
         {locating ? "…" : here ? "Using you" : "Locate me"}
       </button>
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3">
         <div className="pointer-events-auto mx-auto flex max-w-3xl flex-wrap items-center gap-2 rounded-2xl bg-white/95 p-2 shadow-lg backdrop-blur">
-          <a href="/" className="rounded-lg px-2 py-1 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-100" aria-label="Back to today">‹ Orbit</a>
-          <select value={from} onChange={(e) => setFrom(e.target.value)} className="rounded-lg border px-2 py-1 text-sm">{places.map((p) => <option key={p}>{p}</option>)}</select>
-          <span className="text-zinc-400">→</span>
-          <select value={to} onChange={(e) => setTo(e.target.value)} className="rounded-lg border px-2 py-1 text-sm">{places.map((p) => <option key={p}>{p}</option>)}</select>
+          <a href="/" className="flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-zinc-900 transition hover:bg-zinc-100" aria-label="Back to today">‹ Orbit</a>
+          <select value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Travelling from" className="min-h-11 rounded-lg border px-2 text-sm">{places.map((p) => <option key={p}>{p}</option>)}</select>
+          <span aria-hidden="true" className="text-zinc-500">→</span>
+          <select value={to} onChange={(e) => setTo(e.target.value)} aria-label="Travelling to" className="min-h-11 rounded-lg border px-2 text-sm">{places.map((p) => <option key={p}>{p}</option>)}</select>
           {/* The timetable knows when you have to be there. Typing a time is
               how the map ended up measuring against a class five hours past,
               so this states what Orbit read and offers to drop it, rather
@@ -413,11 +417,11 @@ export default function MapClient() {
             <span className="flex items-center gap-2 rounded-lg bg-zinc-100 px-2 py-1 text-sm text-zinc-700">
               {classAt[to].title} at {classAt[to].startText}
               {arriveBy && (
-                <button onClick={() => setArriveBy("")} className="text-zinc-400 hover:text-zinc-900" aria-label="Ignore the class deadline">×</button>
+                <button onClick={() => setArriveBy("")} className="min-h-11 min-w-11 text-zinc-500 hover:text-zinc-900" aria-label="Ignore the class deadline">×</button>
               )}
             </span>
           ) : (
-            <span className="text-sm text-zinc-400">nothing to catch</span>
+            <span className="text-sm text-zinc-500">nothing to catch</span>
           )}
           <span className="ml-auto pr-2 text-xs text-zinc-500">
             {j?.clock.simulated ? `demo clock ${j.clock.text}` : `now ${j?.clock.text ?? "--:--"}`} · {j?.realtime.tripsOk ? "PRT live" : "schedule only"} · updated {updatedAgo}s ago
@@ -490,7 +494,7 @@ export default function MapClient() {
                   {j.alerts.slice(0, 2).map((a) => (
                     <li key={a.id} className={`rounded-xl border px-3 py-2 text-xs ${a.movesTheStop ? "border-amber-300 bg-amber-50 text-amber-900" : "border-zinc-200 bg-zinc-50 text-zinc-600"}`}>
                       <span className="font-medium">{a.movesTheStop ? "Stop moved" : "Notice"}</span>
-                      <span className="mx-1.5 text-zinc-400">·</span>
+                      <span className="mx-1.5 text-zinc-500">·</span>
                       {a.header}
                       {a.movesTheStop && <span className="mt-0.5 block text-amber-800">Check the pole before you settle in — the times below assume the usual one.</span>}
                     </li>
@@ -518,7 +522,7 @@ export default function MapClient() {
                 {o.waitMinutes > 2 && (
                   <li className="flex gap-3 text-zinc-500"><span className="w-6">⏳</span><span className="w-16 tabular-nums">{compactDuration(o.waitMinutes)}</span><span>wait at the stop</span></li>
                 )}
-                <li className="flex gap-3"><span className="w-6">🪑</span><span className="w-16 tabular-nums text-zinc-500">{compactDuration(o.rideMinutes)}</span><span>ride to {j.alightStop.name.toLowerCase()}{o.rideIsLive ? <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800">live prediction</span> : <span className="ml-2 text-xs text-zinc-400">scheduled</span>}</span></li>
+                <li className="flex gap-3"><span className="w-6">🪑</span><span className="w-16 tabular-nums text-zinc-500">{compactDuration(o.rideMinutes)}</span><span>ride to {j.alightStop.name.toLowerCase()}{o.rideIsLive ? <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800">live prediction</span> : <span className="ml-2 text-xs text-zinc-500">scheduled</span>}</span></li>
                 <li className="flex gap-3"><span className="w-6">🚶</span><span className="w-16 tabular-nums text-zinc-500">{compactDuration(j.walkToDest.minutes)}</span><span>walk to {j.destination.label}{j.walkToDest.source === "estimate" && <span className="ml-2 rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-800">estimated</span>}</span></li>
                 <li className="flex gap-3 font-medium"><span className="w-6">🎓</span><span className="w-16 tabular-nums">{o.arriveText}</span><span>arrive{j.destination.arriveByText ? ` · class at ${j.destination.arriveByText}` : ` · ${compactDuration(o.totalMinutes)} door to door`}</span></li>
               </ol>
@@ -526,7 +530,7 @@ export default function MapClient() {
               <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                 {j.options.map((opt, i) => (
                   <button key={opt.tripId} onClick={() => setSel(i)}
-                    className={`shrink-0 rounded-xl border px-3 py-2 text-left text-xs ${i === sel ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 bg-white hover:border-zinc-400"} ${opt.status === "ghost" ? "line-through opacity-60" : ""}`}>
+                    className={`shrink-0 rounded-xl border px-3 py-2 text-left text-xs ${i === sel ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 bg-white hover:border-zinc-500"} ${opt.status === "ghost" ? "line-through opacity-60" : ""}`}>
                     <div className="font-semibold">{opt.route} · {opt.departsText}</div>
                     <div className={i === sel ? "text-zinc-300" : "text-zinc-500"}>leave {opt.leaveByText} · arrive {opt.arriveText}</div>
                   </button>

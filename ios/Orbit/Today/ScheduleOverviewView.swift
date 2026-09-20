@@ -163,10 +163,23 @@ struct ScheduleOverviewView: View {
                 .padding(.top, 8)
             }
 
+            if let cfg = day.modeConfig {
+                plainRow {
+                    Text(cfg.promise)
+                        .font(.subheadline)
+                        .foregroundStyle(OrbitClassic.inkSoft)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.bottom, 2)
+                }
+            }
+
             // Plan my day sits under the rings and the mode bar, by Adi's
             // call: first what the day is, then the one thing to do about it.
             plainRow { planButton }
             plainRow { fitsCard(day) }
+            deadlinesSection(day)
             atRiskSection(day)
 
             // Six doors, not six sections. Each row says one line about what
@@ -307,10 +320,20 @@ struct ScheduleOverviewView: View {
         Button {
             showingLedger = true
         } label: {
-            VStack(alignment: .leading, spacing: 6) {
+            // When the mode asks for it, this answers the harder question:
+            // not "does today's list fit in today" but "does the work due by
+            // each deadline fit in the windows before it". Chill never asks,
+            // Normal asks only once the day has stopped fitting, Crisis always.
+            let feas = day.feasibility
+            let showMeter = (day.modeConfig?.showsFeasibility(shortfallMin: feas?.shortfallMin ?? 0) ?? false) && feas != nil
+
+            return VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline) {
-                    // docs/copy.md today.ledger.over / today.ledger.tight.
-                    Text(day.ledger.overCommitted
+                    // docs/copy.md today.ledger.over / today.ledger.tight,
+                    // unless the mode has asked for the meter, in which case
+                    // the sentence the server wrote about capacity wins.
+                    Text(showMeter ? feas!.message
+                         : day.ledger.overCommitted
                          ? "You're over by \(OrbitDuration.hm(day.ledger.slack)). Something has to move."
                          : "You have \(OrbitDuration.hm(day.ledger.slack)) of slack today.")
                         .font(.headline)
@@ -321,10 +344,12 @@ struct ScheduleOverviewView: View {
                         .font(.caption2)
                         .foregroundStyle(OrbitClassic.inkFaint)
                 }
-                // One line for both states. The old "over" line was sixteen
-                // words and a feeling the app had decided on for the student;
-                // copy rule 6 puts the number first and stops there.
-                Text("After \(OrbitDuration.hm(day.ledger.frictionMinutes)) of walking, eating and getting ready.")
+                // One line for both states -- copy rule 6 puts the number
+                // first and stops there -- with the need-versus-have counts
+                // in its place when the meter is on.
+                Text(showMeter
+                     ? "\(feas!.needMin) min of work against \(feas!.haveMin) min of windows."
+                     : "After \(OrbitDuration.hm(day.ledger.frictionMinutes)) of walking, eating and getting ready.")
                     .font(.subheadline)
                     .foregroundStyle(OrbitClassic.inkSoft)
                     .multilineTextAlignment(.leading)
@@ -343,6 +368,50 @@ struct ScheduleOverviewView: View {
     /// Deadlines the work no longer fits in front of. Renders nothing when
     /// the list is empty: an "all clear" card is a card you have to read to
     /// find out it had nothing to say.
+    /// Deadlines, in the shape the mode asks for. Crisis stacks them
+    /// tightest-first because that is the day; Normal keeps them to a card;
+    /// Chill says one line and gets out of the way.
+    @ViewBuilder
+    private func deadlinesSection(_ day: Today) -> some View {
+        if let cfg = day.modeConfig, let due = day.deadlines, !due.isEmpty {
+            if cfg.deadlineMode == "quiet-line" {
+                plainRow {
+                    Text("\(due.count) thing\(due.count == 1 ? "" : "s") due in the next three days. Nothing is on fire.")
+                        .font(.subheadline)
+                        .foregroundStyle(OrbitClassic.inkSoft)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.vertical, 4)
+                }
+            } else {
+                section(cfg.deadlineMode == "drive-day" ? "What is due, tightest first" : "Due soon") {
+                    ForEach(due) { d in
+                        let verdict = day.feasibility?.deadlines.first { $0.id == d.id }
+                        plainRow {
+                            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(d.title)
+                                        .font(.orbitBody)
+                                        .foregroundStyle(Color.orbitInk)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    if let code = d.courseCode {
+                                        Text(code).orbitEyebrow().foregroundStyle(Color.orbitInkFaint)
+                                    }
+                                }
+                                Spacer(minLength: 8)
+                                Text(verdict?.fits == false
+                                     ? "\(abs(verdict!.slackMin))m short"
+                                     : "\(d.remainingEffortMin)m · \(d.dueText)")
+                                    .font(.system(.caption, design: .monospaced))
+                                    .foregroundStyle(verdict?.fits == false || d.overdue ? Color.orbitUrgent : Color.orbitInkFaint)
+                            }
+                            .padding(.vertical, 3)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     @ViewBuilder
     private func atRiskSection(_ day: Today) -> some View {
         if let atRisk = day.atRisk, !atRisk.isEmpty {
@@ -369,6 +438,25 @@ struct ScheduleOverviewView: View {
 
     /// The weekly review, in its own words. Empty until an aspect has earned
     /// the right to speak, and silent until then.
+    /// In Crisis there is no template quest in a window -- the deadlines put
+    /// real work there instead, and the window has to say which.
+    @ViewBuilder
+    private func workBlockNote(_ day: Today, gapId: String) -> some View {
+        let blocks = (day.workBlocks ?? []).filter { $0.gapId == gapId }
+        if !blocks.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(blocks) { b in
+                    Text("\(b.title) · \(b.minutes)m\(b.completes ? " · finishes it" : "")")
+                        .font(.system(.caption2, design: .monospaced))
+                        .foregroundStyle(Color.orbitInkFaint)
+                }
+            }
+            .padding(.leading, 30)
+            .padding(.bottom, 10)
+            .allowsHitTesting(false)
+        }
+    }
+
     @ViewBuilder
     private func learnedSection(_ day: Today) -> some View {
         if let learned = day.learned, !learned.isEmpty {
@@ -482,6 +570,7 @@ struct ScheduleOverviewView: View {
                         index: pair.offset
                     ) { startCompleting(pair.element) }
                         .listRowInsets(EdgeInsets(top: 5, leading: 16, bottom: 5, trailing: 16))
+                        .overlay(alignment: .bottomLeading) { workBlockNote(day, gapId: pair.element.id) }
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                         .swipeActions(edge: .leading, allowsFullSwipe: true) {

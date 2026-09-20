@@ -17,6 +17,10 @@ export interface Ledger {
   naiveFree: number;
 }
 
+/** Minutes two spans share, never negative. */
+const overlap = (aStart: number, aEnd: number, bStart: number, bEnd: number) =>
+  Math.max(0, Math.min(aEnd, bEnd) - Math.max(aStart, bStart));
+
 export function travelMinutes(blocks: FixedBlock[], profile: DayProfile, travel: TravelGraph): number {
   const placed = blocks.filter((b) => b.place).sort((a, b) => a.start - b.start);
   if (placed.length === 0) return 0;
@@ -38,10 +42,16 @@ export function computeLedger(
   estimator = new Estimator(),
 ): Ledger {
   const scheduled = blocks.filter((b) => b.kind !== "routine");
-  const fixed = scheduled.reduce((s, b) => s + (b.end - b.start), 0);
+  const awake = profile.sleepStart - profile.wake;
+  // Only the part of a block that lands inside the waking day is time the day
+  // can actually lose. A 21:00 lab that runs to 00:15 costs the evening, not
+  // three hours of a day that is already over, and an appointment tomorrow
+  // morning costs today nothing. Clipping also makes `fixed` impossible to
+  // drive negative or past `awake`, which is what let the ledger report more
+  // free hours than a day contains.
+  const fixed = scheduled.reduce((s, b) => s + overlap(b.start, b.end, profile.wake, profile.sleepStart), 0);
   const trav = travelMinutes(scheduled, profile, travel);
   const routines = profile.morningRoutineMinutes + profile.windDownMinutes;
-  const awake = profile.sleepStart - profile.wake;
   const queuedMin = queued.filter((q) => !q.completedAt).reduce((s, q) => s + estimator.planningMinutes(q), 0);
   const friction = trav + profile.mealMinutes + routines;
   const usable = awake - fixed - friction;

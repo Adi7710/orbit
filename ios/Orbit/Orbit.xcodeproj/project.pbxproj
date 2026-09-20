@@ -12,11 +12,15 @@
 		1824B3D7F68C7E6DF0357D54 /* VoiceSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3DE6E42F12E16BED3C4AC86 /* VoiceSession.swift */; };
 		19D3A6420E4D22F0D5E9D21C /* TimelineHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FB050B4E7EA5697AD030911 /* TimelineHeaderView.swift */; };
 		1C042C272123866190F49BEE /* RootTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220F5848873C7E776E27FFCD /* RootTabView.swift */; };
+		A40E11652FC3A56576B3547F /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806174F0FF2862025C6ECCC3 /* SettingsView.swift */; };
+		047C83B5FF6EC541B74F17B3 /* CrewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98A0D1C8F01A53ED51B91378 /* CrewView.swift */; };
+		ED1E368AD99AA18870409A5A /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 646282E775E5DA9ADFEAD742 /* CalendarView.swift */; };
 		1DC5CAD358EDB739E2752D90 /* LedgerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B87621E6BF74CB850FD824EE /* LedgerSheet.swift */; };
 		23560F9CE849A3C8F802338B /* GradientTagView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B650103B5B717D6C0427398F /* GradientTagView.swift */; };
 		23D85DF4FBE23CE167728E4E /* Color+Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03BBB73B9338103EFFA8AFF /* Color+Theme.swift */; };
 		28D0581EE291B1EB71C024AF /* OrbitMarkView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9293A95B5ADA36FBF5921A97 /* OrbitMarkView.swift */; };
 		2A2039015AF158B2973FE93C /* Today.swift in Sources */ = {isa = PBXBuildFile; fileRef = B78E764C894AE7B94D29992A /* Today.swift */; };
+		8F6CFD987D2BECC2A279320D /* Crew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 390ABD241D325C11699D40FF /* Crew.swift */; };
 		4FAF39E8EDF2839EAC50913D /* OrbitAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDDDBABCED4BEC90EA065323 /* OrbitAPI.swift */; };
 		51B53440FA03EDBDCF2495E4 /* XPToastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F04183987B28D457B7F865B /* XPToastView.swift */; };
 		51F462A1E424729158933B48 /* TodayStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9296419EC39DE2345CA2633 /* TodayStore.swift */; };
@@ -31,6 +35,7 @@
 		89C881974BC5BE0C69109653 /* OrbitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 951F3B84656303BDE6A889CB /* OrbitApp.swift */; };
 		92146D53E0DDC5A0AAA85499 /* ClassDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C6CCDD345E93BBB214523E /* ClassDetailView.swift */; };
 		94EE4A2A835CE1A460A82941 /* OrbitAPI+Today.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDA1D8615C0D76A486615838 /* OrbitAPI+Today.swift */; };
+		F4E28CFADC141EDC1A0665DD /* OrbitAPI+Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85A312E51912AA4907184AB3 /* OrbitAPI+Settings.swift */; };
 		9EA7C736C26EA00D559E0F94 /* OrbitVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47DC93773871223455B43ADA /* OrbitVoice.swift */; };
 		AA4E499B4B17B3485770990A /* RadialDialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6DA1B499B68DA25434A16F6 /* RadialDialView.swift */; };
 		B54BAC1C95230594C4FE8AB1 /* OrbitModeChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2495E968508B6E7557A26A16 /* OrbitModeChrome.swift */; };
@@ -54,6 +59,9 @@
 
 /* Begin PBXFileReference section */
 		220F5848873C7E776E27FFCD /* RootTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabView.swift; sourceTree = "<group>"; };
+		806174F0FF2862025C6ECCC3 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		98A0D1C8F01A53ED51B91378 /* CrewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrewView.swift; sourceTree = "<group>"; };
+		646282E775E5DA9ADFEAD742 /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarView.swift; sourceTree = "<group>"; };
 		2495E968508B6E7557A26A16 /* OrbitModeChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrbitModeChrome.swift; sourceTree = "<group>"; };
 		2E4DDA472485D787F8B10C91 /* CompleteSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompleteSheet.swift; sourceTree = "<group>"; };
 		36625DE5DBA1F2A672A50EA4 /* GapCardRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GapCardRow.swift; sourceTree = "<group>"; };
@@ -79,6 +87,7 @@
 		B74C6BC763E00FD91024D63A /* OrbitUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OrbitUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		B77F80D4C8C7EDD0895EB22B /* ScheduleOverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleOverviewView.swift; sourceTree = "<group>"; };
 		B78E764C894AE7B94D29992A /* Today.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Today.swift; sourceTree = "<group>"; };
+		390ABD241D325C11699D40FF /* Crew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Crew.swift"; sourceTree = "<group>"; };
 		B87621E6BF74CB850FD824EE /* LedgerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgerSheet.swift; sourceTree = "<group>"; };
 		BE05E028E7E8EF1D4023D7BB /* JourneyMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JourneyMapView.swift; sourceTree = "<group>"; };
 		CDDDBABCED4BEC90EA065323 /* OrbitAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrbitAPI.swift; sourceTree = "<group>"; };
@@ -88,6 +97,7 @@
 		E9296419EC39DE2345CA2633 /* TodayStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayStore.swift; sourceTree = "<group>"; };
 		FC48BDAFAEC4B52DCBDF571D /* TodayScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayScreens.swift; sourceTree = "<group>"; };
 		FDA1D8615C0D76A486615838 /* OrbitAPI+Today.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OrbitAPI+Today.swift"; sourceTree = "<group>"; };
+		85A312E51912AA4907184AB3 /* OrbitAPI+Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OrbitAPI+Settings.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -123,6 +133,7 @@
 			isa = PBXGroup;
 			children = (
 				B78E764C894AE7B94D29992A /* Today.swift */,
+				390ABD241D325C11699D40FF /* Crew.swift */,
 				D021CDDFACE1BCA7856813D1 /* Voice.swift */,
 			);
 			path = Models;
@@ -157,6 +168,9 @@
 				3FAB9704229DAD9175AFB2B8 /* Info.plist */,
 				951F3B84656303BDE6A889CB /* OrbitApp.swift */,
 				220F5848873C7E776E27FFCD /* RootTabView.swift */,
+				806174F0FF2862025C6ECCC3 /* SettingsView.swift */,
+				98A0D1C8F01A53ED51B91378 /* CrewView.swift */,
+				646282E775E5DA9ADFEAD742 /* CalendarView.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -183,6 +197,7 @@
 				BE05E028E7E8EF1D4023D7BB /* JourneyMapView.swift */,
 				CDDDBABCED4BEC90EA065323 /* OrbitAPI.swift */,
 				FDA1D8615C0D76A486615838 /* OrbitAPI+Today.swift */,
+				85A312E51912AA4907184AB3 /* OrbitAPI+Settings.swift */,
 				7A55C811E18964A729EA449F /* OrbitAPI+Voice.swift */,
 				B307547D1ABD752BE02491B9 /* Products */,
 			);
@@ -305,6 +320,7 @@
 				06ABF608717732B056939566 /* LedgerRingsView.swift in Sources */,
 				1DC5CAD358EDB739E2752D90 /* LedgerSheet.swift in Sources */,
 				94EE4A2A835CE1A460A82941 /* OrbitAPI+Today.swift in Sources */,
+				F4E28CFADC141EDC1A0665DD /* OrbitAPI+Settings.swift in Sources */,
 				FEA9EEFDB89FC1A67E84C6CF /* OrbitAPI+Voice.swift in Sources */,
 				4FAF39E8EDF2839EAC50913D /* OrbitAPI.swift in Sources */,
 				89C881974BC5BE0C69109653 /* OrbitApp.swift in Sources */,
@@ -315,10 +331,14 @@
 				9EA7C736C26EA00D559E0F94 /* OrbitVoice.swift in Sources */,
 				AA4E499B4B17B3485770990A /* RadialDialView.swift in Sources */,
 				1C042C272123866190F49BEE /* RootTabView.swift in Sources */,
+				A40E11652FC3A56576B3547F /* SettingsView.swift in Sources */,
+				047C83B5FF6EC541B74F17B3 /* CrewView.swift in Sources */,
+				ED1E368AD99AA18870409A5A /* CalendarView.swift in Sources */,
 				89579DBB87E43F82385DE932 /* ScheduleOverviewView.swift in Sources */,
 				F2BE3876C49189197C12999C /* SpeakButton.swift in Sources */,
 				19D3A6420E4D22F0D5E9D21C /* TimelineHeaderView.swift in Sources */,
 				2A2039015AF158B2973FE93C /* Today.swift in Sources */,
+				8F6CFD987D2BECC2A279320D /* Crew.swift in Sources */,
 				51F462A1E424729158933B48 /* TodayStore.swift in Sources */,
 				5C94F73561EA4E1BDE1459F2 /* Voice.swift in Sources */,
 				F37C42E43822930F4DE5CE0A /* VoiceOrbView.swift in Sources */,
