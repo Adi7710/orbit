@@ -26,6 +26,18 @@ Learning, two synthetic students, one held out, week by week: Nemotron wins on a
 1. **`response_format` with a strict JSON schema makes `nemotron-3.5-lightning-30b-a3b` emit tab characters until `max_tokens`** — 15.4 s for a reply that never closes. The same request without the schema answers in 796 ms. Every "Nemotron is slow" finding of the night was this. We send prompt-only and extract the JSON; the schema is a second attempt reserved for a reply that is not JSON.
 2. **The free tier rate-limits at a handful of requests per second**, and a 429 used to be routed into the schema retry. Now a 429 waits 2.5 s and repeats once; the eval runs one call at a time.
 
+## Which model, measured on submission morning
+
+Eight prompt-only estimate calls per model, thinking off, 20 s ceiling, 09:53 on 20 Sept:
+
+| Model | Answered | Median | p90 |
+|---|---|---|---|
+| `nvidia/nemotron-3.5-lightning-30b-a3b` | 5/8 | 8.8 s | timeout |
+| `nvidia/nemotron-3-super-120b-a12b` | 4/8 | 0.6 s | timeout, 503s |
+| `mistralai/mistral-nemotron` | 6/8 | 1.0 s | timeout |
+
+`nemotron-3-nano-30b-a3b` and the two `llama-3.1-nemotron` ids return an error instantly on this key. Nothing avoids timeouts, so the answer is not a model but a second one: the primary gets a short budget, then one attempt on `mistral-nemotron`, then the deterministic tier. `NEMOTRON_FALLBACK_MODEL` overrides it. The planner budget is 7 s per model.
+
 ## What the Brev credits are for
 
 The credits on the account (`$60`, coupon redeemed 20 Sept) are GPU time, not API quota. The API we call is `integrate.api.nvidia.com`, which is free and rate-limited and, on the night before submission, hung on roughly a third of calls regardless of what we sent.

@@ -12,6 +12,32 @@ import { clock } from "@/services/prt";
 import { transitNeed } from "@/core/transitRelevance";
 import { bucketDue, compactDuration, naturalDue } from "@/core/say";
 import { currentWeek, reviewUpTo } from "./learned";
+import { growthPlan, recommendOpportunities, type OpportunityContext } from "@/core/opportunities";
+import type { Domain } from "@/core/types";
+
+/**
+ * What the recommender is allowed to know about this student: the per-domain
+ * calibration (does their build work run long), how loaded the week is, which
+ * domain they actually finish, and whether mornings or evenings are their
+ * hours. All of it from the store and the learner; none of it guessed.
+ */
+function opportunityContext(now: Date, queued: number, usable: number): OpportunityContext {
+  const s = store();
+  const byDomain: Partial<Record<Domain, number[]>> = {};
+  for (const c of s.estimator.calibration()) {
+    const domain = c.key.split("::")[1] as Domain | undefined;
+    if (domain) (byDomain[domain] ??= []).push(c.multiplier);
+  }
+  const domainMultiplier: Partial<Record<Domain, number>> = {};
+  for (const [d, xs] of Object.entries(byDomain) as [Domain, number[]][]) domainMultiplier[d] = xs.reduce((a, b) => a + b, 0) / xs.length;
+  const finished: Partial<Record<Domain, number>> = {};
+  for (const h of s.habits) finished[h.domain] = (finished[h.domain] ?? 0) + 1;
+  const strongestDomain = (Object.entries(finished) as [Domain, number][]).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const tod = learnedFactsFor("time_of_day");
+  const bestTime = tod.some((f) => f.category === "morning" && f.multiplier < 1) ? "morning" : tod.some((f) => f.category === "evening" && f.multiplier < 1) ? "evening" : undefined;
+  return { now, domainMultiplier, queuedMinutes: queued, usableMinutes: usable, strongestDomain, bestTime };
+}
+const learnedFactsFor = (aspect: string) => learnedFacts().filter((f) => f.aspect === aspect);
 
 /**
  * The weekly review, kicked off in the background the first time the day is
@@ -230,7 +256,8 @@ export async function buildToday(opts?: { to?: string }) {
           walkToStop: journey.walkToStop.minutes,
           walkToDest: journey.walkToDest.minutes,
           rideMinutes: o.rideMinutes,
-          vehicleKm: o.vehicle ? +(o.vehicle.metersToStop / 1000).toFixed(1) : null,
+          // A real fix only. A scheduled marker is for the map, not the card.
+          vehicleKm: o.vehicle && !o.vehicle.simulated ? +(o.vehicle.metersToStop / 1000).toFixed(1) : null,
           verdict: journey.destination.arriveByText ? o.verdict : null,
           classAtText: journey.destination.arriveByText ?? null,
           /** Deep link into the full map with this exact leg selected. */
@@ -272,6 +299,9 @@ export async function buildToday(opts?: { to?: string }) {
     // dueText and bucket are written here so no client has to do date
     // arithmetic on a deadline; the design's four piles need the bucket.
     tasks: liveTasks.map((t) => ({ ...t, planningMinutes: planner(s.estimator).planningMinutes(t), risk: deadlineRisk(t) ?? null, dueText: naturalDue(t.dueAt, clockDate) ?? null, bucket: bucketDue(t.dueAt, clockDate) })),
+    /** The world outside the timetable, ranked for this student, and the plan to grow into it. Both written by code. */
+    opportunities: recommendOpportunities(opportunityContext(clockDate, ledger.queued, ledger.usable)).slice(0, 3),
+    growth: growthPlan(opportunityContext(clockDate, ledger.queued, ledger.usable), learnedFacts()),
     /** Planned minutes per domain, for the four domain rings. Always all four, zeros included, so a ring can draw empty. */
     domains: (["learn", "build", "body", "life"] as const).map((domain) => {
       const mine = liveTasks.filter((t) => t.domain === domain);

@@ -26,8 +26,8 @@ settings:
     SWIFT_VERSION: "5.0"
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
     # The one place the server URL is set. Override per build without touching
-    # the plist: `xcodebuild ORBIT_API_BASE=https://inherited-creatures-refused-marie.trycloudflare.com ...`
-    ORBIT_API_BASE: https://inherited-creatures-refused-marie.trycloudflare.com
+    # the plist: `xcodebuild ORBIT_API_BASE=https://cook-assembled-tri-producer.trycloudflare.com ...`
+    ORBIT_API_BASE: https://cook-assembled-tri-producer.trycloudflare.com
 
 packages:
   # Voice. The only third-party package in the app; networking is still

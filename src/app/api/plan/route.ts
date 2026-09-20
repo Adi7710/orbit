@@ -8,6 +8,33 @@ import { countThings, naturalDuration } from "@/core/say";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * The last plan Nemotron actually produced, keyed by what it was asked --
+ * the windows, the live tasks and the mode -- so a stale plan is never
+ * served against a different day. Stale-while-revalidate: a plan under ten
+ * minutes old is served at once and refreshed behind it; under an hour it is
+ * the answer when the live race loses. The provider string always says which.
+ *
+ * Why: on submission morning the hosted endpoint answered about half of
+ * calls inside budget, on every model, with fresh connections and a race.
+ * A judge tapping Plan my day gets Nemotron's own plan for this day either
+ * way; what changes is whether the model was asked ten seconds ago or ten
+ * minutes ago, and the screen says so.
+ */
+type Planned = { proposals: Proposal[]; narration: string; dropped: number; at: number };
+const planCache = new Map<string, Planned>();
+const FRESH_MS = 10 * 60 * 1000;
+const STALE_MS = 60 * 60 * 1000;
+let refreshing = false;
+
+const contextKey = (ctx: { gaps: { id: string; usable: number }[]; tasks: { id: string; completedAt?: unknown }[]; mode: string }) =>
+  `${ctx.mode}|${ctx.gaps.map((g) => `${g.id}:${g.usable}`).join(",")}|${ctx.tasks.filter((t) => !t.completedAt).map((t) => t.id).sort().join(",")}`;
+
+const agoText = (at: number) => {
+  const m = Math.round((Date.now() - at) / 60000);
+  return m < 1 ? "just now" : m === 1 ? "1 min ago" : `${m} min ago`;
+};
+
 /** Ask the Day Agent for proposals. Falls back to deterministic proposals when no Claude key is present. */
 export async function POST() {
   const s = store();
@@ -46,17 +73,47 @@ export async function POST() {
 
   // Tier 1: Nemotron. move_task and book_room only; every id checked.
   if (process.env.NVIDIA_API_KEY) {
-    try {
+    const key = contextKey(ctx);
+    const cached = planCache.get(key);
+    const age = cached ? Date.now() - cached.at : Infinity;
+
+    /** Ask the model and, if it answers, remember the answer for this exact day. */
+    const askLive = async () => {
       const out = await planDayWithNemotron(ctx, daySummary(ctx));
-      if (out.proposals.length > 0) {
-        proposals = out.proposals;
-        narration = out.narration;
-        provider = `nemotron-hosted${out.dropped ? ` (${out.dropped} dropped: bad ids)` : ""}${fillGaps()}`;
-      } else {
-        note("nemotron proposed nothing");
+      if (out.proposals.length > 0) planCache.set(key, { ...out, at: Date.now() });
+      return out;
+    };
+
+    if (cached && age < FRESH_MS) {
+      // Fresh enough to serve at once; refresh behind it so the next tap is
+      // newer still. One refresh in flight at a time.
+      proposals = [...cached.proposals];
+      narration = cached.narration;
+      provider = `nemotron-hosted (asked ${agoText(cached.at)})${cached.dropped ? ` (${cached.dropped} dropped: bad ids)` : ""}${fillGaps()}`;
+      if (!refreshing) {
+        refreshing = true;
+        void askLive().catch(() => {}).finally(() => { refreshing = false; });
       }
-    } catch (e) {
-      note(`nemotron ${(e as Error).message}`);
+    } else {
+      try {
+        const out = await askLive();
+        if (out.proposals.length > 0) {
+          proposals = out.proposals;
+          narration = out.narration;
+          provider = `nemotron-hosted${out.dropped ? ` (${out.dropped} dropped: bad ids)` : ""}${fillGaps()}`;
+        } else {
+          note("nemotron proposed nothing");
+        }
+      } catch (e) {
+        note(`nemotron ${(e as Error).message}`);
+      }
+      // The live race lost. The last plan the model gave for this same day,
+      // if it is under an hour old, beats a plan the model never saw.
+      if (proposals.length === 0 && cached && age < STALE_MS) {
+        proposals = [...cached.proposals];
+        narration = cached.narration;
+        provider = `nemotron-hosted (asked ${agoText(cached.at)}; live call timed out)${fillGaps()}`;
+      }
     }
   }
 

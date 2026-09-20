@@ -77,7 +77,7 @@ struct Journey: Decodable {
     let routeColors: [String: String?]
 
     struct Option: Decodable, Identifiable {
-        struct Vehicle: Decodable { let id: String; let lat: Double; let lon: Double; let bearing: Double?; let ageSec: Int; let metersToStop: Int }
+        struct Vehicle: Decodable { let id: String; let lat: Double; let lon: Double; let bearing: Double?; let ageSec: Int; let metersToStop: Int; let simulated: Bool? }
         struct Verdict: Decodable { let makesIt: Bool; let marginMin: Int }
 
         let route: String
