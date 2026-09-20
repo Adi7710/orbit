@@ -112,6 +112,16 @@ The greys carry a slight cool bias toward the LEARN blue. They are chosen, not i
 
 ---
 
+### 2.5 What the four hues may mean, and the ledger rings
+
+The four domain hues mean **domains** and nothing else: a LEARN task is `#2F6FE4` on a card, in a ring, on the map, in a toast. A hue that means "class" on the ledger and "learn" on a task is two meanings on one screen.
+
+So the **ledger rings** (class, walking, meals, settling — the four things that take the day apart) are not drawn in the domain hues. They are the primary at four tints, outside in, darkest first: 100 / 72 / 52 / 36 percent. Lightness is the one axis every kind of colour vision keeps, and each band carries its own label and number in the meters beneath, so the tints are never the only encoding.
+
+**Durations** are written `9h 07m` — minutes padded to two digits once there is an hour — in both clients, from one formatter each (`OrbitDuration.hm`, `hm()` in `LedgerReveal.tsx`). A screen must never spell one number two ways.
+
+---
+
 ## 3. Ring states
 
 A ring is a 4-domain concentric stack. Outermost is the active ring.

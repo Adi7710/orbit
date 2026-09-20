@@ -486,25 +486,11 @@ struct ScheduleOverviewView: View {
             .buttonStyle(.orbitTile)
             .accessibilityLabel("Talk to Orbit")
 
-            Button {
-                Task { await store.refresh() }
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.orbitInk)
-                    .frame(width: 52, height: 52)
-                    .background(Circle().fill(Color.orbitSurface))
-                    .overlay(Circle().strokeBorder(Color.orbitHairline, lineWidth: 1))
-                    .rotationEffect(.degrees(store.isWorking && !reduceMotion ? 360 : 0))
-                    .animation(
-                        store.isWorking && !reduceMotion
-                            ? .linear(duration: 0.9).repeatForever(autoreverses: false)
-                            : .default,
-                        value: store.isWorking
-                    )
-            }
-            .buttonStyle(.orbitTile)
-            .accessibilityLabel("Refresh")
+            // No refresh button. The list is `.refreshable`, the day polls
+            // while visible, and a voice action reloads it; a third way to do
+            // the same thing was a control the dock did not need, above a tab
+            // bar that already makes the bottom of the screen busy. Two
+            // things live here: the one action, and the voice.
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 8)

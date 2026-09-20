@@ -53,8 +53,10 @@ extension Color {
 }
 
 /// Durations are written the way the design writes them: `196` is "3h 16m",
-/// `45` is "45m". This formats a number the server sent. It does not decide
-/// what the number is.
+/// `547` is "9h 07m", `45` is "45m". Minutes are two digits once there is an
+/// hour in front of them, so a column of durations lines up and the web's
+/// ledger reveal and this app spell the headline number the same way. This
+/// formats a number the server sent. It does not decide what the number is.
 enum OrbitDuration {
     static func hm(_ minutes: Int) -> String {
         let m = abs(minutes)
@@ -62,6 +64,6 @@ enum OrbitDuration {
         let rest = m % 60
         if h == 0 { return "\(rest)m" }
         if rest == 0 { return "\(h)h" }
-        return "\(h)h \(rest)m"
+        return "\(h)h \(rest < 10 ? "0" : "")\(rest)m"
     }
 }

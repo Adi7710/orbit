@@ -2,10 +2,14 @@ import SwiftUI
 
 /// The honest ledger.
 ///
-/// Structured the way the reference structures its climate screen: a quiet
-/// title, two small readings side by side, a row of circular mode chips, and
-/// then one large dial that is unmistakably the subject of the screen. Here
-/// the dial reads how much of your usable day is already spoken for.
+/// Beat one of the demo, in one column: the wordmark, a greeting, the
+/// calendar's claim struck through, and then the rings, which say the real
+/// number once, in the middle, with the four things that took it apart drawn
+/// around it. The ledger used to be stated three times on the way down —
+/// two reading cards, the ring centre, the fits card — and a number said
+/// three times reads as three numbers. Now the claim is said once and the
+/// truth is said once. Controls come after the subject: the mode strip sits
+/// below the rings, not between the greeting and the thing it is about.
 ///
 /// It reads as glass but it is not a material: this view scrolls, and a blur
 /// that re-samples its backdrop every frame is the most expensive thing you
@@ -21,13 +25,10 @@ struct TimelineHeaderView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// Mirrors `hm()` in `src/app/TodayClient.tsx` so the two clients word a
-    /// duration identically. This formats a number the server sent; it does
-    /// not work out what the number should be.
-    private func hm(_ minutes: Int) -> String {
-        let m = abs(minutes)
-        return m >= 60 ? "\(m / 60)h \(m % 60)m" : "\(m)m"
-    }
+    /// One formatter for the whole app: `OrbitDuration.hm`. This view had its
+    /// own, which wrote "1h 0m" where the rings wrote "1h" — two spellings of
+    /// one number on one screen.
+    private func hm(_ minutes: Int) -> String { OrbitDuration.hm(minutes) }
 
     /// Corner radius, display face and pace for the mode that is on. Colour
     /// meaning is not in here — see `OrbitModeChrome`.
@@ -38,10 +39,10 @@ struct TimelineHeaderView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             greeting.orbitAppear(0)
-            readings.orbitAppear(1)
-            modeChips.orbitAppear(2)
-            ledgerRings.orbitAppear(3)
-            breakdown.orbitAppear(4)
+            claim.orbitAppear(1)
+            ledgerRings.orbitAppear(2)
+            breakdown.orbitAppear(3)
+            modeChips.orbitAppear(4)
         }
     }
 
@@ -76,35 +77,24 @@ struct TimelineHeaderView: View {
         }
     }
 
-    /// Two readings, side by side, the way the reference shows outside and
-    /// inside temperature.
-    private var readings: some View {
-        HStack(spacing: 10) {
-            reading(label: "Actually usable", value: hm(ledger.usable), struck: false)
-            reading(label: "Calendar claims", value: hm(ledger.naiveFree), struck: true)
-        }
-    }
-
-    private func reading(label: String, value: String, struck: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(label)
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(0.5)
-                .textCase(.uppercase)
-                .foregroundStyle(OrbitClassic.inkFaint)
-            Text(value)
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
+    /// The calendar's number, crossed out. docs/copy.md `today.ledger.claimed`:
+    /// "your calendar says 13h 35m". The real number is not repeated here; it
+    /// is the centre of the rings directly below, said once.
+    private var claim: some View {
+        HStack(spacing: 6) {
+            Text("your calendar says")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(OrbitClassic.inkSoft)
+            Text(hm(ledger.naiveFree))
+                .font(.system(size: 17, weight: .semibold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(struck ? OrbitClassic.inkSoft : OrbitClassic.ink)
-                .strikethrough(struck, color: Color(hex: OrbitClassic.body))
+                .foregroundStyle(OrbitClassic.inkSoft)
+                .strikethrough(true, color: OrbitClassic.inkSoft)
                 .contentTransition(.numericText())
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background {
-            RoundedRectangle(cornerRadius: chrome.corner, style: .continuous)
-                .fill(OrbitClassic.surface)
-        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Your calendar says \(hm(ledger.naiveFree)), which is not right.")
     }
 
     /// A segmented control, the way the design picks a mode: one strip, the

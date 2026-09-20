@@ -88,7 +88,7 @@ export default function LedgerReveal({ l, onReplay }: { l: LedgerNumbers; onRepl
 
       <div className="mt-3 flex flex-wrap items-end gap-x-8 gap-y-3">
         <div>
-          <div className={`text-5xl font-semibold tabular-nums tracking-tight transition-colors duration-500 ${done ? "text-emerald-700" : "text-zinc-900"}`}>
+          <div className={`text-5xl font-semibold tabular-nums tracking-tight transition-colors duration-500 ${done ? "text-primary" : "text-ink"}`}>
             {hm(display)}
           </div>
           <div className="mt-1 text-xs text-zinc-500">
@@ -108,7 +108,7 @@ export default function LedgerReveal({ l, onReplay }: { l: LedgerNumbers; onRepl
             key={s.key}
             className={`flex items-center gap-3 text-sm transition-all duration-500 ${i < shown ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"}`}
           >
-            <span className="w-14 text-right font-medium tabular-nums text-red-600">-{s.minutes}</span>
+            <span className="w-14 text-right font-medium tabular-nums text-ink-2">-{s.minutes}</span>
             <span className="text-zinc-600">{s.label}</span>
           </li>
         ))}
@@ -118,7 +118,7 @@ export default function LedgerReveal({ l, onReplay }: { l: LedgerNumbers; onRepl
         </li>
       </ul>
 
-      <div className={`mt-3 text-sm transition-opacity duration-700 ${done ? "opacity-100" : "opacity-0"} ${l.overCommitted ? "text-red-600" : "text-emerald-700"}`}>
+      <div className={`mt-3 text-sm transition-opacity duration-700 ${done ? "opacity-100" : "opacity-0"} ${l.overCommitted ? "text-ink-2" : "text-primary"}`}>
         {l.queued} min of work queued · {l.overCommitted ? `${Math.abs(l.slack)} min more than you have` : `${l.slack} min of slack, you fit`}
       </div>
     </section>
