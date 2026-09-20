@@ -81,6 +81,9 @@ function seed(): Store {
       { userId: "sam", name: "Sam", sharesFreeTime: true, gaps: [{ id: "s1", start: t(11, 30), end: t(13, 0), usable: 90, isEvening: false }] },
       { userId: "priya", name: "Priya", sharesFreeTime: true, gaps: [{ id: "p1", start: t(12, 0), end: t(14, 0), usable: 120, isEvening: false }, { id: "p2", start: t(19, 0), end: t(22, 0), usable: 180, isEvening: true }] },
       { userId: "jordan", name: "Jordan", sharesFreeTime: false, gaps: [{ id: "j1", start: t(11, 0), end: t(14, 0), usable: 180, isEvening: false }] },
+      // Kevin is the one to beat this week; Maya is the one who is always at the gym at six.
+      { userId: "kevin", name: "Kevin", sharesFreeTime: true, gaps: [{ id: "k1", start: t(12, 0), end: t(13, 30), usable: 90, isEvening: false }, { id: "k2", start: t(18, 0), end: t(19, 0), usable: 60, isEvening: true }] },
+      { userId: "maya", name: "Maya", sharesFreeTime: true, gaps: [{ id: "m1", start: t(18, 0), end: t(19, 30), usable: 90, isEvening: true }] },
     ],
     board: [
       { userId: "me", name: process.env.ORBIT_USER_NAME ?? "Adi", xpWeek: 340, streakWeeks: 2, ringsClosed: 4, group: GROUP_A },
@@ -88,6 +91,8 @@ function seed(): Store {
       { userId: "priya", name: "Priya", xpWeek: 385, streakWeeks: 1, ringsClosed: 6, group: GROUP_A },
       { userId: "jordan", name: "Jordan", xpWeek: 120, streakWeeks: 0, ringsClosed: 1, group: GROUP_B },
       { userId: "lee", name: "Lee", xpWeek: 520, streakWeeks: 5, ringsClosed: 7, group: GROUP_B },
+      { userId: "kevin", name: "Kevin", xpWeek: 545, streakWeeks: 4, ringsClosed: 6, group: GROUP_A },
+      { userId: "maya", name: "Maya", xpWeek: 300, streakWeeks: 2, ringsClosed: 3, group: GROUP_B },
     ],
     habits: syntheticHistory(new Date()),
     // Derived from the synthetic roster, so every shipped address is on

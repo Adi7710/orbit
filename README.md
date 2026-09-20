@@ -89,15 +89,15 @@ node scripts/tunnel.mjs 3123      # public URL for the ElevenLabs webhooks; re-p
 2. **Plan my day.** The agent proposes one task per window; approve one and it lands.
 3. **The train.** Tap through to the map: which light rail, from which stop, when to leave, and whether you make it.
 4. **Voice.** "The problem set took ninety-five minutes." XP fires and the calibration multiplier moves on screen. Then: "When do I need to leave?" and "Why?"
-5. **The eval.** What the estimator gets wrong, what the Critic caught, what changed.
+5. **The eval.** Open `/eval`: a ten-line heuristic beat the model, the clamp fixed it, and what it learned about this student this week.
 
 ## Not done, said plainly
 
-- `ANTHROPIC_API_KEY` and `NVIDIA_API_KEY` were not available at build time; the Day Agent and Critic run deterministic fallbacks, and `/api/eval` shows the harness with all three rows falling back to the heuristic.
+- `ANTHROPIC_API_KEY` is not set; the Day Agent runs Nemotron first and the deterministic plan second. `NVIDIA_API_KEY` is set; `/eval` is the judge's page for what Nemotron does and what it measured, and `docs/nvidia.md` is the write-up. Nothing was fine-tuned.
 - The store is in memory and resets on restart. No transfers between lines, no Stevens shuttle, no rate limiting, no `GOOGLE_MAPS_API_KEY` (walks are straight-line estimates and marked as such).
 - `ios/Orbit/Orbit.xcodeproj` builds on a Mac (XcodeGen, iOS 17, ElevenLabs Swift SDK); nobody on a Windows machine has compiled it, so treat it as coded rather than shipped.
 - No model was fine-tuned. Every Nemotron job is the hosted model with a JSON schema; where it is "optimised" the optimisation is code (an anchor and a clamp), and `docs/eval.md` and `docs/learning/` show the numbers either way.
 
 ## Docs
 
-`docs/transit.md` · `docs/voice.md` · `docs/selfeval.md` · `docs/eval.md` · `docs/email.md` · `docs/data-and-learning.md` · `docs/bus-map.md` · `docs/theme.md` · `docs/copy.md` · `docs/future-signals.md` · `DECISIONS.md` (append-only log of every decision and why)
+`docs/nvidia.md` · `docs/transit.md` · `docs/voice.md` · `docs/selfeval.md` · `docs/eval.md` · `docs/email.md` · `docs/data-and-learning.md` · `docs/bus-map.md` · `docs/theme.md` · `docs/copy.md` · `docs/future-signals.md` · `DECISIONS.md` (append-only log of every decision and why)

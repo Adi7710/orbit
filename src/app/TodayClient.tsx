@@ -5,6 +5,7 @@ import LedgerReveal from "./LedgerReveal";
 import WatcherPanel from "./WatcherPanel";
 import VoiceButton from "./VoiceButton";
 import EmailModal from "./EmailModal";
+import PulseBanner from "./PulseBanner";
 
 type Today = {
   mode: "normal" | "crisis" | "chill";
@@ -209,6 +210,7 @@ export default function TodayClient() {
 
   return (
     <main className="mx-auto grid max-w-6xl gap-6 p-4 [&>section]:min-w-0 sm:p-8 md:grid-cols-3">
+      <PulseBanner />
       <header className="md:col-span-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">

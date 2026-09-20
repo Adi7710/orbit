@@ -98,6 +98,13 @@ struct ScheduleOverviewView: View {
             .ignoresSafeArea(edges: .top)
             .allowsHitTesting(false)
         }
+        // The pulse: one scripted notice at a time, above the day, every
+        // twenty seconds, from /api/pulse. Sits over the top gradient and
+        // under the detail view and the toast.
+        .overlay(alignment: .top) {
+            PulseBanner()
+                .zIndex(1)
+        }
         .overlay {
             if let block = expanded {
                 ClassDetailView(block: block, namespace: deck) {
