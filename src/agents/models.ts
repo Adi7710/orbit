@@ -47,7 +47,7 @@ export async function availableModels(): Promise<string[]> {
   if (!nvidiaKey()) return [];
   if (modelCache && Date.now() - modelCache.at < 6e5) return modelCache.ids;
   try {
-    const r = await fetch(`${NVIDIA_BASE}/models`, { headers: { Authorization: `Bearer ${nvidiaKey()}` } });
+    const r = await fetch(`${NVIDIA_BASE}/models`, { headers: { Authorization: `Bearer ${nvidiaKey()}`, Connection: "close" }, signal: AbortSignal.timeout(8000) });
     if (!r.ok) return [];
     const j = (await r.json()) as { data?: { id: string }[] };
     modelCache = { ids: (j.data ?? []).map((m) => m.id), at: Date.now() };
@@ -83,7 +83,12 @@ export async function nemotronJson<T>(system: string, user: string, schema: obje
     try {
       const res = await fetch(`${NVIDIA_BASE}/chat/completions`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        // Connection: close, measured 20 Sept 10:04 on eight sequential calls:
+        // pooled keep-alive sockets answered 4/8 with a median of 7.2 s; a
+        // fresh connection per request answered 6/8 at 1.3 s. The hangs were
+        // stale sockets in the fetch pool, not only the model. Streaming was
+        // worse (2/8).
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, Connection: "close" },
         body: JSON.stringify({
           model: useModel,
           messages: [

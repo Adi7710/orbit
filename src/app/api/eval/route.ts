@@ -64,7 +64,8 @@ async function pool<T, R>(items: T[], n: number, fn: (x: T) => Promise<R>): Prom
  * caches, since it is the debugging path.
  */
 let cache: { at: number; body: unknown } | undefined;
-const CACHE_MS = 10 * 60 * 1000;
+// Two hours on judging day: a table must never trigger a re-score. ?fresh=1 still does.
+const CACHE_MS = 2 * 60 * 60 * 1000;
 
 export async function GET(req: Request) {
   const url = new URL(req.url);

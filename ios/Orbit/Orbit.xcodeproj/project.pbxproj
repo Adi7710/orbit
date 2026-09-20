@@ -438,7 +438,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				ORBIT_API_BASE = "https://inherited-creatures-refused-marie.trycloudflare.com";
+				ORBIT_API_BASE = "https://cook-assembled-tri-producer.trycloudflare.com";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -542,7 +542,7 @@
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				ORBIT_API_BASE = "https://inherited-creatures-refused-marie.trycloudflare.com";
+				ORBIT_API_BASE = "https://cook-assembled-tri-producer.trycloudflare.com";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
