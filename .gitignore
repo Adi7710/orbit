@@ -45,3 +45,9 @@ data/gtfs-extracted/
 # local tunnel
 .tunnel.log
 .tunnel-url.txt
+
+# Xcode
+ios/**/xcuserdata/
+ios/**/*.xcuserstate
+ios/DerivedData/
+.swiftpm/
