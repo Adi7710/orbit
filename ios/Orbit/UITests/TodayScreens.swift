@@ -1,0 +1,159 @@
+import XCTest
+
+/// Not a test of behaviour — a driver.
+///
+/// macOS blocks scripted mouse input to the Simulator without accessibility
+/// permission, so this is how the screen gets scrolled, tapped and swiped
+/// during a build check, and how the screenshots for a PR get taken. It
+/// asserts only that the screen actually arrived; everything else it does is
+/// capture what is on it.
+final class TodayScreens: XCTestCase {
+
+    private var app: XCUIApplication!
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        app = XCUIApplication()
+        if name.contains("VoiceLive") { app.launchArguments = ["-orbit-voice-preview"] }
+        app.launch()
+    }
+
+    private func snap(_ name: String) { attach(XCUIScreen.main.screenshot(), name) }
+
+    private func attach(_ screenshot: XCUIScreenshot, _ name: String) {
+        let shot = XCTAttachment(screenshot: screenshot)
+        shot.name = name
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
+
+    /// The ledger header is the proof the API answered and decoded. Matched on
+    /// the text rather than an identifier, and case-insensitively: the eyebrow
+    /// style uppercases for display only, so the accessibility label keeps the
+    /// sentence case the view was written with.
+    private var ledgerHeading: XCUIElement {
+        app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "Actually usable")).firstMatch
+    }
+
+    func testToday() {
+        if !ledgerHeading.waitForExistence(timeout: 25) {
+            snap("00-nothing-rendered")
+            print(app.debugDescription)
+            return XCTFail("Today never rendered — check the server and ORBIT_API_BASE")
+        }
+        sleep(2)                      // let the dial finish sweeping
+        snap("01-today-top")
+
+        let list = app.collectionViews.firstMatch.exists
+            ? app.collectionViews.firstMatch
+            : app.tables.firstMatch
+
+        list.swipeUp(velocity: .slow)
+        sleep(1)
+        snap("02-day-deck")
+
+        list.swipeUp(velocity: .slow)
+        sleep(1)
+        snap("03-windows-and-bus")
+
+        list.swipeUp(velocity: .slow)
+        sleep(1)
+        snap("04-quests-and-friends")
+    }
+
+    /// The voice sheet, from the dock.
+    func testVoiceSheet() {
+        XCTAssertTrue(ledgerHeading.waitForExistence(timeout: 25))
+        sleep(2)
+        let mic = app.buttons["Talk to Orbit"]
+        guard mic.waitForExistence(timeout: 5) else {
+            snap("08-no-mic-button")
+            return XCTFail("No voice button in the dock")
+        }
+        snap("08-dock")
+        mic.tap()
+        sleep(4)
+        snap("09-voice-sheet")
+    }
+
+    /// The listening state. Needs an ElevenLabs key to reach for real, so the
+    /// session is put into a live state by launch argument and the gesture,
+    /// the orb and the transcript below it are the genuine ones.
+    func testVoiceLiveStates() {
+        XCTAssertTrue(ledgerHeading.waitForExistence(timeout: 25))
+        sleep(2)
+        app.buttons["Talk to Orbit"].tap()
+        sleep(2)
+        snap("10-voice-live")
+
+        let orb = app.buttons["Hold to talk"].firstMatch.exists
+            ? app.buttons["Hold to talk"].firstMatch
+            : app.otherElements["Hold to talk"].firstMatch
+        guard orb.waitForExistence(timeout: 5) else {
+            snap("11-no-orb")
+            return XCTFail("No orb to hold")
+        }
+        // A real press on the real gesture. Events have to be posted from the
+        // main thread and `press(forDuration:)` does not return until it lets
+        // go, so the camera is what moves off it: the screenshot is taken while
+        // the finger is still down.
+        var midHold: XCUIScreenshot?
+        let taken = expectation(description: "photographed mid-hold")
+        DispatchQueue.global().asyncAfter(deadline: .now() + 1.2) {
+            midHold = XCUIScreen.main.screenshot()
+            taken.fulfill()
+        }
+        orb.press(forDuration: 3)
+        wait(for: [taken], timeout: 15)
+        if let midHold { attach(midHold, "11-voice-listening") }
+        sleep(1)
+        snap("12-voice-after-release")
+    }
+
+    /// Tapping a class tile should grow it into the detail view.
+    func testClassDetail() {
+        XCTAssertTrue(ledgerHeading.waitForExistence(timeout: 25))
+        sleep(2)
+        let list = app.collectionViews.firstMatch
+        list.swipeUp(velocity: .slow)
+        sleep(1)
+
+        let tile = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "CS 0441")).firstMatch
+        guard tile.waitForExistence(timeout: 5) else {
+            snap("05-no-class-tile")
+            return XCTFail("No class tile in the deck")
+        }
+        tile.tap()
+        sleep(2)
+        snap("05-class-detail")
+    }
+
+    /// The window rows carry a leading swipe action that opens the complete
+    /// sheet. Both halves are captured.
+    func testSwipeToDone() {
+        XCTAssertTrue(ledgerHeading.waitForExistence(timeout: 25))
+        sleep(2)
+        // Scroll until the row is on screen rather than a fixed number of
+        // swipes: how far one swipe travels depends on how much day there is,
+        // and a fixed count either stops short or sails past the windows.
+        let list = app.collectionViews.firstMatch
+        // Matched case-insensitively: `.orbitEyebrow()` uppercases the label,
+        // and that reaches the accessibility label too, so the button answers
+        // to "DONE" and not to "Done".
+        let done = app.buttons.matching(NSPredicate(format: "label ==[c] %@", "Done")).firstMatch
+        var swipes = 0
+        while !done.isHittable, swipes < 6 {
+            list.swipeUp(velocity: .slow)
+            sleep(1)
+            swipes += 1
+        }
+        guard done.isHittable else {
+            snap("06-no-window-row")
+            return XCTFail("No window row with a pick after \(swipes) swipes")
+        }
+        snap("06-windows")
+        done.tap()
+        sleep(2)
+        snap("07-complete-sheet")
+    }
+}
