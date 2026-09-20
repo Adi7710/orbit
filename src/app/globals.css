@@ -1,31 +1,71 @@
 @import "tailwindcss";
 
 /**
- * Orbit is a light surface on purpose: every card is dark text on paper.
+ * Orbit's web tokens, matched to the iOS app on 20 Sept.
  *
- * The starter template flipped --background to near-black under
- * prefers-color-scheme: dark, which left the whole app dark text on a dark
- * page and looked like a hang. A proper dark theme is a real piece of work
- * (see docs/theme.md); pinning the surface is the honest interim.
+ * The four domain hues, the primary and the two mode accents are the same
+ * values as ios/Orbit/Theme/OrbitClassicTheme.swift, so a screenshot of the
+ * web and a screenshot of the phone read as one product. docs/theme.md
+ * section 2 records the contrast and colour-blindness check they passed.
+ *
+ * Light surface on purpose, and the system font on purpose: docs/theme.md
+ * section 4. The system face ships instantly, scales with the OS, and cannot
+ * drift from the phone.
  */
 :root {
   --background: #ffffff;
   --foreground: #18181b;
+  --surface: #f2f2f7;
+  --surface-2: #e5e5ea;
+  --line: #d1d1d6;
+  --ink: #18181b;
+  --ink-2: #55575e;
+  --ink-3: #6e7179;
+
+  --primary: #2f6fe4;
+  --crisis: #e11d48;
+  --chill: #557488;
+
+  --learn: #2f6fe4;
+  --build: #0f9c8c;
+  --body: #e04a32;
+  --life: #9a4dbf;
+  --on-accent: #ffffff;
+
   color-scheme: light;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-primary: var(--primary);
+  --color-crisis: var(--crisis);
+  --color-chill: var(--chill);
+  --color-learn: var(--learn);
+  --color-build: var(--build);
+  --color-body: var(--body);
+  --color-life: var(--life);
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 html,
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+/* Every number that changes in place or sits in a column: docs/theme.md section 4. */
+.tabular,
+[data-tabular] {
+  font-variant-numeric: tabular-nums;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -26,7 +26,10 @@ enum OrbitClassic {
 
     static let primary: UInt32 = 0x2F6FE4
     static let crisis:  UInt32 = 0xE11D48
-    static let chill:   UInt32 = 0x6E8CA0
+    /// Darkened from 6E8CA0 on 20 Sept: white text on the original was
+    /// 3.55:1, which fails as text. This one is 4.95:1 with white and 4.24:1
+    /// as an arc on black. See docs/theme.md section 2.2, run 2.
+    static let chill:   UInt32 = 0x557488
 
     // MARK: Surfaces
 
@@ -50,8 +53,10 @@ extension Color {
 }
 
 /// Durations are written the way the design writes them: `196` is "3h 16m",
-/// `45` is "45m". This formats a number the server sent. It does not decide
-/// what the number is.
+/// `547` is "9h 07m", `45` is "45m". Minutes are two digits once there is an
+/// hour in front of them, so a column of durations lines up and the web's
+/// ledger reveal and this app spell the headline number the same way. This
+/// formats a number the server sent. It does not decide what the number is.
 enum OrbitDuration {
     static func hm(_ minutes: Int) -> String {
         let m = abs(minutes)
@@ -59,6 +64,6 @@ enum OrbitDuration {
         let rest = m % 60
         if h == 0 { return "\(rest)m" }
         if rest == 0 { return "\(h)h" }
-        return "\(h)h \(rest)m"
+        return "\(h)h \(rest < 10 ? "0" : "")\(rest)m"
     }
 }

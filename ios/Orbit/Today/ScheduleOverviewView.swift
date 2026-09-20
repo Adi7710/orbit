@@ -28,6 +28,13 @@ struct ScheduleOverviewView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
 
+    /// The mode's accent, shape and pace. The dock reads this too, so Crisis
+    /// and Chill never put two accents on one screen: the header segment and
+    /// the primary action are the same instrument.
+    private var chrome: OrbitModeChrome {
+        .on(store.day?.mode ?? .normal, reduceMotion: reduceMotion)
+    }
+
     /// What the Done button is asking about. Identifiable so `.sheet(item:)`
     /// rebuilds the sheet when a different task is tapped.
     struct Completion: Identifiable, Equatable {
@@ -37,6 +44,10 @@ struct ScheduleOverviewView: View {
     }
 
     var body: some View {
+        // A NavigationStack so the six doors on Today can push their pages.
+        // The root keeps its own top gradient and no bar; pushed pages get the
+        // system bar with a back button.
+        NavigationStack {
         ZStack(alignment: .bottom) {
             Color.orbitBackground.ignoresSafeArea()
 
@@ -121,6 +132,8 @@ struct ScheduleOverviewView: View {
                 Task { await store.complete(taskId: item.id, title: item.title, actualMinutes: minutes) }
             }
         }
+        .toolbar(.hidden, for: .navigationBar)
+        }
     }
 
     // MARK: - The day
@@ -162,30 +175,142 @@ struct ScheduleOverviewView: View {
                 }
             }
 
+            // Plan my day sits under the rings and the mode bar, by Adi's
+            // call: first what the day is, then the one thing to do about it.
+            plainRow { planButton }
             plainRow { fitsCard(day) }
             deadlinesSection(day)
             atRiskSection(day)
-            timelineSection(day)
-            windowsSection(day)
 
-            busSection(day)
+            // Six doors, not six sections. Each row says one line about what
+            // is behind it and opens a page with all of it. The home screen
+            // is the ledger and the way in; the detail lives one tap away,
+            // which is the same rule the fits card already follows.
+            section("Today") {
+                door("Your day", detail: dayDetail(day), icon: "calendar.day.timeline.left") { timelineSection(day) }
+                door("Your real windows", detail: windowsDetail(day), icon: "rectangle.split.3x1") { windowsSection(day) }
+                door("Getting there", detail: busDetail(day), icon: "tram") { busSection(day) }
+                door("Quests", detail: questsDetail(day), icon: "star") { questsSection(day) }
+                door("Waiting on you", detail: proposalsDetail(day), icon: "checkmark.circle") { proposalsSection(day) }
+                door("Free with you", detail: friendsDetail(day), icon: "person.2") { friendsSection(day) }
+            }
 
-            questsSection(day)
-            proposalsSection(day)
-            friendsSection(day)
             learnedSection(day)
 
-            // Room for the dock AND the tab bar under it. 104 was enough when
-            // the dock was the only thing down there; with a tab bar as well
-            // the last card was ending up under both.
+            // Room for the dock and the tab bar under it.
             Color.clear
-                .frame(height: 168)
+                .frame(height: 140)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .refreshable { await store.refresh() }
+    }
+
+    /// Plan my day. Full width, in the mode's accent, directly under the
+    /// rings and the mode bar. The one action on the screen.
+    private var planButton: some View {
+        Button {
+            Task { await store.planMyDay() }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 14, weight: .semibold))
+                Text(store.isWorking ? "Thinking…" : "Plan my day")
+                    .font(.orbitHeadline)
+            }
+            .foregroundStyle(chrome.onAccent)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 15)
+            .background(chrome.accent, in: Capsule())
+        }
+        .buttonStyle(.orbitTile)
+        .disabled(store.isWorking)
+        .orbitBloom(chrome.accent, active: !store.isWorking, radius: 18)
+        .animation(chrome.animation, value: store.day?.mode)
+        .padding(.top, 4)
+    }
+
+    // MARK: - Doors
+
+    /// A row that opens a page. The page is the section it used to be, in its
+    /// own List, under its own title.
+    private func door<Content: View>(
+        _ title: String,
+        detail: String,
+        icon: String,
+        @ViewBuilder page content: @escaping () -> Content
+    ) -> some View {
+        plainRow {
+            NavigationLink {
+                List { content() }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.orbitBackground.ignoresSafeArea())
+                    .navigationTitle(title)
+                    .navigationBarTitleDisplayMode(.inline)
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: icon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(chrome.accent)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(.headline)
+                            .foregroundStyle(OrbitClassic.ink)
+                        Text(detail)
+                            .font(.subheadline)
+                            .foregroundStyle(OrbitClassic.inkSoft)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(OrbitClassic.inkFaint)
+                }
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(OrbitClassic.surface)
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    // One line per door, from server fields only. Counts of things are the
+    // only numbers the phone writes here.
+
+    private func dayDetail(_ day: Today) -> String {
+        let blocks = day.blocks ?? []
+        if let next = blocks.first(where: { $0.status == .next }) { return "\(blocks.count) on the timetable · next \(next.title) at \(next.startText)" }
+        if let now = blocks.first(where: { $0.status == .now }) { return "Now: \(now.title) until \(now.endText)" }
+        return blocks.isEmpty ? "No classes today" : "\(blocks.count) on the timetable, all done"
+    }
+
+    private func windowsDetail(_ day: Today) -> String {
+        if day.gaps.isEmpty { return "Nothing fits. Enjoy it." }
+        return day.gaps.map { "\($0.startText)–\($0.endText)" }.joined(separator: " · ")
+    }
+
+    private func busDetail(_ day: Today) -> String {
+        if let bus = day.bus { return "Leave by \(bus.leaveByText) for the \(bus.route)" }
+        return day.transit.why ?? "Nothing to catch"
+    }
+
+    private func questsDetail(_ day: Today) -> String {
+        day.quests.isEmpty ? "None today" : "\(day.quests.count) today"
+    }
+
+    private func proposalsDetail(_ day: Today) -> String {
+        let n = day.pendingProposals.count
+        return n == 0 ? "Nothing waiting" : "\(n) to decide"
+    }
+
+    private func friendsDetail(_ day: Today) -> String {
+        day.shared.isEmpty ? "Nobody free in your windows" : day.shared.flatMap(\.names).joined(separator: ", ")
     }
 
     /// The whole ledger reduced to the two lines that change behaviour.
@@ -204,10 +329,13 @@ struct ScheduleOverviewView: View {
 
             return VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline) {
+                    // docs/copy.md today.ledger.over / today.ledger.tight,
+                    // unless the mode has asked for the meter, in which case
+                    // the sentence the server wrote about capacity wins.
                     Text(showMeter ? feas!.message
                          : day.ledger.overCommitted
-                         ? "Today is \(OrbitDuration.hm(day.ledger.slack)) over."
-                         : "You have \(OrbitDuration.hm(day.ledger.slack)) spare today.")
+                         ? "You're over by \(OrbitDuration.hm(day.ledger.slack)). Something has to move."
+                         : "You have \(OrbitDuration.hm(day.ledger.slack)) of slack today.")
                         .font(.headline)
                         .foregroundStyle(OrbitClassic.ink)
                         .multilineTextAlignment(.leading)
@@ -216,10 +344,11 @@ struct ScheduleOverviewView: View {
                         .font(.caption2)
                         .foregroundStyle(OrbitClassic.inkFaint)
                 }
+                // One line for both states -- copy rule 6 puts the number
+                // first and stops there -- with the need-versus-have counts
+                // in its place when the meter is on.
                 Text(showMeter
                      ? "\(feas!.needMin) min of work against \(feas!.haveMin) min of windows."
-                     : day.ledger.overCommitted
-                     ? "The rest isn't happening, and that's fine — you can stop carrying it until tomorrow."
                      : "After \(OrbitDuration.hm(day.ledger.frictionMinutes)) of walking, eating and getting ready.")
                     .font(.subheadline)
                     .foregroundStyle(OrbitClassic.inkSoft)
@@ -294,9 +423,11 @@ struct ScheduleOverviewView: View {
                                 .font(.orbitBody)
                                 .foregroundStyle(Color.orbitInk)
                             Spacer(minLength: 8)
+                            // Not red: the deadline is the student's, and the
+                            // number is the message. theme.md section 2.4.
                             Text("needs \(task.needsMinutes)m")
                                 .font(.system(.caption, design: .monospaced))
-                                .foregroundStyle(Color.orbitUrgent)
+                                .foregroundStyle(Color.orbitInkSoft)
                         }
                         .padding(.vertical, 3)
                     }
@@ -426,7 +557,7 @@ struct ScheduleOverviewView: View {
         section("Your real windows") {
             if windows.isEmpty {
                 plainRow {
-                    Text(day.gaps.isEmpty ? "Nothing fits today. Enjoy it." : "You cleared the board.")
+                    Text(day.gaps.isEmpty ? "Nothing fits. Enjoy it." : "You cleared the board.")
                         .font(.orbitBody)
                         .foregroundStyle(Color.orbitInkFaint)
                         .padding(.vertical, 10)
@@ -522,74 +653,28 @@ struct ScheduleOverviewView: View {
 
     // MARK: - The dock
 
-    /// A floating bar rather than a full-width strip: the reference's tab bar
-    /// hovers over the content with the page visible either side of it. This
-    /// is the second of the two materials on the screen, and it does not move.
+    /// The dock is the voice now, and only the voice: Plan my day moved up
+    /// under the rings. One round button, bottom right, on the second of the
+    /// two materials this screen is allowed.
     private var dock: some View {
-        HStack(spacing: 10) {
-            Button {
-                Task { await store.planMyDay() }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 14, weight: .semibold))
-                    Text("Plan my day").font(.orbitHeadline)
-                }
-                .foregroundStyle(Color.orbitOnAccent)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 15)
-                .background(LinearGradient.orbitAccent, in: Capsule())
-            }
-            .buttonStyle(.orbitTile)
-            .disabled(store.isWorking)
-            .orbitBloom(.orbitAccent, active: !store.isWorking, radius: 18)
-
-            // Neutral on purpose. The accent budget allows lime on one primary
-            // action per surface, and on Today that is "Plan my day". The voice
-            // sheet covers the dock, so the orb inside it inherits the lime
-            // rather than adding a fourth.
+        HStack {
+            Spacer()
             Button {
                 showingVoice = true
             } label: {
                 Image(systemName: "mic.fill")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.orbitInk)
-                    .frame(width: 52, height: 52)
-                    .background(Circle().fill(Color.orbitSurface))
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(chrome.onAccent)
+                    .frame(width: 56, height: 56)
+                    .background(Circle().fill(chrome.accent))
                     .overlay(Circle().strokeBorder(Color.orbitHairline, lineWidth: 1))
             }
             .buttonStyle(.orbitTile)
+            .orbitBloom(chrome.accent, radius: 18)
             .accessibilityLabel("Talk to Orbit")
-
-            Button {
-                Task { await store.refresh() }
-            } label: {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color.orbitInk)
-                    .frame(width: 52, height: 52)
-                    .background(Circle().fill(Color.orbitSurface))
-                    .overlay(Circle().strokeBorder(Color.orbitHairline, lineWidth: 1))
-                    .rotationEffect(.degrees(store.isWorking && !reduceMotion ? 360 : 0))
-                    .animation(
-                        store.isWorking && !reduceMotion
-                            ? .linear(duration: 0.9).repeatForever(autoreverses: false)
-                            : .default,
-                        value: store.isWorking
-                    )
-            }
-            .buttonStyle(.orbitTile)
-            .accessibilityLabel("Refresh")
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 8)
-        .background {
-            Capsule()
-                .fill(.ultraThinMaterial)
-                .overlay(Capsule().strokeBorder(Color.orbitHairline, lineWidth: 1))
-        }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 6)
+        .padding(.horizontal, 20)
+        .padding(.bottom, 8)
     }
 
     private func failure(_ message: String) -> some View {

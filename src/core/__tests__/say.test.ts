@@ -91,3 +91,19 @@ describe("counting and deadlines the way they are spoken", () => {
     expect(naturalDue(undefined)).toBeUndefined();
   });
 });
+
+import { bucketDue } from "@/core/say";
+
+describe("bucketing a deadline for the screen", () => {
+  const now = new Date(2026, 8, 22, 11, 10);
+  it("puts deadlines in the four piles the design draws, by calendar day", () => {
+    expect(bucketDue(new Date(2026, 8, 21, 23, 59), now)).toBe("overdue");
+    expect(bucketDue(new Date(2026, 8, 22, 23, 59), now)).toBe("today");
+    expect(bucketDue(new Date(2026, 8, 25, 9, 0), now)).toBe("soon");
+    expect(bucketDue(new Date(2026, 8, 26, 9, 0), now)).toBe("later");
+  });
+  it("says undated rather than guessing", () => {
+    expect(bucketDue(undefined, now)).toBe("undated");
+    expect(bucketDue("not a date", now)).toBe("undated");
+  });
+});

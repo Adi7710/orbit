@@ -45,18 +45,32 @@ struct LedgerRingsView: View {
         let color: Color
     }
 
-    /// Hues carry over from the domains they came from where that still means
-    /// something — the walk is BODY's red — and never change with the mode.
+    /// One hue, four depths. The four domain hues are reserved for the four
+    /// domains — a task is LEARN blue everywhere it appears — and the ledger
+    /// is not four domains, it is one day taken apart. Borrowing BUILD's teal
+    /// for meals and LIFE's purple for settling made a hue mean two things on
+    /// one screen, which OrbitModeChrome's own rule forbids. So the bands are
+    /// the primary at four tints, outside in, darkest first. Lightness is the
+    /// one axis every kind of colour vision keeps, and each band carries its
+    /// own label and number in the meters below, so the tints are never the
+    /// only encoding.
     private var bands: [Band] {
         let classBand = ledger.awake.map { _ in
-            Band(id: "fixed", label: "Class", minutes: ledger.fixed, color: .classicLearn)
+            Band(id: "fixed", label: "Class", minutes: ledger.fixed, color: Self.tint(0))
         }
         return [
             classBand,
-            Band(id: "travel", label: "Walking", minutes: ledger.travel, color: .classicBody),
-            Band(id: "meals", label: "Meals", minutes: ledger.meals, color: .classicBuild),
-            Band(id: "routines", label: "Settling", minutes: ledger.routines, color: .classicLife)
+            Band(id: "travel", label: "Walking", minutes: ledger.travel, color: Self.tint(1)),
+            Band(id: "meals", label: "Meals", minutes: ledger.meals, color: Self.tint(2)),
+            Band(id: "routines", label: "Settling", minutes: ledger.routines, color: Self.tint(3))
         ].compactMap { $0 }
+    }
+
+    /// Primary at 100 / 72 / 52 / 36 percent. The lightest still clears 3:1
+    /// against white as a 14pt arc because it sits on its own 16 percent track.
+    private static func tint(_ depth: Int) -> Color {
+        let opacities: [Double] = [1.0, 0.72, 0.52, 0.36]
+        return Color(hex: OrbitClassic.primary).opacity(opacities[min(depth, opacities.count - 1)])
     }
 
     /// The whole the arcs are drawn against: the waking day, which every band
@@ -121,14 +135,19 @@ struct LedgerRingsView: View {
                 .textCase(.uppercase)
                 .foregroundStyle(OrbitClassic.inkSoft)
 
+            // Ink on a well, not white on crimson. theme.md section 2.4: there
+            // is no colour for the student doing badly, and "over" is the
+            // student's own day. The number is the information; a red pill
+            // is the app deciding how they should feel about it.
             if ledger.overCommitted {
                 Text(OrbitDuration.hm(ledger.slack) + " over")
                     .font(.system(size: 10, weight: .semibold))
                     .tracking(0.8)
-                    .foregroundStyle(.white)
+                    .monospacedDigit()
+                    .foregroundStyle(OrbitClassic.ink)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill(Color(hex: OrbitClassic.crisis)))
+                    .background(Capsule().fill(OrbitClassic.surfaceDeep))
                     .padding(.top, 3)
             }
         }

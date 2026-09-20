@@ -70,6 +70,20 @@ The ghost warning is the one place the app volunteers bad news. It earns that by
 | `today.crew.none` | `Nobody free in this gap.` |
 | `today.crew.rank` | `{xp} XP this week · {rank} of {total}` |
 
+### Crew screen (added 20 Sept)
+
+| Key | String |
+|---|---|
+| `crew.standing.rank` | `#{rank}` then `of {total}` |
+| `crew.standing.behind` | `{byXp} XP behind {name}` |
+| `crew.standing.level` | `Level with {name}. Rings and streak decide it.` |
+| `crew.standing.ahead` | `{byXp} XP ahead of {name}` |
+| `crew.standing.lead` | `You lead. {name} is {byXp} XP back.` |
+| `crew.row.meta` | `{streak}-week streak · {rings} rings` |
+| `crew.empty.me` | `You are not on this board yet.` |
+
+Every gap is a distance to close, computed on the server. Nothing on the crew screen says who is last, and nobody at the bottom is dimmed or coloured for it (theme.md §2.4).
+
 ### Empty states
 
 | Key | String |

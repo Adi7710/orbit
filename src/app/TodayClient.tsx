@@ -69,7 +69,7 @@ export default function TodayClient() {
       setLoadError(e instanceof Error ? e.message : String(e));
     }
     try {
-      setBoard((await get("/api/leaderboard?group=Tower%20A")).rows);
+      setBoard((await get("/api/leaderboard")).rows);
       setBoardError(false);
     } catch {
       // The board is decoration and the day is not, so this never blocks the
@@ -197,7 +197,7 @@ export default function TodayClient() {
           <>
             <h1 className="text-lg font-semibold">Could not load your day</h1>
             <p className="mt-2 text-sm text-zinc-600">{loadError}</p>
-            <button onClick={refresh} className="mt-4 min-h-11 rounded-full bg-zinc-900 px-4 text-sm text-white">Try again</button>
+            <button onClick={refresh} className="mt-4 min-h-11 rounded-full bg-primary px-4 text-sm text-white">Try again</button>
           </>
         ) : (
           <p className="text-zinc-500">Loading your day…</p>
@@ -220,9 +220,9 @@ export default function TodayClient() {
         </div>
         <div className="flex items-center gap-2 text-sm">
           {(["normal", "crisis", "chill"] as const).map((m) => (
-            <button key={m} onClick={() => setMode(m)} aria-pressed={t.mode === m} title={t.mode === m ? t.modeConfig.promise : undefined} className={`min-h-11 rounded-full border px-4 ${t.mode === m ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300"}`}>{m}</button>
+            <button key={m} onClick={() => setMode(m)} aria-pressed={t.mode === m} title={t.mode === m ? t.modeConfig.promise : undefined} className={`min-h-11 rounded-full border px-4 ${t.mode === m ? "border-primary bg-primary text-white" : "border-line"}`}>{m}</button>
           ))}
-          <span className="ml-3 rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-900">{t.user.xpWeek} XP · {t.user.streakWeeks}-wk streak</span>
+          <span className="ml-3 rounded-full bg-surface px-3 py-1 font-medium text-ink tabular">{t.user.xpWeek} XP · {t.user.streakWeeks}-wk streak</span>
         </div>
       </header>
 
@@ -291,7 +291,7 @@ export default function TodayClient() {
       )}
       {t.cuts.length > 0 && (
         <section className="rounded-2xl border border-red-200 bg-red-50/50 p-5 md:col-span-2">
-          <h2 className="text-sm font-medium text-red-700">The day will not fit. Cheapest way back:</h2>
+          <h2 className="text-sm font-medium text-ink-2">The day will not fit. Cheapest way back:</h2>
           <ul className="mt-2 text-sm text-zinc-700">{t.cuts.map((c) => <li key={c.task.title}>Drop <b>{c.task.title}</b> · saves {c.minutesSaved} min · {c.reason}</li>)}</ul>
         </section>
       )}
@@ -324,9 +324,9 @@ export default function TodayClient() {
               <li className="flex gap-2"><span aria-hidden="true" className="w-4">🚌</span><span className="w-10 tabular-nums text-zinc-500">{t.bus.departsText}</span>
                 <span className="truncate">
                   <b>{t.bus.route}</b>
-                  {t.bus.live && <span className="ml-1 text-emerald-700">live{t.bus.delaySec && Math.abs(t.bus.delaySec) > 59 ? `, ${Math.abs(Math.round(t.bus.delaySec / 60))} min ${t.bus.delaySec > 0 ? "late" : "early"}` : ""}</span>}
-                  {t.bus.ghost && <span className="ml-1 text-amber-700">not on the live feed</span>}
-                  {t.bus.vehicleKm !== null && <span className="ml-1 text-zinc-500">· {t.bus.vehicleKm} km out</span>}
+                  {t.bus.live && <span className="ml-1 text-build">live{t.bus.delaySec && Math.abs(t.bus.delaySec) > 59 ? `, ${Math.abs(Math.round(t.bus.delaySec / 60))} min ${t.bus.delaySec > 0 ? "late" : "early"}` : ""}</span>}
+                  {t.bus.ghost && <span className="ml-1 text-ink-2">not on the live feed</span>}
+                  {t.bus.vehicleKm !== null && <span className="ml-1 text-ink-3">· {t.bus.vehicleKm} km out</span>}
                 </span>
               </li>
               <li className="flex gap-2"><span aria-hidden="true" className="w-4">🪑</span><span className="w-10 tabular-nums text-zinc-500">{t.bus.rideMinutes}m</span><span className="truncate">to {t.bus.alightName.toLowerCase()}</span></li>
@@ -359,7 +359,7 @@ export default function TodayClient() {
           <h2 className="text-sm font-medium text-zinc-500">
             {t.modeConfig.questStrategy === "deadline-blocks" ? "Gaps and the work that goes in them" : t.modeConfig.questsOptional ? "Gaps, and one thing if you want it" : "Gaps and quests"}
           </h2>
-          <button disabled={busy} onClick={plan} className="min-h-11 shrink-0 rounded-full bg-zinc-900 px-4 text-sm text-white disabled:opacity-50">{busy ? "Thinking…" : "Plan my day"}</button>
+          <button disabled={busy} onClick={plan} className="min-h-11 shrink-0 rounded-full bg-primary px-4 text-sm text-white disabled:opacity-50">{busy ? "Thinking…" : "Plan my day"}</button>
         </div>
         {narration && <p className="mt-2 text-sm italic break-words text-zinc-600">{narration}</p>}
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -424,7 +424,7 @@ export default function TodayClient() {
       <section className="rounded-2xl border p-5">
         <h2 className="text-sm font-medium text-zinc-500">Free with you</h2>
         {t.shared.length ? t.shared.map((w) => <div key={w.startText + w.names.join()} className="mt-2 text-sm"><b>{w.names.join(" & ")}</b> · {w.startText}–{w.endText} ({w.minutes} min)</div>) : <div className="mt-2 text-sm text-zinc-500">No overlaps today.</div>}
-        <h2 className="mt-5 text-sm font-medium text-zinc-500">{t.user.group} this week</h2>
+        <h2 className="mt-5 text-sm font-medium text-zinc-500">Crew this week</h2>
         <ol className="mt-2 text-sm">{board.map((r) => <li key={r.name} className="flex justify-between gap-3"><span className="min-w-0 truncate">{r.rank}. {r.name}</span><span className="shrink-0">{r.xpWeek} XP · {r.streakWeeks}wk</span></li>)}</ol>
         {board.length === 0 && <p className="mt-2 text-sm text-zinc-500">{boardError ? "The board did not load." : "Nobody on the board yet."}</p>}
       </section>
@@ -438,7 +438,7 @@ export default function TodayClient() {
               <div className="break-words text-zinc-600">{p.proposal.reason}</div>
               {p.proposal.body && <pre className="mt-1 overflow-x-auto rounded bg-white p-2 text-xs break-words whitespace-pre-wrap">{p.proposal.body}</pre>}
               {p.proposal.message && <div className="mt-1 text-xs break-words">“{p.proposal.message}”</div>}
-              <div className="mt-2 flex gap-2"><button onClick={() => decide(p.id, "approve")} className="min-h-11 rounded-full bg-emerald-700 px-4 text-xs text-white">Approve</button><button onClick={() => decide(p.id, "decline")} className="min-h-11 rounded-full border px-4 text-xs">Decline</button></div>
+              <div className="mt-2 flex gap-2"><button onClick={() => decide(p.id, "approve")} className="min-h-11 rounded-full bg-build px-4 text-xs text-white">Approve</button><button onClick={() => decide(p.id, "decline")} className="min-h-11 rounded-full border px-4 text-xs">Decline</button></div>
             </li>
           ))}
           {t.proposals.filter((p) => p.status === "pending").length === 0 && <li className="text-sm text-zinc-500">Nothing pending. Hit “Plan my day”.</li>}
@@ -459,14 +459,14 @@ export default function TodayClient() {
           <input value={timetableUrl} onChange={(e) => setTimetableUrl(e.target.value)} placeholder="Timetable .ics link" aria-label="Timetable .ics link" className="min-h-11 rounded-xl border px-3 text-sm" />
           <input value={canvasUrl} onChange={(e) => setCanvasUrl(e.target.value)} placeholder="Canvas calendar .ics link" aria-label="Canvas calendar .ics link" className="min-h-11 rounded-xl border px-3 text-sm" />
           <div className="flex gap-2">
-            <button disabled={importing || (!timetableUrl.trim() && !canvasUrl.trim())} onClick={() => importCalendars(false)} className="min-h-11 rounded-full bg-zinc-900 px-4 text-sm text-white disabled:opacity-50">{importing ? "Importing…" : "Import"}</button>
+            <button disabled={importing || (!timetableUrl.trim() && !canvasUrl.trim())} onClick={() => importCalendars(false)} className="min-h-11 rounded-full bg-primary px-4 text-sm text-white disabled:opacity-50">{importing ? "Importing…" : "Import"}</button>
             <button disabled={importing} onClick={() => importCalendars(true)} className="min-h-11 rounded-full border px-4 text-sm disabled:opacity-50">Use sample data</button>
           </div>
         </div>
         {importNote && <p className="mt-2 text-sm break-words text-zinc-600">{importNote}</p>}
       </section>
 
-      {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-zinc-900 px-4 py-2 text-sm text-white shadow-lg">{toast}</div>}
+      {toast && <div className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-2 text-sm text-white shadow-lg">{toast}</div>}
     </main>
   );
 }

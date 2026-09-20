@@ -65,6 +65,43 @@ export function rankBoard(rows: LeaderRow[], group?: string): (LeaderRow & { ran
     .map((r, i) => ({ ...r, rank: i + 1 }));
 }
 
+/**
+ * Where one person stands on the board, with the two gaps that make it a
+ * race: the person just ahead and the person just behind. Computed here so
+ * no client subtracts one XP total from another; the phone prints these.
+ * `share` is each row against the leader, for a bar. Nothing here counts what
+ * anyone failed to do -- being behind is a distance to close, not a verdict.
+ */
+export interface Standing {
+  rank: number;
+  total: number;
+  xpWeek: number;
+  ahead: { name: string; byXp: number } | null;
+  behind: { name: string; byXp: number } | null;
+}
+
+export function standingOf(rows: LeaderRow[], userId: string, group?: string): Standing | null {
+  const ranked = rankBoard(rows, group);
+  const i = ranked.findIndex((r) => r.userId === userId);
+  if (i < 0) return null;
+  const me = ranked[i];
+  const up = i > 0 ? ranked[i - 1] : undefined;
+  const down = i < ranked.length - 1 ? ranked[i + 1] : undefined;
+  return {
+    rank: me.rank,
+    total: ranked.length,
+    xpWeek: me.xpWeek,
+    ahead: up ? { name: up.name, byXp: up.xpWeek - me.xpWeek } : null,
+    behind: down ? { name: down.name, byXp: me.xpWeek - down.xpWeek } : null,
+  };
+}
+
+/** Each row against the leader, 0..1, for a bar. The leader is 1; an empty board is empty. */
+export function withShare(ranked: (LeaderRow & { rank: number })[]): (LeaderRow & { rank: number; share: number })[] {
+  const top = ranked[0]?.xpWeek ?? 0;
+  return ranked.map((r) => ({ ...r, share: top > 0 ? Math.max(0, Math.min(1, r.xpWeek / top)) : 0 }));
+}
+
 export interface Quest { id: string; title: string; xp: number; gapId?: string; kind: "task" | "bus" | "social" | "body"; expiresAt: number }
 
 /** Quests are generated from real gaps and real buses, so they cannot be completed by lying. */

@@ -55,6 +55,7 @@ targets:
       - path: OrbitAPI.swift
       - path: OrbitAPI+Today.swift
       - path: OrbitAPI+Voice.swift
+      - path: OrbitAPI+Settings.swift
       - path: JourneyMapView.swift
     dependencies:
       - package: ElevenLabs
@@ -95,10 +96,10 @@ targets:
         NSMicrophoneUsageDescription: Orbit listens only while you hold the talk button, so you can tell it what you finished without typing.
         # LiveKit probes the local network to find the fastest audio path.
         NSLocalNetworkUsageDescription: Orbit uses the local network to keep the voice call clear.
-        # DEVELOPMENT ONLY: the dev server is plain HTTP on a laptop.
-        # Remove this whole key before any submission that uses the HTTPS URL.
+        # The server is HTTPS. Only plain-HTTP localhost is still allowed,
+        # for a dev server on the same Mac; arbitrary loads are off.
         NSAppTransportSecurity:
-          NSAllowsArbitraryLoads: true
+          NSAllowsLocalNetworking: true
 
   OrbitUITests:
     type: bundle.ui-testing
