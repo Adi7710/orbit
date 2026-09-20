@@ -1076,3 +1076,7 @@ Affects: ios/Orbit/Today/ScheduleOverviewView.swift, ios/Orbit/Today/FriendsWall
 ## 2026-09-20 10:28 ET · Adi + lead Claude · Every campus building has a track, and the map asks first
 Decision: Adi reported the bus failing. Two destinations were: Gateway and Howe sit 1.25 km up Castle Point from Hoboken Terminal, just past the 1.2 km walking radius the stop search used, so they came back "no bus leg between those places" while Babbio next door worked. bestStopPair now tries a wider radius when the first finds nothing; every building in both directions returns a track (Marin Boulevard to Hoboken Terminal or 9th Street, then the walk up the hill), verified for all ten legs. And the "Where are you going?" sheet on the web map now stays until a destination is tapped: it used to close as soon as a journey loaded, which is a fifth of a second, so nobody ever saw it. A deep link that already names the destination skips it.
 Affects: src/lib/journey.ts, src/app/map/MapClient.tsx.
+
+## 2026-09-20 10:55 ET · Anmol + Claude · The header goes back to 8pt, because the banner can be moved now
+Decision: The header was pushed to 46pt on 20 Sept 10:20 so a pulse notice could not land on the student's own name. Making the notice swipe-away (10:45) fixed the same problem at its source, so the padding is back to 8 and the screen gets that 38pt back at the top. Reserving space for something the student can now dismiss is paying twice for one fix.
+Affects: ios/Orbit/Today/ScheduleOverviewView.swift.

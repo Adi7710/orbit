@@ -208,10 +208,7 @@ struct ScheduleOverviewView: View {
                 ) { newMode in
                     Task { await store.setMode(newMode) }
                 }
-                // A notification banner drops over the top of the screen and
-                // was landing on the student's own name. The header starts
-                // below where a banner ends.
-                .padding(.top, 46)
+                .padding(.top, 8)
             }
 
             // Plan my day sits directly under the three modes. What the mode
