@@ -18,6 +18,16 @@ struct BusStripView: View {
 
     private var tint: Color { isTight ? .orbitUrgent : .orbitInkSoft }
 
+    /// GTFS stop names arrive shouting: "FORBES AVE + BIGELOW BLVD (SCHENLEY
+    /// DR)". Set in the middle of a sentence that is otherwise sentence case it
+    /// reads as an error, and at that length it was the reason the line ran past
+    /// two lines and lost the `why` — the one part of the sentence that says
+    /// why you are being told to stand up.
+    ///
+    /// Presentation only: the same string the server sent, cased for the screen.
+    /// `JourneyMapView` already does this with `.lowercased()`.
+    private var stopName: String { bus.stopName.capitalized }
+
     private var routeTag: String {
         if bus.live { return "\(bus.route) live" }
         if bus.ghost { return "\(bus.route) ghost" }
@@ -46,10 +56,10 @@ struct BusStripView: View {
                         systemImage: bus.live ? "dot.radiowaves.up.forward" : nil
                     )
                 }
-                Text("\(bus.walkToStop) min walk to \(bus.stopName), \(bus.rideMinutes) min ride, \(bus.why)")
+                Text("\(bus.walkToStop) min walk to \(stopName), \(bus.rideMinutes) min ride, \(bus.why)")
                     .font(.orbitBody)
                     .foregroundStyle(Color.orbitInkFaint)
-                    .lineLimit(2)
+                    .lineLimit(3)
                 if let verdict = bus.verdict, let at = bus.classAtText {
                     Text(verdictText(verdict, at: at))
                         .orbitEyebrow()

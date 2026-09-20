@@ -53,6 +53,27 @@ struct ScheduleOverviewView: View {
         }
         // A tap on a tile grows it into the detail; the geometry match is
         // anchored here so both ends share one coordinate space.
+        // The List runs to the physical top edge — there is no nav bar — so the
+        // day scrolled under the clock and the battery with nothing behind it.
+        // An opaque gradient rather than a material: this is a third fixed
+        // surface and PERFORMANCE.md budgets exactly two blurs, both of which
+        // are spent. A gradient fill is one blend and never re-samples.
+        // Declared before the other overlays so the detail view and the toast
+        // still sit above it.
+        .overlay(alignment: .top) {
+            LinearGradient(
+                stops: [
+                    .init(color: .orbitBackground, location: 0),
+                    .init(color: .orbitBackground, location: 0.62),
+                    .init(color: Color.orbitBackground.opacity(0), location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 78)
+            .ignoresSafeArea(edges: .top)
+            .allowsHitTesting(false)
+        }
         .overlay {
             if let block = expanded {
                 ClassDetailView(block: block, namespace: deck) {
@@ -504,13 +525,19 @@ private struct ProposalRow: View {
             }
 
             HStack(spacing: 10) {
+                // Outlined, not filled. A lime fill here is a fourth lime on
+                // Today — and worse, one per pending proposal, so the accent
+                // multiplies with the agent's output. This is the treatment
+                // GapCardRow's Done button already uses for the same reason:
+                // accent as ink and stroke carries the primary action without
+                // spending the fill.
                 Button { onDecide(true) } label: {
                     Text("Approve")
                         .orbitEyebrow()
-                        .foregroundStyle(Color.orbitOnAccent)
+                        .foregroundStyle(Color.orbitAccentInk)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 10)
-                        .background(Capsule().fill(Color.orbitAccent))
+                        .background(Capsule().strokeBorder(Color.orbitAccentInk.opacity(0.45), lineWidth: 1))
                 }
                 .buttonStyle(.orbitTile)
 

@@ -33,7 +33,6 @@ struct ClassDetailView: View {
                 head
                 if isLive, let progress = block.progress { liveDial(progress) }
                 detailRows
-                Spacer(minLength: 0)
             }
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
