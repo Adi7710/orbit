@@ -64,13 +64,59 @@ export const TURN = {
 import voice from "../config/voice.json" with { type: "json" };
 
 export const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || voice.voiceId;
+export const TTS_MODEL = process.env.ELEVENLABS_TTS_MODEL || voice.ttsModel;
 
 export const TTS = {
   voice_id: VOICE_ID,
+  model_id: TTS_MODEL,
   optimize_streaming_latency: voice.optimizeStreamingLatency,
   speed: voice.speed,
+  // The four dials below are Jatin's (PR #28), kept in config/voice.json with
+  // the voice id so a rebuild cannot lose them either. stability is a trade,
+  // not a quality dial: 0.5 stays the same person across a turn without going
+  // flat. similarity_boost holds the timbre of the chosen voice instead of
+  // drifting toward the model average -- its absence was a large part of why
+  // the output sounded like a text-to-speech engine. style above 0 adds
+  // intonation and costs latency; a little is the difference between reading
+  // a sentence and meaning it.
   stability: voice.stability,
+  similarity_boost: voice.similarityBoost,
+  style: voice.style,
+  use_speaker_boost: voice.useSpeakerBoost,
 };
+
+/**
+ * Which voice, in order of preference.
+ *
+ * No voice was ever chosen, so the agent used whatever ElevenLabs hands out by
+ * default. These are resolved by name against the account's actual voice list
+ * at setup time rather than pinned to an id, because ids differ between
+ * accounts and a wrong one fails silently back to the default.
+ *
+ * The brief from docs/voice.md: someone who keeps your diary and is walking
+ * next to you. Warm, unhurried, not a newsreader and not a customer-service
+ * bot.
+ */
+// Not used to pick the voice. Adi chose George, pinned by id in config/voice.json,
+// and a name list that resolves to whatever the account has is how a rebuild
+// silently changes who Orbit sounds like. Kept so `--show` can name the voice.
+export const VOICE_PREFERENCES = ["Matilda", "Jessica", "Charlotte", "Sarah", "Lily", "Rachel", "Bella", "Alice"];
+
+/**
+ * Picks the first preferred voice the account actually has. Returns undefined
+ * rather than guessing when none match, so the caller can say so out loud
+ * instead of shipping the default voice a second time.
+ */
+export async function resolveVoiceId(listVoices) {
+  const voices = await listVoices();
+  const byName = new Map(voices.map((v) => [String(v.name ?? "").toLowerCase(), v]));
+  for (const want of VOICE_PREFERENCES) {
+    const hit = byName.get(want.toLowerCase());
+    if (hit) return { voice_id: hit.voice_id ?? hit.id, name: hit.name };
+  }
+  const first = voices[0];
+  return first ? { voice_id: first.voice_id ?? first.id, name: first.name, fallback: true } : undefined;
+}
 
 /**
  * The words. The hard rule about numbers is unchanged and never softens:

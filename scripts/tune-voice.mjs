@@ -16,7 +16,7 @@
  * personality.
  */
 import fs from "node:fs";
-import { FIRST_MESSAGE, SYSTEM_PROMPT, conversationConfig } from "./voice-config.mjs";
+import { FIRST_MESSAGE, SYSTEM_PROMPT, TTS_MODEL, conversationConfig } from "./voice-config.mjs";
 
 const API = "https://api.elevenlabs.io/v1";
 const ENV = ".env.local";
@@ -42,6 +42,7 @@ async function show() {
   console.log("  soft timeout     :", cc.turn?.soft_timeout_config?.timeout_seconds, `"${cc.turn?.soft_timeout_config?.message}"`);
   console.log("  tts latency/speed:", cc.tts?.optimize_streaming_latency, "/", cc.tts?.speed);
   console.log("  voice_id         :", cc.tts?.voice_id);
+  console.log("  tts model        :", cc.tts?.model_id);
   console.log("  llm              :", cc.agent?.prompt?.llm);
   console.log("  tools            :", (cc.agent?.prompt?.tool_ids ?? []).length);
   console.log("  prompt lines     :", String(cc.agent?.prompt?.prompt ?? "").split("\n").filter(Boolean).length);
@@ -54,6 +55,10 @@ async function apply() {
     body: JSON.stringify({
       conversation_config: {
         ...conversationConfig(),
+        // Setting the voice here too means the sound can be fixed without
+        // recreating the agent, which would rotate every tool URL with it.
+        // voice_id and model_id both come from config/voice.json via conversationConfig().
+        tts: { ...conversationConfig().tts, model_id: TTS_MODEL },
         // Only the fields we own. tool_ids and llm are left exactly as they
         // are, so tuning the personality can never detach the tools.
         agent: { first_message: FIRST_MESSAGE, prompt: { prompt: SYSTEM_PROMPT } },

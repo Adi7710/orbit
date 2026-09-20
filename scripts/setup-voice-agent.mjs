@@ -12,7 +12,7 @@
  * the webhook URL changes every time the tunnel rotates.
  */
 import fs from "node:fs";
-import { FIRST_MESSAGE, SYSTEM_PROMPT, conversationConfig } from "./voice-config.mjs";
+import { FIRST_MESSAGE, SYSTEM_PROMPT, TTS_MODEL, VOICE_ID, conversationConfig } from "./voice-config.mjs";
 
 const API = "https://api.elevenlabs.io/v1";
 const ENV = ".env.local";
@@ -121,7 +121,11 @@ const TOOLS = [
 
 const LLM_CANDIDATES = ["claude-sonnet-4-5", "claude-3-7-sonnet", "claude-3-5-sonnet", "gemini-2.5-flash", "gpt-4o"];
 // English agents are restricted to the turbo/flash v2 families.
-const TTS_CANDIDATES = ["eleven_flash_v2", "eleven_turbo_v2", "eleven_flash_v2_5", "eleven_turbo_v2_5"];
+// Ordered by how human it sounds, not by how fast it starts. Flash is the
+// latency-optimised family: it commits to the start of a sentence before it
+// knows the shape of the end, which is what made the agent sound clipped and
+// synthetic. Turbo keeps the prosody for a delay nobody notices in a room.
+const TTS_CANDIDATES = [TTS_MODEL, "eleven_turbo_v2_5", "eleven_turbo_v2", "eleven_flash_v2_5", "eleven_flash_v2"].filter((x, i, a) => a.indexOf(x) === i);
 
 async function main() {
   console.log(`webhook base: ${BASE}`);
@@ -174,6 +178,8 @@ async function main() {
     toolIds.push(id);
     console.log(`  tool ${t.name} -> ${id}`);
   }
+
+  console.log(`  voice: ${VOICE_ID} (config/voice.json)`);
 
   let lastError;
   for (const tts of TTS_CANDIDATES) {

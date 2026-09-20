@@ -1,10 +1,12 @@
 {
-  "_comment": "Orbit's voice, in one place. Read by scripts/voice-config.mjs (which configures the ElevenLabs agent) and by src/agents/voiceConfig.ts (which renders speech for clients that cannot host a conversation). Two copies is how the voice silently reset to a default three times in one evening.",
+  "_comment": "Orbit's voice, in one place. Read by scripts/voice-config.mjs (which configures the ElevenLabs agent) and by src/agents/voiceConfig.ts (which renders speech for clients that cannot host a conversation). Two copies is how the voice silently reset to a default three times in one evening. ttsModel is turbo, not flash: flash commits to the start of a sentence before it knows the end, which is what made the agent sound clipped; turbo keeps the prosody for a delay nobody notices in a room (Jatin, PR #28).",
   "voiceId": "JBFqnCBsd6RMkjVDRZzb",
   "voiceName": "George - warm storyteller",
-  "ttsModel": "eleven_flash_v2",
-  "stability": 0.45,
+  "ttsModel": "eleven_turbo_v2_5",
+  "stability": 0.5,
   "similarityBoost": 0.8,
   "speed": 0.95,
-  "optimizeStreamingLatency": 1
+  "optimizeStreamingLatency": 1,
+  "style": 0.25,
+  "useSpeakerBoost": true
 }

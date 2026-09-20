@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildToday } from "@/lib/today";
 import { log, store } from "@/lib/store";
-import { claudeSpend, planDay, type Proposal } from "@/agents/dayAgent";
+import { claudeSpend, daySummary, planDay, planDayWithNemotron, type Proposal } from "@/agents/dayAgent";
 import { fmt } from "@/core/time";
 
 export const dynamic = "force-dynamic";
@@ -29,8 +29,24 @@ export async function POST() {
     } catch (e) {
       provider = `fallback (${(e as Error).message})`;
     }
-  } else {
-    provider = "fallback (no ANTHROPIC_API_KEY)";
+  }
+
+  // Nemotron is the second tier, not a consolation prize: with no Anthropic key
+  // it is what makes "Plan my day" a real agent call instead of a canned list.
+  // It may only propose moving a task or booking a room, and every id it
+  // returns is checked against the real gaps and tasks before anything is shown.
+  if (proposals.length === 0) {
+    const ctx = { ledger: today.ledger, gaps: today.gaps, tasks: today.tasks, sharedWindows: today.shared, instructors: s.instructors, mode: s.mode };
+    try {
+      const out = await planDayWithNemotron(ctx, daySummary(ctx));
+      if (out.proposals.length > 0) {
+        proposals = out.proposals;
+        narration = out.narration;
+        provider = `nemotron-hosted${out.dropped ? ` (${out.dropped} dropped: bad ids)` : ""}`;
+      }
+    } catch (e) {
+      provider = `${provider.startsWith("claude") ? "no ANTHROPIC_API_KEY" : provider}, nemotron ${(e as Error).message}`;
+    }
   }
 
   if (proposals.length === 0) {

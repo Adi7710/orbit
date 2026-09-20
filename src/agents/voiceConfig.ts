@@ -16,5 +16,7 @@ export const VOICE = {
   ttsModel: voice.ttsModel,
   stability: voice.stability,
   similarityBoost: voice.similarityBoost,
+  style: voice.style,
+  useSpeakerBoost: voice.useSpeakerBoost,
   speed: voice.speed,
 } as const;

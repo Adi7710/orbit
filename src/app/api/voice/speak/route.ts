@@ -52,7 +52,8 @@ export async function GET(req: Request) {
     body: JSON.stringify({
       text,
       model_id: VOICE.ttsModel,
-      voice_settings: { stability: VOICE.stability, similarity_boost: VOICE.similarityBoost, speed: VOICE.speed },
+      // The same four dials the live agent uses, so the app and the browser are one voice.
+      voice_settings: { stability: VOICE.stability, similarity_boost: VOICE.similarityBoost, style: VOICE.style, use_speaker_boost: VOICE.useSpeakerBoost, speed: VOICE.speed },
     }),
     signal: AbortSignal.timeout(20_000),
   });
