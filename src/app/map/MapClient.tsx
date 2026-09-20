@@ -83,6 +83,8 @@ export default function MapClient() {
   }, []);
 
   const load = useCallback(async () => {
+    // Nothing to ask for until the places list has said where we are going.
+    if (!to) return;
     const qs = new URLSearchParams({ from, to });
     if (to !== "Home" && arriveBy) qs.set("arriveBy", arriveBy);
     try {
@@ -156,8 +158,15 @@ export default function MapClient() {
       if (cancelled || !mapEl.current || map.current) return;
       Lref.current = leaflet;
       map.current = leaflet.map(mapEl.current, { zoomControl: false, attributionControl: true }).setView([40.4426, -79.9497], 14);
-      leaflet.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-        attribution: '&copy; OpenStreetMap &copy; CARTO · transit data © the operating agency',
+      // OpenStreetMap's own tiles, which need no key.
+      //
+      // CARTO's basemaps now require one and do not fail honestly about it:
+      // they return HTTP 200 with "API KEY REQUIRED" painted across every
+      // tile, so the map looks broken rather than unauthorised. OSM asks for a
+      // real referer and sane usage instead, which the backed-off polling
+      // already gives it.
+      leaflet.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · transit data © NJ TRANSIT / PATH',
         maxZoom: 19,
       }).addTo(map.current);
       leaflet.control.zoom({ position: "topright" }).addTo(map.current);

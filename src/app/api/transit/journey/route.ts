@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { buildJourney, BUILDINGS } from "@/lib/journey";
 import { routeColor } from "@/services/schedule";
 import { store } from "@/lib/store";
+import { clock } from "@/services/prt";
 
 export const dynamic = "force-dynamic";
 
@@ -15,9 +16,17 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: Request) {
   const u = new URL(req.url);
-  const from = (u.searchParams.get("from") ?? "Cathedral") as keyof typeof BUILDINGS;
-  const to = (u.searchParams.get("to") ?? "Home") as keyof typeof BUILDINGS;
-  if (!(from in BUILDINGS) || !(to in BUILDINGS)) return NextResponse.json({ error: `unknown place; use ${Object.keys(BUILDINGS).join(", ")}` }, { status: 400 });
+  // Defaults come from the region's own place list, never from Pittsburgh
+  // building names. An absent or empty value means "you pick": the map sends
+  // exactly that on its first render, before the places list has loaded, and
+  // answering it with a 400 painted "unknown place" across the screen.
+  const names = Object.keys(BUILDINGS);
+  const raw = (k: string) => (u.searchParams.get(k) ?? "").trim();
+  const from = (raw("from") || "Home") as keyof typeof BUILDINGS;
+  const to = (raw("to") || names.find((n) => n !== from) || names[0]) as keyof typeof BUILDINGS;
+  if (!(from in BUILDINGS) || !(to in BUILDINGS)) {
+    return NextResponse.json({ error: `unknown place; use ${names.join(", ")}` }, { status: 400 });
+  }
   const lat = Number(u.searchParams.get("lat")), lon = Number(u.searchParams.get("lon"));
   const origin = Number.isFinite(lat) && Number.isFinite(lon) && lat !== 0 ? { lat, lon } : undefined;
 
@@ -28,6 +37,12 @@ export async function GET(req: Request) {
     const next = store().blocks.filter((b) => b.place === to).sort((a, b) => a.start - b.start)[0];
     if (next) arriveBySec = next.start * 60;
   }
+
+  // Drop a deadline that has already gone. The map keeps arriveBy in the URL,
+  // so at nine at night it was still measuring against a half past three class
+  // and reporting "you miss it by 361 min" -- arithmetically true, and useless.
+  const nowSec = clock().sec;
+  if (arriveBySec !== undefined && arriveBySec <= nowSec) arriveBySec = undefined;
 
   const j = await buildJourney({ origin, from, to, arriveBySec });
   if (!j) return NextResponse.json({ error: "no bus leg between those places" }, { status: 404 });
