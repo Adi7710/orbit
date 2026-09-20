@@ -107,7 +107,8 @@ export function recommendOpportunities(ctx: OpportunityContext, list: Opportunit
     else if (ctx.bestTime === "morning" && o.days <= 2) why = `you are faster before noon, and a weekend event is two mornings`;
     else why = o.tagline;
 
-    out.push({ opportunity: o, inDays, fit, reason: `${o.name} ${when}, ${o.where}. ${why.charAt(0).toUpperCase()}${why.slice(1)}.` });
+    const kind = o.kind === "call" ? "a call for entries" : `a ${o.kind}`;
+    out.push({ opportunity: o, inDays, fit, reason: `${o.name}, ${kind}, ${when}, ${o.where}. ${why.charAt(0).toUpperCase()}${why.slice(1)}.` });
   }
 
   return out.sort((a, b) => b.fit - a.fit || a.inDays - b.inDays);

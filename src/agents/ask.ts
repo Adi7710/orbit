@@ -63,6 +63,11 @@ export function rank(question: string, facts: Fact[]): Fact[] {
     if (/\b(longest|biggest|best|most)\b/.test(Q) && f.key === "gap.best") score += 4;
     if (/\b(drop|cut|behind|over|fit)\b/.test(Q) && (f.key.startsWith("cut") || f.key === "ledger.commitment")) score += 2;
     if (/\b(xp|points|streak)\b/.test(Q) && f.key === "xp") score += 2;
+    // "Any hackathons coming up?" shares no word with a listing named
+    // HackNJIT, so the world outside the timetable needs its own route.
+    if (/\b(hackathon|competition|contest|enter|event|opportunit|coming up)\w*/.test(Q) && (f.key.startsWith("opportunity.") || f.key === "growth")) score += 4;
+    // "How do I get better" is the plan first, the listings after.
+    if (/\b(grow|improve|better|habit|recommend|advice|should i do)\w*/.test(Q) && f.key === "growth") score += 6;
     // "What is due soonest" shares no word with any fact, so it needs its own route.
     if (/\b(due|soonest|deadline|next|upcoming|left to do)\b/.test(Q) && (f.key.startsWith("task") || f.key === "tasks.count")) score += 3;
     // "Will I make it" is the bus verdict specifically, and it was losing to
