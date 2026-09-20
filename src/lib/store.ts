@@ -51,8 +51,11 @@ const clockShiftMs = () => clock().epoch * 1000 - Date.now();
  * the river with Hoboken. Same five rows, same XP, either way.
  */
 const HUDSON = (process.env.ORBIT_REGION ?? "hudson") !== "oakland";
-const GROUP_A = HUDSON ? "Jersey City" : "Tower A";
-const GROUP_B = HUDSON ? "Hoboken" : "Tower B";
+// Crew names, not town names: Adi's side is the Waterfront, the light-rail
+// stops along the Hudson; the rivals are Castle Point, the hill the campus
+// sits on. Each region keeps its own pair.
+const GROUP_A = HUDSON ? "Waterfront" : "Tower A";
+const GROUP_B = HUDSON ? "Castle Point" : "Tower B";
 
 /** The "build" course with seeded history, per region. Same six sessions either way. */
 const SEED_COURSE = (process.env.ORBIT_REGION ?? "hudson") === "oakland" ? "MATH 0220" : "FE 621";
