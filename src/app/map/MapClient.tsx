@@ -440,7 +440,7 @@ export default function MapClient() {
             <span className="text-sm text-ink-2">nothing to catch</span>
           )}
           <span className="ml-auto pr-2 text-xs text-ink-2">
-            {j?.clock.simulated ? `demo clock ${j.clock.text}` : `now ${j?.clock.text ?? "--:--"}`} · {j?.realtime.tripsOk ? "PRT live" : "schedule only"} · updated {updatedAgo}s ago
+            {j?.clock.simulated ? `demo clock ${j.clock.text}` : `now ${j?.clock.text ?? "--:--"}`} · {j?.realtime.tripsOk ? "live" : "timetable"} · updated {updatedAgo}s ago
           </span>
         </div>
       </div>
