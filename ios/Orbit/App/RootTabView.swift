@@ -27,7 +27,7 @@ struct RootTabView: View {
                 .tabItem { Label("Calendar", systemImage: "calendar") }
                 .tag(Tab.calendar)
 
-            JourneyMapView(onHome: { tab = .today })
+            JourneyMapView(onHome: { tab = .today }, isVisible: tab == .map)
                 .tabItem { Label("Map", systemImage: "map") }
                 .tag(Tab.map)
 

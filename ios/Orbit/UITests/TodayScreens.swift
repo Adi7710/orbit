@@ -178,4 +178,32 @@ final class TodayScreens: XCTestCase {
         sleep(2)
         snap("07-complete-sheet")
     }
+
+    /// The travel plan sheet on Map is presented with `isPresented:
+    /// .constant(true)` and `interactiveDismissDisabled()`, which means
+    /// nothing can ever take it down -- including leaving the tab. A sheet is
+    /// presented on the window, not inside the tab that asked for it, so it
+    /// keeps sitting over Today after you have walked away from the map.
+    func testTravelPlanSheetLeavesWithTheMapTab() {
+        guard ledgerHeading.waitForExistence(timeout: 25) else {
+            return XCTFail("Today never rendered — check the server and ORBIT_API_BASE")
+        }
+
+        let plan = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label BEGINSWITH[c] %@ OR label BEGINSWITH[c] %@", "Leave in", "Leave now"))
+            .firstMatch
+
+        XCTAssertFalse(plan.exists, "the travel plan is on Today before the map has ever been opened")
+
+        app.buttons["Map"].tap()
+        XCTAssertTrue(plan.waitForExistence(timeout: 20), "the travel plan never appeared on Map")
+        snap("map-with-plan")
+
+        app.buttons["Today"].tap()
+        snap("today-after-map")
+        XCTAssertFalse(
+            plan.waitForExistence(timeout: 3),
+            "the travel plan sheet is still over Today after leaving the map"
+        )
+    }
 }

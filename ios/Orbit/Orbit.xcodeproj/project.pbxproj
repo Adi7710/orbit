@@ -473,6 +473,7 @@
 		CA1090AFD6418AF179169ECF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				DEVELOPMENT_TEAM = K9TDRPCGUS;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -554,6 +555,7 @@
 		FE2C67ABC00F97626F71D836 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GENERATE_INFOPLIST_FILE = YES;
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				DEVELOPMENT_TEAM = K9TDRPCGUS;
 				LD_RUNPATH_SEARCH_PATHS = (

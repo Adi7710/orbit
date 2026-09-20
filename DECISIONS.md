@@ -976,3 +976,17 @@ Why: that tunnel is dead — it has returned nothing for hours — so pressing R
 What it costs, stated plainly: **a build for a physical phone now needs an override**, because `localhost` on an iPhone is the iPhone. `xcodebuild ORBIT_API_BASE=http://<the Mac's LAN IP>:3123 …`, or edit the one line back. Anmol is the person this affects, and the connected device is his.
 Both files were changed together so a later `xcodegen generate` cannot silently reintroduce the dead URL. One line reverts it: `git checkout <ref> -- ios/Orbit/project.yml ios/Orbit/Orbit.xcodeproj/project.pbxproj`.
 Affects: ios/Orbit/project.yml, ios/Orbit/Orbit.xcodeproj/project.pbxproj.
+
+## 2026-09-20 09:10 ET · Jatin · The travel plan was a sheet, so it covered the tab bar and outlived the tab
+Decision: `JourneyMapView`'s travel plan moves from `.sheet` to `.safeAreaInset(edge: .bottom)`.
+
+Two symptoms, one cause. It was presented with `.sheet(isPresented: .constant(true))` plus `.interactiveDismissDisabled()` — a binding that can never go false, on a presentation nothing is allowed to dismiss. A sheet is presented on the *window*, not inside the view that asks for it, so (1) at its 120 pt detent it sat over the tab bar and there was no way off the Map tab once you were on it, and (2) it outlived the tab and stayed over Today. The report was "the overlay stays at the bottom", which is both of those at once.
+
+Reproduced before fixing, with a UI test that taps Map, waits for the plan, taps Today and asserts the plan is gone: `XCTAssertFalse failed - the travel plan sheet is still over Today after leaving the map`. **Two fixes failed that test before the third passed, and both failures were informative.** Binding the sheet to `@State` set in `onAppear`/`onDisappear` changed nothing, because a TabView keeps the tab you left in the hierarchy and does not reliably call `onDisappear` on it. Driving it from a new `isVisible` flag owned by `RootTabView` also changed nothing — which is what finally identified the real cause: the test's tap on "Today" was never landing, because the sheet was covering the tab bar. The bug was not only that the plan outlived the tab; it was that you could not leave the tab at all.
+
+As a bottom inset the plan is part of the map screen, so it goes when the tab goes, it cannot outlive it, and the tab bar stays reachable. The two detents are kept as a grabber that toggles between the verdict alone (132 pt) and the full itinerary (420 pt), so the map is always the larger half of the screen.
+
+Also fixed on the way, because it blocked all of this: the `OrbitUITests` target could not build — "Cannot code sign because the target does not have an Info.plist file". It inherits the app's `GENERATE_INFOPLIST_FILE = NO` and has no plist of its own, so `GENERATE_INFOPLIST_FILE = YES` is set on both of its configurations. Another symptom of the committed `.xcodeproj` being stale against `project.yml`.
+
+Two UI tests fail and were already failing, unrelated to this: `testClassDetail` looks for a tile labelled **CS 0441**, a Pittsburgh course, and the app has served FE 570 / FE 621 / MGT 808 since the move to Stevens; `testSwipeToDone` wants a Done button on the Today list, which Adi's restructure put behind the "Your real windows" door. Both are stale tests, not regressions, and neither touches the map.
+Affects: ios/Orbit/JourneyMapView.swift, ios/Orbit/App/RootTabView.swift, ios/Orbit/UITests/TodayScreens.swift, ios/Orbit/Orbit.xcodeproj/project.pbxproj.

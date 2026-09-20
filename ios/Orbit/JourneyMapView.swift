@@ -64,13 +64,36 @@ struct JourneyMapView: View {
     /// screen only asks. Nil when the map is shown on its own.
     var onHome: (() -> Void)?
 
-    init(onHome: (() -> Void)? = nil) {
+    /// Whether the map is the tab currently on screen. Defaults to true so the
+    /// view still works when it is shown on its own rather than inside the
+    /// tab bar.
+    var isVisible: Bool = true
+
+    init(onHome: (() -> Void)? = nil, isVisible: Bool = true) {
         self.onHome = onHome
+        self.isVisible = isVisible
     }
 
     /// Seeded with the one place that exists in every region so the pickers
     /// are never empty on the first frame, then replaced by the server's list.
     @State private var places: [String] = ["Home"]
+    /// Whether the travel plan is up.
+    ///
+    /// This was `.constant(true)`, which reads as "the plan is always part of
+    /// this screen" and is not what it does. A sheet is presented on the
+    /// window, not inside the tab that asked for it, and a constant binding
+    /// can never go false -- so leaving the Map tab left the plan sitting over
+    /// Today, Crew and Settings, with `interactiveDismissDisabled()` making
+    /// sure nothing could take it down.
+    ///
+    /// Driven by `isVisible`, which RootTabView owns, rather than by
+    /// `onAppear`/`onDisappear`: a TabView keeps the tab you left in the
+    /// hierarchy and does not reliably call `onDisappear` on it, which is why
+    /// the first attempt at this fix changed nothing. The thing that knows
+    /// whether the map is on screen is the thing holding the selection.
+    @State private var showPlan = false
+    /// Verdict only, or the whole itinerary.
+    @State private var planExpanded = false
 
     var body: some View {
         Map(position: $camera) {
@@ -128,17 +151,29 @@ struct JourneyMapView: View {
         .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
         .mapControls { MapUserLocationButton(); MapCompass() }
         .safeAreaInset(edge: .top) { header }
-        .sheet(isPresented: .constant(true)) {
-            sheet
-                .presentationDetents([.height(120), .medium, .large])
-                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-                .interactiveDismissDisabled()
+        // The plan is an inset on this screen, not a sheet over the app.
+        //
+        // As a sheet it covered the tab bar, so once you opened the map there
+        // was no way back out of it -- and because it was presented on the
+        // window with `isPresented: .constant(true)`, it also outlived the tab
+        // and sat over Today. Two symptoms, one cause: a sheet is not part of
+        // the screen that presents it. As a bottom safe-area inset it is, so
+        // it leaves with the tab, it cannot outlive it, and the tab bar stays
+        // where the student can reach it.
+        .safeAreaInset(edge: .bottom) {
+            if showPlan {
+                planCard
+                    .transition(.move(edge: .bottom))
+            }
         }
         .task {
             locationManager.requestWhenInUseAuthorization()
             model.start(origin: nil)
         }
-        .onDisappear { model.stop() }
+        .onChange(of: isVisible, initial: true) {
+            showPlan = isVisible
+            if isVisible { model.start(origin: nil) } else { model.stop() }
+        }
         .onChange(of: model.journey?.options.first?.tripId) { fit() }
         .onChange(of: model.selected) { fit() }
     }
@@ -202,6 +237,32 @@ struct JourneyMapView: View {
                 .background(Capsule().fill(Color.orbitSurface))
                 .overlay(Capsule().strokeBorder(Color.orbitHairline, lineWidth: 1))
         }
+    }
+
+    /// The plan, sized so the map is still the larger half of the screen.
+    /// Tapping the grabber swaps between the verdict alone and the full
+    /// itinerary -- the two states the detents used to give, without taking
+    /// the whole window to do it.
+    private var planCard: some View {
+        VStack(spacing: 0) {
+            Button {
+                withAnimation(.snappy(duration: 0.25)) { planExpanded.toggle() }
+            } label: {
+                Capsule().fill(Color.secondary.opacity(0.4))
+                    .frame(width: 36, height: 5)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(planExpanded ? "Collapse the travel plan" : "Expand the travel plan")
+
+            sheet
+                .frame(maxHeight: planExpanded ? 420 : 132)
+        }
+        .background(.regularMaterial)
+        .clipShape(UnevenRoundedRectangle(topLeadingRadius: 16, topTrailingRadius: 16))
+        .shadow(color: .black.opacity(0.12), radius: 12, y: -2)
     }
 
     private var sheet: some View {
