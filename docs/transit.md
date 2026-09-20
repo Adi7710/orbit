@@ -56,3 +56,26 @@ One schema, two slices, so nothing downstream knows the difference. Pittsburgh w
 - **No Stevens shuttle.** Stevens runs its own between the terminal and campus; it is not in any GTFS feed, so the uphill walk is what Orbit offers.
 - **No service alerts in Hudson.** PRT publishes them openly; NJ Transit does not. The alert plumbing exists and is wired for Pittsburgh only.
 - **Light rail arrival times are scheduled**, with confidence reported as `medium` or `low` accordingly. Nothing pretends otherwise.
+
+## The map on iOS
+
+The web map is Leaflet. **Do not port it.** SwiftUI has MapKit, which is free, native, hardware-accelerated and already knows how to draw a blue location dot — reimplementing that in a web view is how an iOS app ends up feeling like a website.
+
+What transfers is the data, not the rendering. `/api/transit/journey` already returns everything a `Map` needs:
+
+| Field | MapKit |
+|---|---|
+| `options[].shape` | `MapPolyline(coordinates:)` |
+| `walkToStop.polyline`, `walkToDest.polyline` | `MapPolyline` with a dashed `StrokeStyle` |
+| `boardStop`, `alightStop` | `Annotation` |
+| `options[].callingAt` | small `Annotation` per stop, name and time |
+| `options[].vehicle` | `Annotation`, rotate by `bearing` |
+| `origin` / device location | `UserAnnotation()` |
+
+Three things the web version learned the hard way, which the iOS one should not repeat:
+
+1. **Do not re-frame the map on every refresh.** The journey polls. Setting the camera each time undoes the pan a student just made, and a map that fights the person holding it is worse than one that never moves. Track whether they moved it and offer a recenter control instead.
+2. **Ask where they are going before asking for anything else.** Opening on a map and a timetable asks a student to work out what they are looking at. One question first means every number after it is an answer to something they said.
+3. **Ask for location when they choose to use it, not on launch.** A permission prompt before the app has shown its worth is how people learn to tap Deny. `CLLocationManager.requestWhenInUseAuthorization()` belongs behind a "use my location" button, and the journey keeps working from home if they refuse.
+
+Labels must be **permanent**, not tooltips. This screen is read at arm's length while walking.

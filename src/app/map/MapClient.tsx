@@ -74,6 +74,40 @@ export default function MapClient() {
   const [err, setErr] = useState("");
   const [places, setPlaces] = useState<string[]>(FALLBACK_PLACES);
   const [classAt, setClassAt] = useState<Record<string, { title: string; startText: string }>>({});
+  /** The device's own position, once it is allowed. Overrides the Home coordinates. */
+  const [here, setHere] = useState<{ lat: number; lon: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locError, setLocError] = useState("");
+
+  /**
+   * Ask where the phone is.
+   *
+   * Not on load: a permission prompt before a student has said what they want
+   * is how people learn to tap Deny. It is asked when they choose to use it,
+   * and the journey silently keeps working from Home if they refuse.
+   */
+  const locate = useCallback(() => {
+    if (!navigator.geolocation) { setLocError("This browser cannot share a location."); return; }
+    setLocating(true);
+    setLocError("");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setHere({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        setLocating(false);
+        userMoved.current = false; // re-frame around where they actually are
+      },
+      (e) => {
+        setLocating(false);
+        setLocError(e.code === e.PERMISSION_DENIED ? "Location off. Planning from home instead." : "Could not get a location.");
+      },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60_000 },
+    );
+  }, []);
+
+  // The device's position is the strongest fact about where the map should be.
+  useEffect(() => {
+    if (here && map.current && !userMoved.current) map.current.setView([here.lat, here.lon], 15);
+  }, [here]);
 
   useEffect(() => {
     fetch("/api/transit/places")
@@ -100,6 +134,9 @@ export default function MapClient() {
     if (!to) return;
     const qs = new URLSearchParams({ from, to });
     if (to !== "Home" && arriveBy) qs.set("arriveBy", arriveBy);
+    // The server picks the nearest served stop to wherever this actually is,
+    // rather than to the Home coordinates.
+    if (here) { qs.set("lat", String(here.lat)); qs.set("lon", String(here.lon)); }
     try {
       const r = await fetch(`/api/transit/journey?${qs}`);
       const data: Journey = await r.json();
@@ -112,7 +149,7 @@ export default function MapClient() {
     } catch (e) {
       setErr((e as Error).message);
     }
-  }, [from, to, arriveBy]);
+  }, [from, to, arriveBy, here]);
 
   /**
    * Polling that matches how fast the answer actually changes.
@@ -160,7 +197,7 @@ export default function MapClient() {
     const q = new URLSearchParams({ from, to });
     if (to !== "Home") q.set("arriveBy", arriveBy);
     window.history.replaceState(null, "", `/map?${q}`);
-  }, [from, to, arriveBy]);
+  }, [from, to, arriveBy, here]);
   useEffect(() => { const t = setInterval(() => setUpdatedAgo((n) => n + 1), 1000); return () => clearInterval(t); }, []);
 
   // Create the map once.
@@ -170,7 +207,12 @@ export default function MapClient() {
       const leaflet = (await import("leaflet")).default;
       if (cancelled || !mapEl.current || map.current) return;
       Lref.current = leaflet;
-      map.current = leaflet.map(mapEl.current, { zoomControl: false, attributionControl: true }).setView([40.4426, -79.9497], 14);
+      // No hardcoded city. This opened on Pittsburgh coordinates and stayed
+      // there until the places list came back, so the first thing a student in
+      // Hoboken saw was Oakland. Start unset and let the first real fact --
+      // the device's location, or Home from the places list -- decide.
+      map.current = leaflet.map(mapEl.current, { zoomControl: false, attributionControl: true });
+      map.current.setView([0, 0], 2);
       // OpenStreetMap's own tiles, which need no key.
       //
       // CARTO's basemaps now require one and do not fail honestly about it:
@@ -233,8 +275,20 @@ export default function MapClient() {
     }
 
     const stopPin = (label: string) => pin(`<div class="stop"><span>${label}</span></div>`, [26, 26]);
-    leaflet.marker([j.boardStop.lat, j.boardStop.lon], { icon: stopPin("B") }).addTo(g).bindTooltip(`Board: ${j.boardStop.name}`, { direction: "top" });
-    leaflet.marker([j.alightStop.lat, j.alightStop.lon], { icon: stopPin("A") }).addTo(g).bindTooltip(`Get off: ${j.alightStop.name}`, { direction: "top" });
+    // Permanent labels. Hover tooltips do not exist on a phone and are
+    // invisible to anyone reading the screen at arm's length, which is the
+    // only way this screen is ever read.
+    const label = (text: string, sub: string) =>
+      leaflet.divIcon({
+        className: "orbit-label",
+        html: `<div class="lbl"><b>${text}</b><span>${sub}</span></div>`,
+        iconSize: [0, 0],
+        iconAnchor: [-14, 8],
+      });
+    leaflet.marker([j.boardStop.lat, j.boardStop.lon], { icon: stopPin("B") }).addTo(g);
+    leaflet.marker([j.boardStop.lat, j.boardStop.lon], { icon: label("Get on", j.boardStop.name.toLowerCase()), interactive: false }).addTo(g);
+    leaflet.marker([j.alightStop.lat, j.alightStop.lon], { icon: stopPin("A") }).addTo(g);
+    leaflet.marker([j.alightStop.lat, j.alightStop.lon], { icon: label("Get off", j.alightStop.name.toLowerCase()), interactive: false }).addTo(g);
     // You and the destination.
     leaflet.marker([j.origin.lat, j.origin.lon], { icon: pin(`<div class="you"></div>`, [22, 22]) }).addTo(g).bindTooltip(`You · ${j.origin.label}`, { direction: "top" });
     leaflet.marker([j.destination.lat, j.destination.lon], { icon: pin(`<div class="dest">🎓<span>${j.destination.arriveByText ?? ""}</span></div>`, [64, 30]) }).addTo(g).bindTooltip(`${j.destination.label}${j.destination.arriveByText ? ` · class ${j.destination.arriveByText}` : ""}`, { direction: "top" });
@@ -284,6 +338,48 @@ export default function MapClient() {
     <div className="relative h-dvh w-full overflow-hidden bg-zinc-100">
       <div ref={mapEl} className="absolute inset-0" />
 
+      {/* Destination first.
+          Opening on a map and a timetable asks a student to work out what they
+          are looking at. Asking one question first -- where are you going --
+          means every number that follows is an answer to something they said.
+          It disappears the moment they choose, and never comes back. */}
+      {!j && (
+        <div className="absolute inset-0 z-[700] flex items-end justify-center bg-zinc-900/30 p-4 backdrop-blur-sm sm:items-center">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+            <h2 className="text-lg font-semibold tracking-tight">Where are you going?</h2>
+            <p className="mt-1 text-sm text-zinc-500">
+              {here ? "Planning from where you are now." : "Planning from home until you share a location."}
+            </p>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {places.filter((p) => p !== "Home").map((p) => (
+                <button
+                  key={p}
+                  onClick={() => { setTo(p); setArriveBy(classAt[p]?.startText ?? ""); }}
+                  className="rounded-xl border border-zinc-200 px-3 py-2.5 text-left text-sm hover:border-zinc-900"
+                >
+                  <span className="font-medium">{p}</span>
+                  {classAt[p] && <span className="block text-xs text-zinc-500">{classAt[p].startText} · {classAt[p].title}</span>}
+                </button>
+              ))}
+              <button onClick={() => setTo("Home")} className="rounded-xl border border-zinc-200 px-3 py-2.5 text-left text-sm hover:border-zinc-900">
+                <span className="font-medium">Home</span>
+                <span className="block text-xs text-zinc-500">head back</span>
+              </button>
+            </div>
+
+            <button
+              onClick={locate}
+              disabled={locating}
+              className="mt-4 w-full rounded-full bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {locating ? "Finding you…" : here ? "Using your location" : "Use my location"}
+            </button>
+            {locError && <p className="mt-2 text-xs text-amber-700">{locError}</p>}
+          </div>
+        </div>
+      )}
+
       {/* Offered only once framing has become theirs, so it is an answer to a
           state they created rather than a permanent piece of furniture. */}
       <button
@@ -291,6 +387,16 @@ export default function MapClient() {
         className="absolute right-3 top-24 z-[600] rounded-full border border-zinc-200 bg-white/95 px-3 py-2 text-xs font-medium shadow-lg backdrop-blur hover:border-zinc-400"
       >
         Recenter
+      </button>
+
+      {/* Location, always reachable once the sheet is gone. */}
+      <button
+        onClick={locate}
+        disabled={locating}
+        title={here ? "Planning from your location" : "Plan from where you are"}
+        className={`absolute right-3 top-36 z-[600] rounded-full border bg-white/95 px-3 py-2 text-xs font-medium shadow-lg backdrop-blur disabled:opacity-50 ${here ? "border-blue-500 text-blue-700" : "border-zinc-200 hover:border-zinc-400"}`}
+      >
+        {locating ? "…" : here ? "Using you" : "Locate me"}
       </button>
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3">
@@ -393,7 +499,7 @@ export default function MapClient() {
               )}
 
               <ol className="mt-3 space-y-1.5 text-sm">
-                <li className="flex gap-3"><span className="w-6">🚶</span><span className="w-16 tabular-nums text-zinc-500">{compactDuration(j.walkToStop.minutes)}</span><span>walk to {j.boardStop.name.toLowerCase()}{j.walkToStop.source === "estimate" ? "" : " (Google)"}</span></li>
+                <li className="flex gap-3"><span className="w-6">🚶</span><span className="w-16 tabular-nums text-zinc-500">{compactDuration(j.walkToStop.minutes)}</span><span>walk to {j.boardStop.name.toLowerCase()}{j.walkToStop.source === "estimate" && <span className="ml-2 rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-800">estimated</span>}</span></li>
                 <li className="flex gap-3"><span className="w-6">🚌</span><span className="w-16 tabular-nums text-zinc-500">{o.departsText}</span>
                   <span>
                     <b>{o.route}</b> {o.headsign.toLowerCase()}
@@ -413,7 +519,7 @@ export default function MapClient() {
                   <li className="flex gap-3 text-zinc-500"><span className="w-6">⏳</span><span className="w-16 tabular-nums">{compactDuration(o.waitMinutes)}</span><span>wait at the stop</span></li>
                 )}
                 <li className="flex gap-3"><span className="w-6">🪑</span><span className="w-16 tabular-nums text-zinc-500">{compactDuration(o.rideMinutes)}</span><span>ride to {j.alightStop.name.toLowerCase()}{o.rideIsLive ? <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800">live prediction</span> : <span className="ml-2 text-xs text-zinc-400">scheduled</span>}</span></li>
-                <li className="flex gap-3"><span className="w-6">🚶</span><span className="w-16 tabular-nums text-zinc-500">{compactDuration(j.walkToDest.minutes)}</span><span>walk to {j.destination.label}</span></li>
+                <li className="flex gap-3"><span className="w-6">🚶</span><span className="w-16 tabular-nums text-zinc-500">{compactDuration(j.walkToDest.minutes)}</span><span>walk to {j.destination.label}{j.walkToDest.source === "estimate" && <span className="ml-2 rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-800">estimated</span>}</span></li>
                 <li className="flex gap-3 font-medium"><span className="w-6">🎓</span><span className="w-16 tabular-nums">{o.arriveText}</span><span>arrive{j.destination.arriveByText ? ` · class at ${j.destination.arriveByText}` : ` · ${compactDuration(o.totalMinutes)} door to door`}</span></li>
               </ol>
 
@@ -438,6 +544,12 @@ export default function MapClient() {
         .orbit-pin .dest { display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; background: #111827; color: #fff; font: 600 11px/1 ui-sans-serif, system-ui; box-shadow: 0 2px 6px rgba(0,0,0,.35); white-space: nowrap; }
         .orbit-pin .bus { display: flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; background: var(--c); color: #0b0b0b; font: 800 12px/1 ui-sans-serif, system-ui; box-shadow: 0 2px 8px rgba(0,0,0,.4); border: 2px solid #fff; white-space: nowrap; }
         .orbit-pin .bus i { font-style: normal; display: inline-block; font-size: 10px; }
+        /* Always-on labels. A hover tooltip does not exist on a phone, and
+           this screen is read at arm's length while walking. White halo so a
+           name stays legible over a road, a park or the river. */
+        .orbit-label .lbl { display: flex; flex-direction: column; line-height: 1.15; white-space: nowrap; font: 600 11px/1.15 ui-sans-serif, system-ui; color: #111827;
+          text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff, 0 0 6px #fff; pointer-events: none; }
+        .orbit-label .lbl span { font-weight: 500; font-size: 10px; color: #4b5563; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
         .leaflet-container { font-family: inherit; }
       `}</style>
     </div>
