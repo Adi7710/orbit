@@ -95,3 +95,23 @@ export function naturalDue(due: Date | string | undefined, now = new Date()): st
   if (diff < 7) return `due ${d.toLocaleDateString("en-US", { weekday: "long" })}`;
   return `due ${d.toLocaleDateString("en-US", { month: "long", day: "numeric" })}`;
 }
+
+/**
+ * Compact duration for a screen: "13 min", "1h 15m", "2h".
+ *
+ * Anything past an hour has to say so. "Leave in 75 min" and "ride 94 min" are
+ * numbers a reader has to do arithmetic on, and a student glancing at a phone
+ * while walking will not. Separate from naturalDuration, which is for speech
+ * and rounds; this one is exact, because it sits next to a clock time.
+ */
+export function compactDuration(minutes: number): string {
+  const m = Math.max(0, Math.round(minutes));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60), rem = m % 60;
+  return rem === 0 ? `${h}h` : `${h}h ${rem}m`;
+}
+
+/** Spoken form for the same thing: "an hour and a quarter", never "seventy-five minutes". */
+export function spokenLead(minutes: number): string {
+  return minutes < 60 ? `${minutes} minute${minutes === 1 ? "" : "s"}` : naturalDuration(minutes);
+}

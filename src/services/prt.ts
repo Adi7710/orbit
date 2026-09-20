@@ -1,6 +1,7 @@
 import GtfsRealtimeBindings from "gtfs-realtime-bindings";
 import type { BusArrival } from "@/core/bus";
 import { departuresAt, isFeedValid, ymd, type Departure } from "./schedule";
+import { tzOffsetMinutes } from "@/core/ics";
 
 /**
  * Pittsburgh Regional Transit: static schedule (data/prt-oakland.json) with
@@ -31,7 +32,10 @@ export function clock(now = new Date()): Clock {
   if (pin) {
     const [date, time] = pin.split("T");
     const [h, m] = (time ?? "12:00").split(":").map(Number);
-    const epoch = new Date(`${date}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00-04:00`).getTime() / 1000;
+    // Not a hardcoded -04:00. That is EDT, and on 2 November 2026 Pittsburgh
+    // goes to EST, at which point every pinned demo time is an hour out.
+    const wall = new Date(`${date}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00Z`);
+    const epoch = (wall.getTime() - tzOffsetMinutes(wall, "America/New_York") * 60000) / 1000;
     return { ymd: date.replace(/-/g, ""), sec: h * 3600 + m * 60, epoch, simulated: true };
   }
   const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "numeric", second: "numeric", hour12: false }).formatToParts(now);

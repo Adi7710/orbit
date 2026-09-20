@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import type * as L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { compactDuration } from "@/core/say";
 
 type Walk = { minutes: number; meters: number; polyline: [number, number][]; source: "google" | "estimate" };
 type Option = {
@@ -168,7 +169,7 @@ export default function MapClient() {
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div>
                   <div className="text-2xl font-semibold tracking-tight">
-                    {leaveInMin <= 0 ? "Leave now" : `Leave in ${leaveInMin} min`}
+                    {leaveInMin <= 0 ? "Leave now" : `Leave in ${compactDuration(leaveInMin)}`}
                     <span className="ml-2 text-base font-normal text-zinc-500">({o.leaveByText})</span>
                   </div>
                 </div>
@@ -195,7 +196,7 @@ export default function MapClient() {
               )}
 
               <ol className="mt-3 space-y-1.5 text-sm">
-                <li className="flex gap-3"><span className="w-6">🚶</span><span className="w-16 tabular-nums text-zinc-500">{j.walkToStop.minutes} min</span><span>walk to {j.boardStop.name.toLowerCase()}{j.walkToStop.source === "estimate" ? "" : " (Google)"}</span></li>
+                <li className="flex gap-3"><span className="w-6">🚶</span><span className="w-16 tabular-nums text-zinc-500">{compactDuration(j.walkToStop.minutes)}</span><span>walk to {j.boardStop.name.toLowerCase()}{j.walkToStop.source === "estimate" ? "" : " (Google)"}</span></li>
                 <li className="flex gap-3"><span className="w-6">🚌</span><span className="w-16 tabular-nums text-zinc-500">{o.departsText}</span>
                   <span>
                     <b>{o.route}</b> {o.headsign.toLowerCase()}
@@ -211,8 +212,8 @@ export default function MapClient() {
                     </span>
                   </span>
                 </li>
-                <li className="flex gap-3"><span className="w-6">🪑</span><span className="w-16 tabular-nums text-zinc-500">{o.rideMinutes} min</span><span>ride to {j.alightStop.name.toLowerCase()}{o.rideIsLive ? <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800">live prediction</span> : <span className="ml-2 text-xs text-zinc-400">scheduled</span>}</span></li>
-                <li className="flex gap-3"><span className="w-6">🚶</span><span className="w-16 tabular-nums text-zinc-500">{j.walkToDest.minutes} min</span><span>walk to {j.destination.label}</span></li>
+                <li className="flex gap-3"><span className="w-6">🪑</span><span className="w-16 tabular-nums text-zinc-500">{compactDuration(o.rideMinutes)}</span><span>ride to {j.alightStop.name.toLowerCase()}{o.rideIsLive ? <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-800">live prediction</span> : <span className="ml-2 text-xs text-zinc-400">scheduled</span>}</span></li>
+                <li className="flex gap-3"><span className="w-6">🚶</span><span className="w-16 tabular-nums text-zinc-500">{compactDuration(j.walkToDest.minutes)}</span><span>walk to {j.destination.label}</span></li>
                 <li className="flex gap-3 font-medium"><span className="w-6">🎓</span><span className="w-16 tabular-nums">{o.arriveText}</span><span>arrive{j.destination.arriveByText ? ` · class at ${j.destination.arriveByText}` : ""}</span></li>
               </ol>
 

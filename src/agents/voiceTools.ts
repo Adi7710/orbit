@@ -240,7 +240,9 @@ async function route(req: VoiceRequest): Promise<{ text: string; ok: boolean; da
       if (!j || !o) return { ok: false, text: "There is no bus you could still catch in the next hour and a half. Walking is the plan." };
 
       const leaveIn = Math.round((o.leaveBySec - j.clock.sec) / 60);
-      const said = [leaveIn <= 0 ? "Leave now." : `Leave in ${spoken(leaveIn)} minute${leaveIn === 1 ? "" : "s"}.`];
+      // Past an hour this has to say hours. "Leave in seventy-five minutes" is
+      // arithmetic read aloud to someone who is walking.
+      const said = [leaveIn <= 0 ? "Leave now." : `Leave in ${leaveIn < 60 ? `${spoken(leaveIn)} minute${leaveIn === 1 ? "" : "s"}` : naturalDuration(leaveIn)}.`];
       const delay = o.delaySec && Math.abs(o.delaySec) > 59 ? `, ${spoken(Math.abs(Math.round(o.delaySec / 60)))} minutes ${o.delaySec > 0 ? "late" : "early"}` : "";
       said.push(o.status === "live" ? `The ${o.route} is live${delay}${o.vehicle ? ` and ${(o.vehicle.metersToStop / 1000).toFixed(1)} kilometres out` : ""}.` : `The ${o.route} is scheduled for ${spokenClock(Math.floor(o.departsSec / 60))}.`);
       if (j.destination.arriveBySec !== undefined) {

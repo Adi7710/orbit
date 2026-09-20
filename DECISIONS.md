@@ -441,3 +441,13 @@ Decision: Four changes to the transit layer, all found by reading the live PRT f
 Also: walking legs are cached. They run between fixed points so the answer never changes, and every journey was spending two Google Routes calls re-deriving the same 193 metres. Journey now answers in 9-18 ms.
 Why this matters more than a nicer map: a delay makes an answer late, a stop move makes it false, and no amount of arrival prediction saves a student standing at the wrong pole.
 Affects: src/services/alerts.ts, src/lib/journey.ts, src/agents/voiceTools.ts, src/app/map/MapClient.tsx, src/core/__tests__/transit.test.ts.
+
+## 2026-09-19 20:50 ET · Adi + lead Claude · Transit is demand-driven, destination-aware, and no longer hardcodes EDT
+Decision: Four changes.
+  1. **Demand-driven.** New pure src/core/transitRelevance.ts decides whether a bus is worth working out: a class inside the lead time, the way home for two hours after the last one, or an explicit destination, which always wins. Everything else touches no feed at all. Idle /api/today went from fetching three protobuf feeds and solving a route to 8 ms.
+  2. **Destination-aware.** GET /api/transit/places lists where you can ask to go and what Orbit would pick unasked, and costs nothing — no feed is fetched to establish that the answer is "no bus right now". buildToday takes a `to` so an explicit pick overrides the class.
+  3. **Durations past an hour say hours.** compactDuration for screens ("1h 15m") and naturalDuration for speech. "Leave in 75 min" and "ride 94 min" are arithmetic handed to someone glancing at a phone while walking.
+  4. **The DST bug.** -04:00 was hardcoded in the demo clock and in the Canvas day boundary. That is EDT; Pittsburgh is EST from 2 November, at which point pinned demo times are an hour out and a task due after 23:00 lands on the wrong day. Both now use tzOffsetMinutes for that instant — a helper the codebase already had and these two places ignored.
+Why demand-driven matters beyond cost: a bus card on a screen at four in the afternoon with nothing on until Thursday is not information, and polling a public agency's servers to discover that nothing is happening is rude as well as slow.
+Also recorded, still open: NO_SERVICE alerts are detected but do not yet remove a route from the options; there are no transfers, so a single-leg trip is assumed; stop selection is hardcoded per building rather than chosen by what actually serves the destination.
+Affects: src/core/transitRelevance.ts, src/lib/today.ts, src/app/api/transit/places, src/core/say.ts, src/services/prt.ts, src/app/api/import/route.ts, src/app/map/MapClient.tsx, src/agents/voiceTools.ts.

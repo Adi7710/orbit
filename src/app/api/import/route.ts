@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { blocksOn, isClassMeeting, parseIcs, resolveCourseCodes, taskFromEvent } from "@/core/ics";
+import { blocksOn, isClassMeeting, parseIcs, resolveCourseCodes, taskFromEvent, tzOffsetMinutes } from "@/core/ics";
 import type { Task } from "@/core/types";
 import { fetchIcs, IcsFetchError } from "@/services/ics";
 import { clock } from "@/services/prt";
@@ -52,7 +52,10 @@ export async function POST(req: Request) {
   const ymd = body.day ? body.day.replace(/-/g, "") : c.ymd;
   if (!/^\d{8}$/.test(ymd)) return NextResponse.json({ ok: false, error: "day must be YYYY-MM-DD" }, { status: 400 });
   const iso = `${ymd.slice(0, 4)}-${ymd.slice(4, 6)}-${ymd.slice(6, 8)}`;
-  const noon = new Date(`${iso}T12:00:00-04:00`);
+  // Zone offset for that instant, not a fixed -04:00: Pittsburgh is EST for
+  // four months of the year and a due date would land on the wrong day.
+  const noonUtc = new Date(`${iso}T12:00:00Z`);
+  const noon = new Date(noonUtc.getTime() - tzOffsetMinutes(noonUtc, TZ) * 60000);
   if (Number.isNaN(noon.getTime())) return NextResponse.json({ ok: false, error: "day is not a real date" }, { status: 400 });
 
   const load = async (src: "sample" | "url" | "pasted", url: string | undefined, pasted: string | undefined, sampleFile: string) =>
@@ -81,7 +84,8 @@ export async function POST(req: Request) {
     try {
       const events = parseIcs(await load(canvasSrc, body.canvasUrl, body.canvasIcs, "canvas-sample.ics"));
       const horizon = Math.min(Math.max(Math.round(body.horizonDays ?? 14), 1), 120);
-      const dayStart = new Date(`${iso}T00:00:00-04:00`).getTime();
+      const midnightUtc = new Date(`${iso}T00:00:00Z`);
+      const dayStart = midnightUtc.getTime() - tzOffsetMinutes(midnightUtc, TZ) * 60000;
       const dayEnd = dayStart + (horizon + 1) * 864e5;
       let added = 0, updated = 0, skippedPast = 0, skippedFar = 0, skippedMeetings = 0;
       // Learn course codes across the whole feed first. Canvas writes the code

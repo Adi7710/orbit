@@ -7,6 +7,7 @@ import { fmt, fromDate } from "@/core/time";
 import { MODE_RULES } from "@/core/types";
 import { buildJourney, BUILDINGS } from "./journey";
 import { clock } from "@/services/prt";
+import { transitNeed } from "@/core/transitRelevance";
 
 const isPlace = (p?: string): p is keyof typeof BUILDINGS => !!p && p in BUILDINGS;
 
@@ -18,7 +19,7 @@ const isPlace = (p?: string): p is keyof typeof BUILDINGS => !!p && p in BUILDIN
  * computing the same time is how a demo ends up showing 14:02 on one screen
  * and 14:07 on the next.
  */
-export async function buildToday() {
+export async function buildToday(opts?: { to?: string }) {
   const s = store();
   const horizon = MODE_RULES[s.mode].horizonHours;
   const now = new Date();
@@ -71,12 +72,22 @@ export async function buildToday() {
     remainingMinutes: b.start <= nowMin && nowMin < b.end ? b.end - nowMin : null,
   }));
 
-  const goingToClass = !!nextClass;
-  const leg = goingToClass
-    ? { from: "Home" as const, to: nextClass!.place as keyof typeof BUILDINGS, arriveBySec: nextClass!.start * 60, why: `to ${nextClass!.title}` }
-    : lastClass
-      ? { from: lastClass.place as keyof typeof BUILDINGS, to: "Home" as const, arriveBySec: undefined, why: "home after your last class" }
-      : undefined;
+  // Demand-driven: a bus is worked out when there is a reason to catch one,
+  // not on every load of Today. Idle means no protobuf feeds fetched, no route
+  // solved, and no bus card on a screen where a bus is not the answer.
+  const need = transitNeed({ nowMin, blocks: s.blocks, askedFor: opts?.to, isPlace });
+  const goingToClass = need.reason === "class" || (need.reason === "asked" && need.to !== "Home");
+
+  const leg = !need.needed
+    ? undefined
+    : need.reason === "home"
+      ? { from: (need.block?.place ?? lastClass?.place) as keyof typeof BUILDINGS, to: "Home" as const, arriveBySec: undefined, why: "home after your last class" }
+      : {
+          from: "Home" as const,
+          to: (need.to ?? "Cathedral") as keyof typeof BUILDINGS,
+          arriveBySec: need.block ? need.block.start * 60 : undefined,
+          why: need.block ? `to ${need.block.title}` : `to ${need.to}`,
+        };
 
   const journey = leg ? await buildJourney({ from: leg.from, to: leg.to, arriveBySec: leg.arriveBySec, now: c }) : undefined;
   const o = journey?.options[0];
@@ -130,6 +141,13 @@ export async function buildToday() {
       simulated: c.simulated,
       realtimeOk: journey?.realtime.tripsOk ?? false,
       walkSource: journey?.walkToStop.source ?? "estimate",
+      // Why there is or is not a bus, so a client shows a sentence rather than
+      // an empty card, and nobody has to guess whether it is broken or idle.
+      reason: need.reason,
+      why: need.why,
+      planned: need.needed,
+      alerts: journey?.alerts ?? [],
+      alertsOk: journey?.realtime.alertsOk ?? false,
     },
     shared: shared.map((w) => ({ ...w, startText: fmt(w.start), endText: fmt(w.end), names: w.userIds.map((id) => s.friends.find((f) => f.userId === id)?.name ?? id) })),
     tasks: liveTasks.map((t) => ({ ...t, planningMinutes: s.estimator.planningMinutes(t) })),
