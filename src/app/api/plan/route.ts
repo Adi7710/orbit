@@ -58,7 +58,7 @@ export async function POST() {
       if (g.usable >= 60 && !g.isEvening) proposals.push({ kind: "book_room", gapId: g.id, building: STUDY_SPOT, reason: "long focused window near your next class" });
     }
     const w = today.shared[0];
-    if (w) proposals.push({ kind: "notify_friends", gapId: today.gaps[0]?.id ?? "gap-0", userIds: w.userIds, message: `Free ${w.startText}-${w.endText}, ${STUDY_SPOT}?`, reason: `${w.names.join(" and ")} are free at the same time` });
+    if (w) proposals.push({ kind: "notify_friends", gapId: today.gaps[0]?.id ?? "gap-0", userIds: w.userIds, message: `Free ${w.startText}-${w.endText}, ${STUDY_SPOT}?`, reason: `${w.names.join(" and ")} ${w.names.length === 1 ? "is" : "are"} free at the same time` });
     if (today.ledger.slack < -60) {
       const due = today.tasks.filter((t) => t.dueAt).sort((a, b) => a.dueAt!.getTime() - b.dueAt!.getTime())[0];
       if (due) proposals.push({ kind: "draft_extension", taskId: due.id, newDate: "Friday", to: s.instructors[due.courseCode ?? ""] ?? "instructor@example.edu", subject: `${due.title}: extension request`, body: `Hi Professor, I have ${today.ledger.usable} usable minutes this week against ${today.ledger.queued} minutes of assigned work. Could I submit ${due.title} on Friday? Thank you.`, reason: `slack is ${today.ledger.slack} minutes` });
@@ -71,8 +71,10 @@ export async function POST() {
       const windows = gaps.length === 0
         ? "No window left today."
         : `${countThings(gaps.length, "window", "windows")} today, ${gaps.map((g) => naturalDuration(g.usable)).join(" and ")}. I picked one thing for each.`;
+      // countThings speaks lowercase ("two windows"); this opens a sentence.
+      const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1);
       const bus = today.bus ? ` Leave by ${today.bus.leaveByText} for the ${today.bus.route}.` : "";
-      narration = `${windows}${bus}`;
+      narration = `${cap(windows)}${bus}`;
     }
   }
 
