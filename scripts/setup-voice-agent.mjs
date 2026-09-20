@@ -193,6 +193,12 @@ async function main() {
             tts: { ...conversationConfig().tts, model_id: tts },
             conversation: { max_duration_seconds: 300 },
           },
+          // The opening line is composed per call and sent as a first_message
+          // override, so the agent has to allow that override or the greeting
+          // is silently ignored and the static line plays instead. Set here,
+          // at create time, because it defaults to false on a new agent and
+          // recreating one is how this regressed once already.
+          platform_settings: { overrides: { conversation_config_override: { agent: { first_message: true } } } },
         }),
       });
       const id = agent.agent_id ?? agent.id;
