@@ -1,5 +1,5 @@
 import type { FixedBlock, Task } from "./types";
-import { fromDate } from "./time";
+import { fromDate, type Minutes } from "./time";
 import { heuristicMinutes } from "./estimator";
 
 export interface Recurrence {
@@ -247,6 +247,26 @@ export function placeFromLocation(location?: string): string | undefined {
   return first || undefined;
 }
 
+/**
+ * A block's end in the same minutes-from-midnight frame as its start, carrying
+ * past 1440 when the event runs into the next day -- the convention `Minutes`
+ * in time.ts already states, and the one `sleepStart` uses for a 00:30 bedtime.
+ *
+ * Reading the wall clock on both ends independently makes a 21:00 lab that ends
+ * at 00:15 last minus 1245 minutes. That negative duration is not caught
+ * anywhere downstream: the capacity ledger sums it into `fixed`, subtracts it
+ * from the waking day, and reports more free time than the day has. It is how
+ * the honest ledger came to claim fifty-four usable hours.
+ */
+function endMinutes(e: IcsEvent, tz?: string): Minutes {
+  const start = fromDate(e.start, tz);
+  const end = fromDate(e.end!, tz);
+  const daysCrossed = Math.max(0, dayNumber(e.end!, tz) - dayNumber(e.start, tz));
+  // Trust the dates when they are there, and fall back to the clock rolling
+  // over, because a feed can carry a local end time with no usable date.
+  return daysCrossed > 0 ? end + daysCrossed * 1440 : end < start ? end + 1440 : end;
+}
+
 export function blocksOn(day: Date, events: IcsEvent[], tz?: string): FixedBlock[] {
   return events
     .filter((e) => !e.allDay && e.end && occursOn(e, day, tz))
@@ -254,7 +274,7 @@ export function blocksOn(day: Date, events: IcsEvent[], tz?: string): FixedBlock
       id: `${e.uid}@${day.toDateString()}`,
       title: cleanTitle(e.summary),
       start: fromDate(e.start, tz),
-      end: fromDate(e.end!, tz),
+      end: endMinutes(e, tz),
       place: placeFromLocation(e.location),
       kind: "class" as const,
       courseCode: courseCode(e.summary),

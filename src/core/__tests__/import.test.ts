@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { blocksOn, occursOn, parseIcs, taskFromEvent } from "../ics";
-import { blocks as fixtureBlocks } from "./fixture";
+import { blocks as fixtureBlocks, profile, travel } from "./fixture";
+import { computeLedger } from "../ledger";
 import { checkUrlShape, isPrivateAddress } from "../../services/ics";
 import { POST } from "../../app/api/import/route";
 import { reset, store } from "../../lib/store";
@@ -121,5 +122,40 @@ describe("POST /api/import", () => {
   it("imports pasted timetable text", async () => {
     const j = await (await call({ ics: sample("pitt-tuesday.ics") })).json();
     expect(j.timetable).toMatchObject({ source: "pasted", blocks: 3 });
+  });
+});
+
+describe("a class that runs past midnight cannot make the day longer", () => {
+  const ev = (uid: string, dtstart: string, dtend: string) =>
+    parseIcs(["BEGIN:VEVENT", `UID:${uid}`, "SUMMARY:FE 800 Evening Lab", "LOCATION:Babbio 104", `DTSTART;TZID=America/New_York:${dtstart}`, `DTEND;TZID=America/New_York:${dtend}`, "END:VEVENT"].join("\n"));
+
+  it("carries the end past 1440 instead of wrapping it to a negative duration", () => {
+    const [b] = blocksOn(noon("2026-09-22"), ev("late", "20260922T210000", "20260923T001500"), TZ);
+    expect(b.start).toBe(21 * 60);
+    expect(b.end).toBe(24 * 60 + 15); // 00:15 the next morning, same subjective day
+    expect(b.end - b.start).toBe(195);
+  });
+
+  it("counts only the part of the lab that lands inside the waking day", () => {
+    // Awake runs 08:00 to 00:30, so of a 21:00-01:30 seminar the day loses 210
+    // minutes, not 270, and certainly not the -1260 the wrapped end produced.
+    const blocks = blocksOn(noon("2026-09-22"), ev("night", "20260922T210000", "20260923T013000"), TZ);
+    const l = computeLedger(blocks, profile, travel, []);
+    expect(blocks[0].end - blocks[0].start).toBe(270);
+    expect(l.fixed).toBe(210);
+    expect(l.naiveFree).toBe(l.awake - 210);
+  });
+
+  it("never reports more free time than the student is awake for", () => {
+    // The shape that put 54h 55m on the ledger: two late classes, both ending
+    // after midnight, both previously counted as negative time.
+    const blocks = [
+      ...blocksOn(noon("2026-09-22"), ev("late", "20260922T210000", "20260923T001500"), TZ),
+      ...blocksOn(noon("2026-09-22"), ev("night", "20260922T223000", "20260923T013000"), TZ),
+    ];
+    const l = computeLedger(blocks, profile, travel, []);
+    expect(l.fixed).toBeGreaterThanOrEqual(0);
+    expect(l.naiveFree).toBeLessThanOrEqual(l.awake);
+    expect(l.usable).toBeLessThanOrEqual(l.naiveFree);
   });
 });
