@@ -5,6 +5,8 @@ import { questsForDay } from "@/core/game";
 import { sharedGaps } from "@/core/overlap";
 import { fmt, fromDate } from "@/core/time";
 import { MODE_RULES } from "@/core/types";
+import { assignQuestsForMode, modeConfig } from "@/core/modes";
+import { assignWorkBlocks, computeFeasibility, deadlinesFromTasks, deadlinesWithinHorizon, rankDeadlines } from "@/core/deadlines";
 import { buildJourney, BUILDINGS } from "./journey";
 import { clock } from "@/services/prt";
 import { transitNeed } from "@/core/transitRelevance";
@@ -29,11 +31,14 @@ const isPlace = (p?: string): p is keyof typeof BUILDINGS => !!p && p in BUILDIN
  */
 export async function buildToday(opts?: { to?: string }) {
   const s = store();
-  const horizon = MODE_RULES[s.mode].horizonHours;
+  const cfg = modeConfig(s.mode);
+  // The mode's own horizon, with MODE_RULES kept as the fallback so a mode
+  // that has not been given a config still behaves the way it used to.
+  const horizon = cfg.deadlines.horizonHours ?? MODE_RULES[s.mode].horizonHours ?? null;
   const now = new Date();
   const liveTasks = s.tasks.filter((t) => !t.completedAt).filter((t) => {
     if (s.mode === "crisis") return t.domain === "learn" || t.domain === "build";
-    if (s.mode === "chill") return t.dueAt ? (t.dueAt.getTime() - now.getTime()) / 36e5 <= (horizon ?? 48) : false;
+    if (s.mode === "chill") return t.dueAt ? (t.dueAt.getTime() - now.getTime()) / 36e5 <= (horizon ?? 72) : false;
     return true;
   });
 
@@ -43,25 +48,43 @@ export async function buildToday(opts?: { to?: string }) {
   const nowMin = Math.floor(c.sec / 60);
 
   const ledger = computeLedger(s.blocks, s.profile, s.travel, liveTasks, s.estimator);
-  const gaps = findGaps(s.blocks, s.profile, s.travel, nowMin);
-  // One task per window, and each task in one window. Picking every window
-  // independently and then blanking the repeats left the evening empty
-  // whenever the same soonest-due task won both -- 446 usable minutes with
-  // nothing in them while three tasks would have fitted. Later windows now
-  // choose from what the earlier ones left.
+  // How small a window may be is the mode's call now: a twelve-minute hole is
+  // a coffee in Normal and a place to put something in Crisis.
+  const gaps = findGaps(s.blocks, s.profile, s.travel, nowMin, cfg.minUsableGap);
+
+  // One task per window, and each task in one window, with later windows
+  // choosing from what the earlier ones left -- picking every window
+  // independently and blanking the repeats left the evening empty whenever
+  // the same soonest-due task won both.
   //
-  // Two learned corrections apply here (Jatin, PR #27): anything this student
-  // has quietly never done stops taking up their gaps, and the minutes a task
-  // is planned at use what the weekly review has learned about them. Both are
-  // no-ops until an aspect has earned the right to speak.
+  // Two learned corrections apply here (PR #27): anything this student has
+  // quietly never done stops taking up their gaps, and the minutes a task is
+  // planned at use what the weekly review has learned about them. Both are
+  // no-ops until an aspect has earned the right to speak. The mode decides
+  // *which windows* are offered anything; this picker decides *what wins* one.
   const offerable = liveTasks.filter((t) => worthOffering(t.domain));
-  const picks = new Map<string, ReturnType<typeof bestFit>>();
-  const used = new Set<string>();
-  for (const g of gaps) {
-    const t = bestFit(g, offerable.filter((x) => !used.has(x.id)), planner(s.estimator, g));
-    picks.set(g.id, t);
-    if (t) used.add(t.id);
-  }
+  const { picks, optional: questsOptional } = assignQuestsForMode(
+    gaps,
+    offerable,
+    cfg,
+    (gap, candidates) => bestFit(gap, candidates, planner(s.estimator, gap)),
+  );
+
+  // What is due, whether it fits, and -- in Crisis -- where the work goes.
+  // Every deadline is an existing task that has a due date, so nothing is
+  // entered twice and a syllabus import is already a deadline. Effort uses the
+  // same learned planner the task list quotes, so the meter and the rows on
+  // screen can never disagree about how long something takes.
+  //
+  // This is capacity, and it is not `atRisk`. `atRisk` is the procrastination
+  // aspect saying this student starts too late; feasibility is arithmetic
+  // saying it does not fit even starting now. Both can be true, and a day
+  // where only one is true is a different day.
+  const midnight = new Date((c.epoch - c.sec) * 1000);
+  const allDeadlines = deadlinesFromTasks(liveTasks, midnight, planner(s.estimator));
+  const deadlines = rankDeadlines(deadlinesWithinHorizon(allDeadlines, nowMin, cfg.deadlines.horizonHours), gaps, nowMin);
+  const workBlocks = cfg.deadlines.drivesAssignment ? assignWorkBlocks(deadlines, gaps, nowMin, cfg.minUsableGap) : [];
+  const feasibility = cfg.feasibility === "off" ? null : computeFeasibility(deadlines, gaps, nowMin);
 
   // Which leg matters right now: getting to the next class, or getting home
   // after the last one.
@@ -124,6 +147,18 @@ export async function buildToday(opts?: { to?: string }) {
 
   return {
     mode: s.mode,
+    // The whole mode contract travels with the day, so a client renders what
+    // this mode asks for rather than keeping its own copy of the rules and
+    // drifting from the server's.
+    modeConfig: {
+      id: cfg.id, name: cfg.name, difficulty: cfg.difficulty, promise: cfg.promise,
+      minUsableGap: cfg.minUsableGap, questsOptional, questStrategy: cfg.quests.strategy,
+      deadlineMode: cfg.deadlines.mode, feasibilityMode: cfg.feasibility,
+      leaveBy: cfg.leaveBy, restBreakPerMin: cfg.restBreakPerMin,
+    },
+    deadlines: deadlines.map((d) => ({ ...d, dueText: fmt(d.due), overdue: d.due < nowMin })),
+    workBlocks: workBlocks.map((b) => ({ ...b, startText: fmt(b.start), endText: fmt(b.end) })),
+    feasibility,
     user: s.user,
     ledger,
     blocks: timeline,
