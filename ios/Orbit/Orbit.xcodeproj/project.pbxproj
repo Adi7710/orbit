@@ -41,6 +41,7 @@
 		BA14610BAD867C4E894A9D2D /* PulseBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27EA3A4ABC59841560B753C4 /* PulseBanner.swift */; };
 		BAD52BBCF0E00A749D71789D /* PlanSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753104C301D64BEE5073D0CA /* PlanSheet.swift */; };
 		BD490999E896ADB56A52B98F /* TodayScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC48BDAFAEC4B52DCBDF571D /* TodayScreens.swift */; };
+		C975DA1FD673A48FDF5FF19B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4E8E25B63BF1CA2A67556988 /* Assets.xcassets */; };
 		D5405A6195FF38330B1141EE /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FF4DBDB50A70BB14CA3117B /* SettingsView.swift */; };
 		D88ED8AA2C9A3C2B0060B563 /* CompleteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E4DDA472485D787F8B10C91 /* CompleteSheet.swift */; };
 		ED43BA2885F3DDFD03FEA519 /* BusStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B35F2F54E60DDEFBC1DF2062 /* BusStripView.swift */; };
@@ -70,6 +71,7 @@
 		3FAB9704229DAD9175AFB2B8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		47DC93773871223455B43ADA /* OrbitVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrbitVoice.swift; sourceTree = "<group>"; };
 		4E50EF8434BBFF2937A60779 /* CrewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CrewView.swift; sourceTree = "<group>"; };
+		4E8E25B63BF1CA2A67556988 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		50C6CCDD345E93BBB214523E /* ClassDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClassDetailView.swift; sourceTree = "<group>"; };
 		5513A1451C41036FA5FB2809 /* FriendsWalletView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FriendsWalletView.swift; sourceTree = "<group>"; };
 		56FF7CBE3AAC107054AA17D5 /* Crew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Crew.swift; sourceTree = "<group>"; };
@@ -174,6 +176,7 @@
 		85A66F9411A71B01E8DCEC78 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				4E8E25B63BF1CA2A67556988 /* Assets.xcassets */,
 				E70CC060EF221C2C8ECCB061 /* CalendarView.swift */,
 				4E50EF8434BBFF2937A60779 /* CrewView.swift */,
 				3FAB9704229DAD9175AFB2B8 /* Info.plist */,
@@ -257,6 +260,7 @@
 			buildConfigurationList = 1ED43C45F010E6E18A4680AC /* Build configuration list for PBXNativeTarget "Orbit" */;
 			buildPhases = (
 				1A83EACBC247740EBC0E6135 /* Sources */,
+				744EABC5C142532226634E12 /* Resources */,
 				AC23419267EB092E8D8A05AB /* Frameworks */,
 			);
 			buildRules = (
@@ -312,6 +316,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		744EABC5C142532226634E12 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C975DA1FD673A48FDF5FF19B /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		1A83EACBC247740EBC0E6135 /* Sources */ = {
