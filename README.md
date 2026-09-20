@@ -43,10 +43,12 @@ src/core                pure, tested arithmetic: no framework, no network
   answerCheck.ts        an answer may not contain a number the factsheet did not license
   questionBank.ts       24 questions the app must answer, or honestly refuse, every ten minutes
   transitRelevance.ts   whether a trip is worth computing right now (idle = nothing fetched)
+  aspects.ts            eleven things Orbit can learn about a student, each inert until it has evidence
   say.ts                natural durations and clock times for speech
   emailDraft.ts, contacts.ts, game.ts, overlap.ts, habits.ts, travel.ts, time.ts
 src/agents
-  dayAgent.ts           proposes; every tool call is a proposal a human approves
+  dayAgent.ts           proposes; every tool call is a proposal a human approves. Claude, then Nemotron, then code
+  learner.ts, weeklyLearner.ts   Nemotron learns one week at a time, carrying its own memo; code clamps
   ask.ts                grounded open questions, verified before they are spoken
   critic.ts             LLM-as-judge with a reward ledger; can only lower trust, never raise it
   emailAgent.ts         drafts, never sends
@@ -60,6 +62,7 @@ src/lib
   journey.ts            one journey builder for the map, the card and the voice
   today.ts              everything the Today screen needs
   store.ts              in-memory store, seeded per region
+  learned.ts            one learned profile per student; every multiplier is 1 until earned
 src/app/api             today, plan, proposals/[id], complete, import, email, transit/*, voice/*, eval, selfeval, ...
 src/app                 Today, the map, the email modal
 ios/Orbit               SwiftUI views against the same API; plays Orbit's voice from /api/voice/speak
@@ -92,7 +95,8 @@ node scripts/tunnel.mjs 3123      # public URL for the ElevenLabs webhooks; re-p
 
 - `ANTHROPIC_API_KEY` and `NVIDIA_API_KEY` were not available at build time; the Day Agent and Critic run deterministic fallbacks, and `/api/eval` shows the harness with all three rows falling back to the heuristic.
 - The store is in memory and resets on restart. No transfers between lines, no Stevens shuttle, no rate limiting, no `GOOGLE_MAPS_API_KEY` (walks are straight-line estimates and marked as such).
-- `ios/` holds the SwiftUI views but not an Xcode project; it cannot be built from this repository alone.
+- `ios/Orbit/Orbit.xcodeproj` builds on a Mac (XcodeGen, iOS 17, ElevenLabs Swift SDK); nobody on a Windows machine has compiled it, so treat it as coded rather than shipped.
+- No model was fine-tuned. Every Nemotron job is the hosted model with a JSON schema; where it is "optimised" the optimisation is code (an anchor and a clamp), and `docs/eval.md` and `docs/learning/` show the numbers either way.
 
 ## Docs
 
