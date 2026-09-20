@@ -74,6 +74,17 @@ final class TodayScreens: XCTestCase {
         mic.tap()
         sleep(4)
         snap("09-voice-sheet")
+
+        // With no ElevenLabs key on the server this is the state the demo
+        // machine is actually in, so it is the one worth photographing: the
+        // day still readable, Orbit's own voice offered, and -- when the
+        // server 503s -- a reason said out loud rather than a silent button.
+        let hear = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "Hear your day")).firstMatch
+        if hear.waitForExistence(timeout: 5) {
+            hear.tap()
+            sleep(5)
+            snap("09b-voice-speak-attempt")
+        }
     }
 
     /// The listening state. Needs an ElevenLabs key to reach for real, so the
@@ -149,7 +160,16 @@ final class TodayScreens: XCTestCase {
         }
         guard done.isHittable else {
             snap("06-no-window-row")
-            return XCTFail("No window row with a pick after \(swipes) swipes")
+            // Not a failure. "Nothing fits today. Enjoy it." is a real state
+            // the server returns -- late at night the day is genuinely over,
+            // and it is one of the states this screen exists to render. A
+            // build check that goes red because of the time of day teaches
+            // people to ignore it.
+            let empty = app.staticTexts.matching(
+                NSPredicate(format: "label CONTAINS[c] %@ OR label CONTAINS[c] %@", "Nothing fits", "cleared the board")
+            ).firstMatch
+            XCTAssertTrue(empty.exists, "No window row with a pick, and no empty-state copy either")
+            return
         }
         snap("06-windows")
         done.tap()
