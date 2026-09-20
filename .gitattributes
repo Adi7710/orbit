@@ -1,0 +1,3 @@
+# DECISIONS.md is append-only: every branch adds entries at the tail, so a
+# conflict there is never a real disagreement. Union keeps both sides.
+DECISIONS.md merge=union
