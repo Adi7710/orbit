@@ -61,7 +61,9 @@ extension OrbitAPI {
 
     // MARK: - Transport
 
-    private func send<B: Encodable>(
+    /// Internal rather than private so `OrbitAPI+Voice` shares one transport:
+    /// the same timeouts, the same cache policy and the same `HTTPError`.
+    func send<B: Encodable>(
         path: String,
         method: String,
         body: B?,

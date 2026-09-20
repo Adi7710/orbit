@@ -165,6 +165,12 @@ struct TimelineHeaderView: View {
         }
         .frame(height: 210)
         .frame(maxWidth: .infinity)
+        // The arc sweeps 220 degrees from 160, so it is open at the bottom and
+        // the last third of its bounding box can never contain a tick: the
+        // lowest ticks sit at 0.34 of the radius below centre, leaving about
+        // 69pt of a 210pt box empty. Trimming most of that back is what closes
+        // the hole that opened between the dial and the breakdown line.
+        .padding(.bottom, -40)
     }
 
     private var breakdown: some View {

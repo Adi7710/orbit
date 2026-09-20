@@ -18,11 +18,14 @@ import SwiftUI
 struct ScheduleOverviewView: View {
 
     @State private var store = TodayStore()
+    @State private var voice = VoiceSession()
     @State private var expanded: Today.DayBlock?
     @State private var completing: Completion?
+    @State private var showingVoice = false
     @Namespace private var deck
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     /// What the Done button is asking about. Identifiable so `.sheet(item:)`
     /// rebuilds the sheet when a different task is tapped.
@@ -50,6 +53,27 @@ struct ScheduleOverviewView: View {
         }
         // A tap on a tile grows it into the detail; the geometry match is
         // anchored here so both ends share one coordinate space.
+        // The List runs to the physical top edge — there is no nav bar — so the
+        // day scrolled under the clock and the battery with nothing behind it.
+        // An opaque gradient rather than a material: this is a third fixed
+        // surface and PERFORMANCE.md budgets exactly two blurs, both of which
+        // are spent. A gradient fill is one blend and never re-samples.
+        // Declared before the other overlays so the detail view and the toast
+        // still sit above it.
+        .overlay(alignment: .top) {
+            LinearGradient(
+                stops: [
+                    .init(color: .orbitBackground, location: 0),
+                    .init(color: .orbitBackground, location: 0.62),
+                    .init(color: Color.orbitBackground.opacity(0), location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 78)
+            .ignoresSafeArea(edges: .top)
+            .allowsHitTesting(false)
+        }
         .overlay {
             if let block = expanded {
                 ClassDetailView(block: block, namespace: deck) {
@@ -71,8 +95,21 @@ struct ScheduleOverviewView: View {
         .animation(OrbitMotion.entrance(reduceMotion), value: store.toast?.id)
         .sensoryFeedback(.success, trigger: store.toast?.id)
         .sensoryFeedback(.impact(weight: .light), trigger: expanded?.id)
-        .task { await store.refresh(showSpinner: true) }
+        .task {
+            // Whatever the agent did by voice landed on the server. Reload the
+            // day so it changes on screen while Orbit is still speaking — the
+            // sheet is short for exactly this reason.
+            voice.onAgentActed = { Task { await store.refresh() } }
+            await store.refresh(showSpinner: true)
+        }
         .task { await store.pollWhileVisible() }
+        // A call that backgrounds mid-hold must not come back still listening.
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { voice.closeMicForBackground() }
+        }
+        .sheet(isPresented: $showingVoice) {
+            VoiceSheetView(session: voice) { showingVoice = false }
+        }
         .sheet(item: $completing) { item in
             CompleteSheet(title: item.title, estimateMinutes: item.estimateMinutes) { minutes in
                 Task { await store.complete(taskId: item.id, title: item.title, actualMinutes: minutes) }
@@ -293,6 +330,23 @@ struct ScheduleOverviewView: View {
             .disabled(store.isWorking)
             .orbitBloom(.orbitAccent, active: !store.isWorking, radius: 18)
 
+            // Neutral on purpose. The accent budget allows lime on one primary
+            // action per surface, and on Today that is "Plan my day". The voice
+            // sheet covers the dock, so the orb inside it inherits the lime
+            // rather than adding a fourth.
+            Button {
+                showingVoice = true
+            } label: {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color.orbitInk)
+                    .frame(width: 52, height: 52)
+                    .background(Circle().fill(Color.orbitSurface))
+                    .overlay(Circle().strokeBorder(Color.orbitHairline, lineWidth: 1))
+            }
+            .buttonStyle(.orbitTile)
+            .accessibilityLabel("Talk to Orbit")
+
             Button {
                 Task { await store.refresh() }
             } label: {
@@ -471,13 +525,19 @@ private struct ProposalRow: View {
             }
 
             HStack(spacing: 10) {
+                // Outlined, not filled. A lime fill here is a fourth lime on
+                // Today — and worse, one per pending proposal, so the accent
+                // multiplies with the agent's output. This is the treatment
+                // GapCardRow's Done button already uses for the same reason:
+                // accent as ink and stroke carries the primary action without
+                // spending the fill.
                 Button { onDecide(true) } label: {
                     Text("Approve")
                         .orbitEyebrow()
-                        .foregroundStyle(Color.orbitOnAccent)
+                        .foregroundStyle(Color.orbitAccentInk)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 10)
-                        .background(Capsule().fill(Color.orbitAccent))
+                        .background(Capsule().strokeBorder(Color.orbitAccentInk.opacity(0.45), lineWidth: 1))
                 }
                 .buttonStyle(.orbitTile)
 

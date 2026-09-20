@@ -2,19 +2,50 @@
 
 The SwiftUI client. It renders; it never computes a time. Every number comes from the server.
 
-## Set it up in Xcode (Mac only)
+## Open it (Mac only)
 
-1. Xcode → **File → New → Project → iOS App**. Product Name `Orbit`, Interface **SwiftUI**, Language **Swift**, Storage **None**. Save it so the project sits at `ios/Orbit/` in this repo.
-2. Drag the `Orbit/` folder into the project (check "Copy items if needed" **off**; the files are already in place). Add **Create groups** so `Theme/`, `Models/`, `Today/` and `Components/` keep their structure.
-3. In the target's **Info** tab add:
-   - `ORBIT_API_BASE` (String) → `http://<your-laptop-ip>:3123` for the simulator against a dev server, or the Vercel URL once it is deployed.
-   - `NSLocationWhenInUseUsageDescription` (String) → "Orbit uses your location to tell you when to leave for the bus."
-4. For a plain-HTTP dev server, add **App Transport Security Settings → Allow Arbitrary Loads = YES** (development only; remove before any submission that uses the Vercel HTTPS URL).
-5. Set the app's root view to `ScheduleOverviewView()` — that is Today, the screen the demo runs on. `JourneyMapView()` is the map; reach it from a tab or push it, and set it as root only when you are working on the map itself.
+`ios/Orbit/Orbit.xcodeproj` is committed. Open it and run — there is nothing to
+set up.
+
+The project is **generated from `ios/Orbit/project.yml` by XcodeGen**, which is
+where the deployment target, the Info.plist keys and the Swift package live. You
+only need XcodeGen (`brew install xcodegen`) to *change* the project — adding a
+file, a setting or a dependency — and then:
+
+```
+cd ios/Orbit && xcodegen generate
+```
+
+Commit `project.yml` and the regenerated `.xcodeproj` together. Sources are
+referenced in place, so `Theme/`, `Models/`, `Today/`, `Components/` and
+`Voice/` stay where git already tracks them.
+
+What is already set, so nobody has to rediscover it:
+
+- **Deployment target iOS 17.0.** The code uses `@Observable`, `phaseAnimator`,
+  `scrollTransition`, `sensoryFeedback` and two-parameter `onChange`.
+- **Swift language mode 5** (`SWIFT_VERSION = 5.0`). Xcode 26 would default a
+  new project to Swift 6; this client was written to Swift 5 concurrency rules.
+- **`ORBIT_API_BASE`** is a build setting, read by the Info.plist as
+  `$(ORBIT_API_BASE)`. Default `http://localhost:3123`. Point one build at the
+  deployment without editing anything:
+  `xcodebuild … ORBIT_API_BASE=https://your.vercel.app`
+- **`NSAppTransportSecurity → NSAllowsArbitraryLoads`** is on, for the
+  plain-HTTP dev server. **Remove it before any submission that uses the HTTPS
+  URL** — it is one block in `project.yml`.
+- `NSLocationWhenInUseUsageDescription`, `NSMicrophoneUsageDescription` and
+  `NSLocalNetworkUsageDescription` (LiveKit probes the LAN for the fastest audio
+  path) are set.
+
+The root view is `ScheduleOverviewView()` — Today, the screen the demo runs on.
+`JourneyMapView()` is the map; reach it from a tab or push it, and set it as
+root only when you are working on the map itself.
+
+There is no iPhone 15 Pro simulator on Xcode 26; use an **iPhone 17 Pro**.
 
 ## Run it
 
-- Start the server: `npm run dev` in the repo root (port 3123).
+- Start the server: `npm run dev -- -p 3123` in the repo root.
 - Xcode → any iPhone simulator → Run.
 - **Simulator → Features → Location → Custom Location…** and enter `40.4372, -79.9230` (Squirrel Hill) to stand where a commuting student stands.
 - The map should show you, the stop at Forbes + Shady, the live 61A or 61B moving toward it, the ride to Fifth + University, and the walk to the Cathedral, with the verdict at the top of the sheet.
@@ -28,16 +59,41 @@ The SwiftUI client. It renders; it never computes a time. Every number comes fro
 - `Theme/Color+Theme.swift` — every colour, type style and metric in the app. Dynamic light/dark tokens, no asset catalog. The look is derived from the Homely concept by Varti Studio: true near-black ground, warm bone light mode, one acid-lime accent, a tight grotesque rather than a rounded face. It deliberately does **not** match `docs/theme.md`, which the web app follows. Do not retune it without asking Adi.
 
   **The accent budget.** Lime appears on exactly three things: the class happening now, the selected mode chip, and the primary action in the dock. That scarcity is the whole design. If you add a fourth, take it off one of the others.
+
+  The rule generalises to sheets: lime is the primary action **of a surface**. A sheet covers the dock, so the sheet's own primary action — the voice orb, `CompleteSheet`'s "Log N minutes" — inherits the lime that "Plan my day" is no longer showing. Still one lime fill per surface. This is why the mic button in the dock is neutral.
 - `Today/ScheduleOverviewView.swift` — Today. Ledger header, the class deck, the real windows with swipe-to-done, bus strip, quests, pending proposals, friends, and the docked quick bar.
 - `Today/TodayStore.swift` — `@Observable` state: load, 30-second poll while visible, last-response cache with a visible banner when the server is unreachable, and the action calls.
 - `Today/ClassDetailView.swift`, `Today/CompleteSheet.swift` — the expanded class (matched geometry from its card) and the "how long did it actually take?" sheet.
 - `Components/` — `ClassCardView`, `TimelineHeaderView`, `RadialDialView`, `GapCardRow`, `BusStripView`, `GradientTagView`, `XPToastView`.
 - `Theme/OrbitMotion.swift` — every spring, curve and stagger, plus the press style, the staggered entrance and the bloom. Reduce Motion is honoured here so no call site can forget it.
+- `Voice/VoiceSession.swift` — the call, as state a view can draw. Push to talk: the session stays connected and the microphone is muted between turns, open only while a finger is down. Wraps the ElevenLabs SDK; `onAgentActed` reloads Today after every agent turn. With no token it holds the server's reason and the briefing instead, and `AVSpeechSynthesizer` will read that out.
+- `Voice/VoiceSheetView.swift` — the sheet. Short on purpose (420pt) with background interaction on, so the ledger and the mode chips stay visible above it: saying "I'm in crisis mode" has to visibly change the day while the agent is still speaking, and a full-screen voice UI would hide the only proof anything happened.
+- `Components/VoiceOrbView.swift` — hold-to-talk, and the thing that shows it is hearing you. One object doing both jobs, because the sheet gets one lime element and that is it.
+- `App/OrbitApp.swift` — `@main`, root view `ScheduleOverviewView()`.
+- `UITests/TodayScreens.swift` — drives the screen and photographs it. Not really a test suite: macOS blocks scripted input to the Simulator without accessibility permission, so this is how the app gets scrolled, tapped and swiped during a build check, and how the PR screenshots are taken. `xcodebuild … test`, then `xcrun xcresulttool export attachments --path … --output-path …`.
 - `PERFORMANCE.md` — where the frames go on this screen and what the code does about it. Read it before adding a blur or a shadow.
 
 ## Next screens (issue #13, #14)
 
-Leaderboard tab, and the voice button. Same pattern: one `Codable` per endpoint, no arithmetic in the view.
+Leaderboard tab. Same pattern: one `Codable` per endpoint, no arithmetic in the view.
+
+## Voice
+
+Swift package `ElevenLabs` 3.3.1 (pulls LiveKit and two WebRTC xcframeworks) —
+the only third-party code in the app. Networking is still `URLSession`.
+
+`GET /api/voice/token` mints the conversation token; the ElevenLabs API key
+never reaches the phone. The server also composes the `greeting`, which is
+passed as `firstMessage` so the spoken opening can use the student's name and a
+real number — see DECISIONS, 19 Sept 19:30.
+
+**Voice is off without keys, and says so.** With no `ELEVENLABS_API_KEY` the
+endpoint returns `token: null` with a reason; the sheet prints that reason, shows
+the full briefing, and offers to read it aloud on the device. That path is the
+one verified on this Mac — a live call needs a key. The live states were checked
+through a DEBUG-only launch argument (`-orbit-voice-preview`) that the UI tests
+pass; the gesture, the state machine and every view are the real ones, only the
+transport is stubbed.
 
 ## Google Maps instead of MapKit
 
