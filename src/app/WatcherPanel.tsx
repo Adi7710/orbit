@@ -73,20 +73,20 @@ export default function WatcherPanel({ onChange }: { onChange?: () => void }) {
           <span className={`h-2 w-2 rounded-full ${dot} ${s.state === "running" ? "animate-pulse" : ""}`} />
           <h2 className="text-sm font-medium text-zinc-700">
             The Watcher{" "}
-            <span className="font-normal text-zinc-400">
+            <span className="font-normal text-zinc-500">
               {s.state === "running" ? `is watching · ${s.ticks} checks` : s.state === "paused" ? "is paused" : "is off"}
             </span>
           </h2>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="hidden text-zinc-400 sm:inline">{s.lastTickText}</span>
+          <span className="hidden text-zinc-500 sm:inline">{s.lastTickText}</span>
           {s.state === "running" ? (
-            <button onClick={() => tick("pause")} className="rounded-full border px-3 py-1 hover:border-zinc-400">Pause</button>
+            <button onClick={() => tick("pause")} className="min-h-11 rounded-full border px-4 hover:border-zinc-500">Pause</button>
           ) : (
-            <button onClick={() => tick("resume")} className="rounded-full border px-3 py-1 hover:border-zinc-400">Resume</button>
+            <button onClick={() => tick("resume")} className="min-h-11 rounded-full border px-4 hover:border-zinc-500">Resume</button>
           )}
-          <button onClick={() => tick("kill")} className="rounded-full border border-red-200 px-3 py-1 text-red-600 hover:bg-red-50">Kill</button>
+          <button onClick={() => tick("kill")} className="min-h-11 rounded-full border border-red-200 px-4 text-red-600 hover:bg-red-50">Kill</button>
         </div>
       </div>
 
@@ -97,17 +97,17 @@ export default function WatcherPanel({ onChange }: { onChange?: () => void }) {
 
       {ledger.length > 0 && (
         <div className="mt-3">
-          <button onClick={() => setShowLedger((v) => !v)} className="text-xs font-medium text-zinc-500 hover:text-zinc-900">
+          <button onClick={() => setShowLedger((v) => !v)} aria-expanded={showLedger} className="min-h-11 text-left text-xs font-medium text-zinc-500 hover:text-zinc-900">
             {showLedger ? "Hide" : "Show"} how its behaviours are scoring ({ledger.length})
           </button>
           {showLedger && (
             <table className="mt-2 w-full text-left text-xs">
-              <thead className="text-zinc-400">
+              <thead className="text-zinc-500">
                 <tr><th className="py-1 font-normal">behaviour</th><th className="font-normal">seen</th><th className="font-normal">score</th><th className="font-normal">grounded</th><th className="font-normal">right to ask</th><th className="font-normal">useful</th><th className="font-normal">voice</th></tr>
               </thead>
               <tbody>
                 {ledger.map((k) => (
-                  <tr key={k.kind} className={k.muted ? "text-zinc-400 line-through" : ""}>
+                  <tr key={k.kind} className={k.muted ? "text-zinc-500 line-through" : ""}>
                     <td className="py-0.5">{k.kind.replace(/_/g, " ")}{k.muted && <span className="ml-1 no-underline">muted</span>}</td>
                     <td className="tabular-nums">{k.n}</td>
                     <td className={`tabular-nums font-medium ${k.mean < 2.5 ? "text-red-600" : k.mean < 3.5 ? "text-amber-600" : "text-emerald-700"}`}>{k.mean}</td>
@@ -121,19 +121,19 @@ export default function WatcherPanel({ onChange }: { onChange?: () => void }) {
       )}
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <button disabled={!!busy} onClick={() => demo("cancel_class")} className="rounded-full bg-zinc-900 px-3 py-1.5 text-xs text-white disabled:opacity-50">
+        <button disabled={!!busy} onClick={() => demo("cancel_class")} className="min-h-11 rounded-full bg-zinc-900 px-4 text-xs text-white disabled:opacity-50">
           {busy === "cancel_class" ? "…" : "Cancel a class"}
         </button>
-        <button disabled={!!busy} onClick={() => demo("overload")} className="rounded-full border px-3 py-1.5 text-xs hover:border-zinc-400">
+        <button disabled={!!busy} onClick={() => demo("overload")} className="min-h-11 rounded-full border px-4 text-xs hover:border-zinc-500">
           {busy === "overload" ? "…" : "Drop a 7-hour deliverable on me"}
         </button>
-        <button disabled={!!busy} onClick={() => demo("restore")} className="rounded-full border px-3 py-1.5 text-xs text-zinc-500 hover:border-zinc-400">
+        <button disabled={!!busy} onClick={() => demo("restore")} className="min-h-11 rounded-full border px-4 text-xs text-zinc-500 hover:border-zinc-500">
           Put it back
         </button>
       </div>
 
       {s.trace.length === 0 ? (
-        <p className="mt-4 text-sm text-zinc-400">Nothing has changed since it started looking.</p>
+        <p className="mt-4 text-sm text-zinc-500">Nothing has changed since it started looking.</p>
       ) : (
         <ol className="mt-4 space-y-2">
           {s.trace.map((t) => (
@@ -154,12 +154,12 @@ export default function WatcherPanel({ onChange }: { onChange?: () => void }) {
                     {t.score}/5
                   </span>
                 )}
-                <span className="ml-auto text-[10px] text-zinc-400">{new Date(t.at).toLocaleTimeString()}</span>
+                <span className="ml-auto text-[10px] text-zinc-500">{new Date(t.at).toLocaleTimeString()}</span>
               </div>
               <div className="mt-1.5 grid gap-1 text-xs text-zinc-600 sm:grid-cols-[auto_1fr] sm:gap-x-3">
-                <span className="text-zinc-400">noticed</span><span>{t.event.evidence}</span>
-                <span className="text-zinc-400">did</span><span className="font-medium text-zinc-800">{t.action}</span>
-                <span className="text-zinc-400">because</span><span>{t.reasoning}</span>
+                <span className="text-zinc-500">noticed</span><span>{t.event.evidence}</span>
+                <span className="text-zinc-500">did</span><span className="font-medium text-zinc-800">{t.action}</span>
+                <span className="text-zinc-500">because</span><span>{t.reasoning}</span>
               </div>
               {t.critique && t.critique !== "checked without a model" && (
                 <div className="mt-1 text-xs text-zinc-500">grader: {t.critique}</div>

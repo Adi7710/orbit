@@ -37,3 +37,15 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/**
+ * Leaflet ships 30px zoom controls. That is fine for a mouse and small for a
+ * thumb, and the bus map is the one screen a student uses while walking.
+ */
+/* Leaflet's own stylesheet is imported by the map component, so it lands
+   after this file and wins on equal specificity. Hence the important. */
+.leaflet-container .leaflet-bar a {
+  width: 44px !important;
+  height: 44px !important;
+  line-height: 44px !important;
+}

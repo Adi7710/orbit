@@ -28,6 +28,8 @@ export default function EmailModal({ pending, onDone }: { pending?: Pending; onD
   const [busy, setBusy] = useState(false);
   const opened = useRef<string | null>(null);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const closer = useRef<HTMLButtonElement>(null);
 
   // Load a new draft once. Re-loading on every poll would wipe the student's
   // edits from under them every few seconds.
@@ -52,6 +54,33 @@ export default function EmailModal({ pending, onDone }: { pending?: Pending; onD
     onDone?.();
   };
 
+  /**
+   * This said `aria-modal="true"` while behaving like an ordinary div: Escape
+   * did nothing, the backdrop did nothing, focus stayed on whatever was behind
+   * it, Tab walked straight out into the page underneath, and that page kept
+   * scrolling. A dialog that traps nothing is worse than no dialog, because
+   * assistive technology has been told the rest of the page is inert when it
+   * is not. The three effects below make the promise true.
+   */
+  useEffect(() => {
+    if (!pending) return;
+    closer.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.preventDefault(); void close("decline"); return; }
+      if (e.key !== "Tab") return;
+      const focusable = panel.current?.querySelectorAll<HTMLElement>('button, input, textarea, [href], [tabindex]:not([tabindex="-1"])');
+      if (!focusable?.length) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending?.id]);
+
   if (!pending) return null;
 
   const synthetic = /@example\.edu$/i.test(to.trim());
@@ -75,8 +104,14 @@ export default function EmailModal({ pending, onDone }: { pending?: Pending; onD
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-900/40 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Email draft">
-      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-900/40 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Email draft"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) void close("decline"); }}
+    >
+      <div ref={panel} className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-zinc-900">Orbit wrote this for you</h2>
@@ -84,13 +119,13 @@ export default function EmailModal({ pending, onDone }: { pending?: Pending; onD
               {pending.proposal.reason}. Edit anything — nothing has been sent.
             </p>
           </div>
-          <button onClick={() => close("decline")} disabled={busy} className="rounded-full px-2 text-lg leading-none text-zinc-400 hover:text-zinc-900" aria-label="Discard">×</button>
+          <button ref={closer} onClick={() => close("decline")} disabled={busy} className="min-h-11 min-w-11 shrink-0 rounded-full px-2 text-lg leading-none text-zinc-500 hover:text-zinc-900" aria-label="Discard draft">×</button>
         </div>
 
-        <label className="mt-4 block text-[11px] font-medium uppercase tracking-wide text-zinc-400">To</label>
+        <label className="mt-4 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">To</label>
         <div className="mt-1 flex flex-wrap gap-2">
-          <input value={to} onChange={(e) => setTo(e.target.value)} className="min-w-0 flex-1 rounded-xl border px-3 py-2 text-sm" aria-label="Recipient" />
-          <button onClick={saveAddress} className="rounded-full border px-3 py-1.5 text-xs text-zinc-600 hover:border-zinc-400">Remember for this course</button>
+          <input value={to} onChange={(e) => setTo(e.target.value)} className="min-h-11 min-w-0 flex-1 rounded-xl border px-3 text-sm" aria-label="Recipient" />
+          <button onClick={saveAddress} className="min-h-11 rounded-full border px-4 text-xs text-zinc-600 hover:border-zinc-500">Remember for this course</button>
         </div>
         {synthetic && (
           <p className="mt-1.5 text-xs text-amber-700">
@@ -99,10 +134,10 @@ export default function EmailModal({ pending, onDone }: { pending?: Pending; onD
         )}
         {saved && <p className="mt-1.5 text-xs text-emerald-700">{saved}</p>}
 
-        <label className="mt-3 block text-[11px] font-medium uppercase tracking-wide text-zinc-400">Subject</label>
-        <input value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-1 w-full rounded-xl border px-3 py-2 text-sm" aria-label="Subject" />
+        <label className="mt-3 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Subject</label>
+        <input value={subject} onChange={(e) => setSubject(e.target.value)} className="mt-1 min-h-11 w-full rounded-xl border px-3 text-sm" aria-label="Subject" />
 
-        <label className="mt-3 block text-[11px] font-medium uppercase tracking-wide text-zinc-400">Message</label>
+        <label className="mt-3 block text-[11px] font-medium uppercase tracking-wide text-zinc-500">Message</label>
         <textarea
           ref={bodyRef}
           value={body}
@@ -125,10 +160,10 @@ export default function EmailModal({ pending, onDone }: { pending?: Pending; onD
           >
             Copy
           </button>
-          <button onClick={() => close("decline")} disabled={busy} className="ml-auto text-sm text-zinc-500 hover:text-zinc-900">Discard</button>
+          <button onClick={() => close("decline")} disabled={busy} className="ml-auto min-h-11 px-2 text-sm text-zinc-500 hover:text-zinc-900">Discard</button>
         </div>
 
-        <p className="mt-3 text-[11px] leading-relaxed text-zinc-400">
+        <p className="mt-3 text-[11px] leading-relaxed text-zinc-500">
           Orbit holds no mailbox credential and cannot send on your behalf. Both buttons open the message in your own client, from your own address, with Send still yours to press.
         </p>
       </div>

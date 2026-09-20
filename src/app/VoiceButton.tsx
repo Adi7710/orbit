@@ -151,11 +151,11 @@ export default function VoiceButton({ onChange, voiceActive }: { onChange?: () =
         <button
           onClick={live || state === "connecting" ? stop : start}
           disabled={state === "unavailable"}
-          className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition disabled:opacity-40 ${
+          className={`flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-medium transition disabled:opacity-40 ${
             live ? "bg-red-600 text-white" : "bg-zinc-900 text-white hover:bg-zinc-700"
           }`}
         >
-          <span className={`h-2 w-2 rounded-full bg-white ${live ? "animate-pulse" : ""}`} />
+          <span aria-hidden="true" className={`h-2 w-2 rounded-full bg-white ${live ? "animate-pulse" : ""}`} />
           {state === "connecting" ? "Connecting…" : live ? "End call" : "Talk to Orbit"}
         </button>
 
@@ -182,7 +182,7 @@ export default function VoiceButton({ onChange, voiceActive }: { onChange?: () =
         )}
 
         {live && (
-          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-zinc-500">
+          <label className="flex min-h-11 cursor-pointer items-center gap-1.5 text-xs text-zinc-500">
             <input type="checkbox" checked={handsFree} onChange={toggleHandsFree} className="accent-zinc-900" />
             hands-free
           </label>
@@ -199,19 +199,19 @@ export default function VoiceButton({ onChange, voiceActive }: { onChange?: () =
         </p>
       </div>
 
-      {note && state !== "unavailable" && <p className="mt-2 text-xs text-red-600">{note}</p>}
+      {note && state !== "unavailable" && <p role="alert" className="mt-2 text-xs break-words text-red-600">{note}</p>}
 
       {lines.length > 0 ? (
         <ol className="mt-3 space-y-1.5 text-sm">
           {lines.map((l, i) => (
-            <li key={i} className={l.role === "you" ? "text-zinc-500" : "font-medium text-zinc-900"}>
-              <span className="mr-2 text-[10px] uppercase tracking-wide text-zinc-400">{l.role}</span>
+            <li key={i} className={`break-words ${l.role === "you" ? "text-zinc-500" : "font-medium text-zinc-900"}`}>
+              <span className="mr-2 text-[10px] uppercase tracking-wide text-zinc-500">{l.role}</span>
               {l.text}
             </li>
           ))}
         </ol>
       ) : (
-        briefing && <p className="mt-3 border-l-2 border-zinc-200 pl-3 text-sm italic text-zinc-600">{briefing}</p>
+        briefing && <p className="mt-3 border-l-2 border-zinc-200 pl-3 text-sm break-words italic text-zinc-600">{briefing}</p>
       )}
     </section>
   );
