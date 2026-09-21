@@ -5,7 +5,7 @@ import SwiftUI
 /// Written for this codebase tonight. It reproduces a *design* — four domain
 /// hues, a blue primary, and three modes that change the chrome without ever
 /// changing what a colour means — and none of its code; see the hard rule in
-/// CLAUDE.md. Surfaces are the system's own, because the look sits on iOS
+/// CONTRIBUTING.md. Surfaces are the system's own, because the look sits on iOS
 /// greys rather than on a bone/obsidian ground of its own invention.
 enum OrbitClassic {
 

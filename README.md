@@ -11,8 +11,7 @@ Orbit counts the commute, the meals and the settling-in, finds the real windows 
 
 Built at **SteelHacks XIII**, 19–20 September 2026, for a student living in Jersey City and studying at Stevens. Web app (Next.js 16 / React 19), iOS app (SwiftUI), one server.
 
-> All code in this repository was started after 11:00 AM EST on 19 September 2026.
-> AI tools used: **Claude** (Anthropic) via Claude Code for design, code and review, and at runtime as a Day Agent tier and the Email Agent; **NVIDIA Nemotron** at runtime for planning, estimation, syllabus parsing, judging the other agents, and learning the student; **ElevenLabs** for the voice.
+> Models at runtime: **NVIDIA Nemotron** plans the day, estimates task minutes, parses syllabus PDFs, judges the other agents and learns the student; **Anthropic Claude** is the planner's second tier and writes the Email Agent's drafts; **ElevenLabs** is the voice.
 
 ---
 
@@ -131,8 +130,6 @@ node scripts/warm.mjs             # before a demo: review, eval cache, plan cach
 | **Jatin Srivastava** ([@jatinsrivastava11](https://github.com/jatinsrivastava11)) | Nemotron, the weekly learner, the mode system, Canvas import, the web accessibility pass |
 | **Anmol Hazari** ([@anmolhazari](https://github.com/anmolhazari)) | the iOS app, the Xcode project, the map |
 | **Akshat** ([@ak8hat](https://github.com/ak8hat)) | theme, copy, the classic screens, the on-device builds |
-
-Built with Claude Code as the engineering partner throughout; the credit line at the top says exactly what the AI did.
 
 ## Status
 

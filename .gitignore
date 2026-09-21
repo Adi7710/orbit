@@ -52,8 +52,8 @@ ios/**/*.xcuserstate
 ios/DerivedData/
 .swiftpm/
 
-# Claude Code skill packs pulled from third-party repos. Not our code, not a library:
-# kept out of the tree so nothing written before 11:00 on 19 Sept is in it.
+# Editor and agent tool directories, and third-party skill packs installed into
+# them. Not our code and not a dependency, so they stay out of the tree.
 .agents/
 .claude/
 skills-lock.json

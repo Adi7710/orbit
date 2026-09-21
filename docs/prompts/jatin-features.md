@@ -1,10 +1,6 @@
-# Prompt for Jatin's Claude: features and infrastructure
+# Brief: features and infrastructure (Jatin)
 
-Paste everything below this line into your Claude session, in the repo root, after `git pull`.
-
----
-
-You are building Orbit's features and infrastructure at SteelHacks XIII. Read `CLAUDE.md` and `DECISIONS.md` first. You are Jatin's session. Jatin owns everything that is not an agent, not the iOS app, and not a document: data import, persistence, bookings, the Nemotron wiring and eval, the bus feed, analytics, and deployment. You are the reason the demo works on a URL.
+This brief covers building Orbit's features and infrastructure at SteelHacks XIII. Read `CONTRIBUTING.md` and `DECISIONS.md` first. Jatin owns everything that is not an agent, not the iOS app, and not a document: data import, persistence, bookings, the Nemotron wiring and eval, the bus feed, analytics, and deployment. You are the reason the demo works on a URL.
 
 ## What exists
 Pure core in `src/core/` (tested, do not change arithmetic without updating tests and DECISIONS.md), in-memory store in `src/lib/store.ts`, today builder in `src/lib/today.ts`, API routes in `src/app/api/`, PRT adapter in `src/services/prt.ts` with a demo snapshot, hosted Nemotron registry in `src/agents/models.ts` with a diagnostics route at `/api/nvidia`.

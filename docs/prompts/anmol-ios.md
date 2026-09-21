@@ -1,10 +1,6 @@
-# Prompt for Anmol's Claude: the Orbit iOS app
+# Brief: the Orbit iOS app (Anmol)
 
-Paste everything below this line into your Claude session, in the repo root, after `git pull`.
-
----
-
-You are building the iOS client for Orbit at SteelHacks XIII. Read `CLAUDE.md` and `DECISIONS.md` first and obey them; the hackathon rules there are not optional. You are Anmol's session. Anmol owns the iOS app; the web app and API already exist and are the source of truth.
+This brief covers building the iOS client for Orbit at SteelHacks XIII. Read `CONTRIBUTING.md` and `DECISIONS.md` first and obey them; the hackathon rules there are not optional. Anmol owns the iOS app; the web app and API already exist and are the source of truth.
 
 ## Mission
 A SwiftUI app in `ios/Orbit/` (create the Xcode project there) that makes Orbit feel like a game you open between classes: the honest ledger, today's gaps as quest cards, the bus leave-by, friends free with you, the Tower leaderboard, and a big approve button for whatever the agent proposed. It talks to the same HTTP API the web app uses. It must be demoable on the simulator on the Mac and on a real iPhone by Sunday 10:00 AM.

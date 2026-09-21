@@ -47,7 +47,7 @@ This is not a workaround for "we could not get Microsoft Graph working in time".
 
 ### What sending from Outlook directly would actually take
 
-Real sending needs **Microsoft Graph**, not an MCP connector. (An MCP server attached to a Claude session lets *Claude* send mail; it does not give *Orbit* the ability, which is what the product needs.)
+Real sending needs **Microsoft Graph**, not an MCP connector. (An MCP server attached to a developer's assistant lets *that assistant* send mail; it does not give *Orbit* the ability, which is what the product needs.)
 
 1. Azure app registration in the school tenant
 2. Delegated `Mail.Send` scope, plus `Mail.Read` to see replies

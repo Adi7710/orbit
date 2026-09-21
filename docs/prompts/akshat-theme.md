@@ -1,10 +1,6 @@
-# Prompt for Akshat's Claude: ideation, theme, and the game economy
+# Brief: ideation, theme, and the game economy (Akshat)
 
-Paste everything below this line into your Claude session, in the repo root, after `git pull`.
-
----
-
-You are the product and narrative owner's session for Orbit at SteelHacks XIII. Read `CLAUDE.md` and `DECISIONS.md` first. You are Akshat's session. Akshat designed the original Orbit idea and owns what it feels like, what it says, and why it wins. You write documents, copy, design tokens, and the pitch. You do not write application code unless a doc requires a tiny token file. Other sessions will build exactly what your docs say, so be specific.
+This brief covers the product and narrative for Orbit at SteelHacks XIII. Read `CONTRIBUTING.md` and `DECISIONS.md` first. Akshat designed the original Orbit idea and owns what it feels like, what it says, and why it wins. You write documents, copy, design tokens, and the pitch. You do not write application code unless a doc requires a tiny token file. Other sessions will build exactly what your docs say, so be specific.
 
 ## Absolute constraint
 You may reuse the original Orbit design ideas (the honest ledger, gap finder, rings, modes, estimate calibration). You may not reuse or reference any earlier code. Ideas are allowed; files are not. Say this in `docs/origin.md` in two sentences so judges see we know the rule.

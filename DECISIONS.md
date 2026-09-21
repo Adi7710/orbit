@@ -1,6 +1,6 @@
 # Decisions
 
-Append-only. Every Claude session and every human adds a line for each non-trivial decision. Newest at the bottom. Format:
+Append-only. Everyone working on Orbit adds an entry for each non-trivial decision. Newest at the bottom. Format:
 
 ```
 ## YYYY-MM-DD HH:MM ET · who · short title
@@ -9,17 +9,17 @@ Why: the reason, in one or two sentences.
 Affects: files, routes, or other people's work.
 ```
 
-## 2026-09-19 13:00 ET · Adi + lead Claude · Rebuild Orbit in TypeScript, web-first
+## 2026-09-19 13:00 ET · Adi · Rebuild Orbit in TypeScript, web-first
 Decision: Orbit is rebuilt from scratch as a Next.js app with a pure TypeScript core; the earlier Swift package is not used.
 Why: SteelHacks rules disqualify code written before 11 AM Sept 19; the design is reused, the code is not. Web lets all four people build; iOS is a client on top.
 Affects: everything.
 
-## 2026-09-19 13:10 ET · lead Claude · Agents propose, humans approve
+## 2026-09-19 13:10 ET · Adi · Agents propose, humans approve
 Decision: Every agent tool call becomes a pending proposal; only /api/proposals/[id] executes after a human tap.
 Why: Winning hackathon agents (LEGR, Citadail) shipped approval gates; it is also the honest answer to "what could go wrong".
 Affects: src/agents/dayAgent.ts, src/app/api/proposals, iOS approve screen.
 
-## 2026-09-19 13:15 ET · lead Claude · XP cannot be farmed
+## 2026-09-19 13:15 ET · Adi · XP cannot be farmed
 Decision: XP is awarded server-side only for planned minutes actually worked, scaled by estimate honesty, capped per task (150) and per day (400); zero XP in crisis and chill, streaks never break.
 Why: A leaderboard that can be gamed by creating tasks is worthless within a day.
 Affects: src/core/game.ts, /api/complete, leaderboard UI.
@@ -39,22 +39,22 @@ Decision: Adi = agents; Akshat = ideation, theme, gamification economy, pitch; A
 Why: Matches machines (Mac for iOS), skills, and who proposed what.
 Affects: prompts/, GitHub issue assignments.
 
-## 2026-09-19 14:00 ET · lead Claude · Bus routing runs on PRT's real timetable with the public realtime overlay
+## 2026-09-19 14:00 ET · Adi · Bus routing runs on PRT's real timetable with the public realtime overlay
 Decision: data/prt-oakland.json is a 2.4 MB slice of PRT's static GTFS (feed Merged_Clever_2606_2, valid 2026-06-28 to 2026-10-14) for 10 stops: campus outbound (31 Forbes+Bigelow, 20959 Forbes+Bouquet, 29, 2568), campus inbound (34 Fifth+University, 35 Fifth+Thackeray, 33, 1171), and Squirrel Hill (7095 Forbes+Shady inbound, 7126 Forbes+Murray outbound), routes 61A-D, 71A-D, P3, 75, 67, 69, 58, 93, 54, 28X. Regenerate with `node scripts/gtfs-extract.mjs`. Realtime trip updates come from https://truetime.portauthority.org/gtfsrt-bus/trips (public, protobuf, no key), cached 30 s, and are matched to scheduled trips by trip_id and stop_id.
 Why: Both feeds are open (verified today); a real timetable beats a fake snapshot and the live delay is the demo moment ("61B is 5 minutes late, leave at 14:02").
 Affects: src/services/schedule.ts, src/services/prt.ts, src/lib/transit.ts, src/lib/today.ts (bus, arrivals, ghosts, transit fields), TodayClient bus card, iOS models for `bus` and `transit`.
 
-## 2026-09-19 14:00 ET · lead Claude · Ghost definition and demo clock
+## 2026-09-19 14:00 ET · Adi · Ghost definition and demo clock
 Decision: A "ghost" is a scheduled trip whose first stop departed more than 3 minutes ago with no trip update on the feed; a trip that has not started is "scheduled", not a ghost. DEMO_CLOCK (e.g. 2026-09-22T13:10) pins the planning clock to a weekday so Sunday judging shows a weekday timetable; when pinned, realtime is skipped and everything is labeled "demo clock".
 Why: Realtime feeds only carry active trips, so unstarted trips must not be flagged. Sunday service is sparse and would make the demo look empty.
 Affects: src/services/prt.ts, .env.example, README.
 
-## 2026-09-19 14:05 ET · lead Claude · Home is Squirrel Hill for the bus legs; the fixture's walking graph is campus-only
+## 2026-09-19 14:05 ET · Adi · Home is Squirrel Hill for the bus legs; the fixture's walking graph is campus-only
 Decision: PLACES maps Home to the Squirrel Hill stops for the two bus legs (morning Home→first class, evening last class→Home). The ledger's travel graph keeps the hand-computed walking legs between campus buildings; the "walk home" default in the fixture is a placeholder until the import route replaces it with the student's real commute mode.
 Why: Keeps the tested ledger numbers stable while the bus feature uses real stops. Jatin's ICS import (#2) should set commute mode and home from the setup form.
 Affects: src/lib/transit.ts, src/core/__tests__/fixture.ts, issue #2.
 
-## 2026-09-19 14:20 ET · lead Claude · Bus map is rendering-only; all timing comes from /api/transit/journey
+## 2026-09-19 14:20 ET · Adi · Bus map is rendering-only; all timing comes from /api/transit/journey
 Decision: New endpoint GET /api/transit/journey returns origin, board/alight stops, walk legs (Google Routes API walking when GOOGLE_MAPS_API_KEY is set, else 1.3x straight-line at 80 m/min), the next four buses sorted by actual departure with PRT live predictions, the live vehicle position (from the public vehicles feed, matched by trip id; about 160 of 250 buses report one), distance to the stop measured along the route polyline, ride time from the timetable, arrival at the destination, and a verdict against the class start. Route shapes for 61A-D and 71A-D are in data/prt-oakland.json (thinned to every 4th point). Design and contract in docs/bus-map.md.
 Why: The map must never recompute times; one source of truth keeps iOS and web identical and testable. MapKit is the default on iOS (no key); Google Maps is optional and changes only the walk source and tiles.
 Affects: src/lib/journey.ts, src/services/vehicles.ts, src/core/geo.ts, schedule.ts (routeShape, routeColor), issue #21 (Anmol), #13.
@@ -74,22 +74,22 @@ Decision: Added data/samples/cs0441-syllabus-p1.{png,txt}, a synthetic one-page 
 Why: A 612x792 render returned an empty page and hid the shape problem; the higher resolution shows the real output. The verbatim-quote guard already rejected an invented "Syllabus Quiz" task.
 Affects: src/agents/parse.ts and syllabus.ts (Adi), web syllabus panel (#9: scale boxes by image size).
 
-## 2026-09-19 14:30 ET · lead Claude · The upper-campus dorm trip is a walk, not a bus
+## 2026-09-19 14:30 ET · Adi · The upper-campus dorm trip is a walk, not a bus
 Decision: Added stops 8650 (Allequippa + Sutherland / Petersen Center), 18894, 9028 (DeSoto + OHara) and 22747 (Fifth at Robinson) plus routes 81 and 83 to the schedule slice, then checked the trips: PRT runs 28 weekday trips campus -> Sutherland and ZERO Sutherland -> campus (the 83 loops up the hill then heads to Downtown via the Hill District). So the demo commute is where-you-live -> class, with Home defaulting to Squirrel Hill (Murray + Darlington). Upper-campus dorm residents walk down or take Pitt's own shuttle, which is not in PRT's feed.
 Why: Better to state a real limitation than fake a route. It is also a good line for the pitch: we checked the data instead of assuming.
 Affects: scripts/gtfs-extract.mjs, data/prt-oakland.json (14 stops, 20 shapes, 20,079 departures), docs/bus-map.md.
 
-## 2026-09-19 14:35 ET · lead Claude · Web map uses Leaflet + CARTO tiles; iOS uses MapKit; Google Maps optional
+## 2026-09-19 14:35 ET · Adi · Web map uses Leaflet + CARTO tiles; iOS uses MapKit; Google Maps optional
 Decision: Added `leaflet` (npm) for the web map at /map with CARTO Voyager raster tiles (OpenStreetMap data, no key). iOS uses MapKit (no key, no billing). Google Maps stays optional and only changes tile look and the walking-leg source.
 Why: Zero keys, zero billing, works offline-ish for judging; one contract feeds both clients.
 Affects: package.json, src/app/map/*, ios/Orbit/*.
 
-## 2026-09-19 14:50 ET · lead Claude · Voice agent: the server writes the sentence, the model delivers it
+## 2026-09-19 14:50 ET · Adi · Voice agent: the server writes the sentence, the model delivers it
 Decision: Every voice tool returns a finished spoken sentence in a `text` field, composed server-side from the deterministic core. The ElevenLabs agent reads it verbatim and never computes a number. Tier 1 tools: get_today, log_actual, set_mode, get_bus. Voice may approve only move_task and book_room proposals; draft_extension and notify_friends require a tap because they reach another person. Full plan in docs/voice.md.
 Why: A voice agent that generates numbers will eventually say a wrong XP total or bus time out loud, which is worse than a wrong pixel. This makes hallucinated facts structurally impossible and keeps the LLM to intent recognition only.
 Affects: src/app/api/voice/tool/route.ts, src/agents/voice.ts, issue #7, #8, TodayClient mic button, ios voice button.
 
-## 2026-09-19 14:50 ET · lead Claude · Voice needs a public URL before anything else
+## 2026-09-19 14:50 ET · Adi · Voice needs a public URL before anything else
 Decision: ElevenLabs server tools call our webhook from their cloud, so localhost cannot work. Deploying to Vercel (or an ngrok tunnel) is step 1 of the voice build and blocks steps 2 through 6. The agent's LLM is ElevenLabs' native Claude Sonnet 5, billed from ElevenLabs credits, so voice does not spend our $25 Anthropic budget.
 Why: This is the step teams discover three hours in.
 Affects: issue #7, deployment, .env.local.
@@ -114,37 +114,37 @@ Decision: The import does not yet set commute mode or home. TravelGraph's mode d
 Why: The lead's note asked for it; doing it properly means a core change that needs the lead's call.
 Affects: src/core/travel.ts, src/lib/transit.ts. Raised on issue #2.
 
-## 2026-09-19 15:10 ET · Adi + lead Claude · Anchor Nemotron to the heuristic instead of trusting it
+## 2026-09-19 15:10 ET · Adi · Anchor Nemotron to the heuristic instead of trusting it
 Decision: estimateTask gains two variants. "zeroshot" keeps the original prompt unchanged so the failure Jatin measured stays reproducible. "anchored" passes the heuristic estimate as a baseline, tells the model to adjust only where the title is informative, and clamps the result in code to [0.5x, 2x] of that baseline. /api/eval now runs heuristic, zeroshot and anchored in parallel and reports MAE, within-25%, worst miss, latency, clamp-fired count and which provider answered. Written up in docs/eval.md.
 Why: The 240-vs-50 miss on "Quiz 3 prep" was our prompt, not the model: the bands named exam prep and never mentioned quizzes. Anchoring makes a 5x miss structurally impossible instead of merely discouraged, and keeps the model useful for the cold start before per-course calibration has five real sessions.
 Affects: src/agents/estimate.ts, src/app/api/eval/route.ts, docs/eval.md, issue #5 (the fine-tune now has a baseline to beat).
 
-## 2026-09-19 15:10 ET · Adi + lead Claude · A timeout is not a schema rejection
+## 2026-09-19 15:10 ET · Adi · A timeout is not a schema rejection
 Decision: nemotronJson retries without the JSON schema only when the endpoint rejected the schema. On an abort or timeout it falls back immediately.
 Why: Both attempts had their own 15 s budget, so a slow endpoint cost 30 s for the same answer. That is the worst case Jatin saw.
 Affects: src/agents/models.ts.
 
-## 2026-09-19 15:10 ET · Adi + lead Claude · Parse boxes are normalized 0..1 and the payload is an array of arrays
+## 2026-09-19 15:10 ET · Adi · Parse boxes are normalized 0..1 and the payload is an array of arrays
 Decision: normalize() in parse.ts flattens one level and drops empty-text elements; ParsedElement.bbox stays [xmin, ymin, xmax, ymax] normalized 0..1, documented in the type. Clients multiply by the rendered image size. Tests in src/core/__tests__/parse.test.ts pin the recorded shape, including the malformed and markdown-only paths.
 Why: Reading the outer array as the element list yielded one empty element and lost every box (#6). Keeping 0..1 means the same numbers work for the web panel, the iOS overlay and any render resolution.
 Affects: src/agents/parse.ts, src/agents/syllabus.ts, web syllabus panel (#9), iOS overlay.
 
-## 2026-09-19 15:40 ET · lead Claude · Public URL without waiting on anyone
+## 2026-09-19 15:40 ET · Adi · Public URL without waiting on anyone
 Decision: Installed cloudflared and ran a quick tunnel to the dev server, which needs no account and no signup. Public URL is in .tunnel-url.txt (gitignored) and posted in issue #23. This unblocks ElevenLabs webhooks, Anmol's simulator (ORBIT_API_BASE) and anyone who wants to see the app. Vercel is still the Sunday-morning answer because a tunnel dies when the laptop sleeps.
 Why: The webhook URL was blocking the entire voice build and was waiting on a human to log into Vercel. A leader should not park the critical path behind someone else's browser session.
 Affects: issue #7, #21, #23, .gitignore.
 
-## 2026-09-19 15:45 ET · lead Claude · DEMO_CLOCK is off by default; it disables live buses by design
+## 2026-09-19 15:45 ET · Adi · DEMO_CLOCK is off by default; it disables live buses by design
 Decision: DEMO_CLOCK is now commented out in .env.example and .env.local, with a warning that setting it pins a simulated weekday and DISABLES the realtime overlay, because a simulated time cannot be matched against a live feed. It stays only as an escape hatch if PRT's feed is down at demo time.
 Why: I shipped it ON in the template. Copying the template froze the app to Tuesday 13:10 and silently turned off live buses, which is the single best moment in the demo. Caught by noticing the app reported "live feed down" while a direct fetch showed 225 trip updates and 30 live 61x buses. Sunday service on the 61s is frequent enough that the live feed is the right default for judging.
 Affects: .env.example, .env.local, docs/bus-map.md, demo rehearsals.
 
-## 2026-09-19 15:50 ET · lead Claude · Voice tools compose finished sentences, including how numbers are said
+## 2026-09-19 15:50 ET · Adi · Voice tools compose finished sentences, including how numbers are said
 Decision: src/agents/voiceTools.ts holds the four tier-1 tools and composes every reply as a finished spoken sentence: spoken() for integers, spokenDuration() for "nine hours forty-nine", spokenClock() for "eleven oh five", speakReason() for XP reasons written for the eye, and asSentence() to capitalize every sentence. resolveTask() maps "the problem set" to the right task by exact, substring then token overlap, and asks rather than guessing when two match equally. /api/reset restores the opening state so the demo can be rehearsed repeatedly.
 Why: TTS mangles bare digits, and a voice agent that invents a number is worse than a wrong pixel. Composing server-side keeps the model to intent recognition only.
 Affects: src/agents/voiceTools.ts, src/app/api/voice/tool/route.ts, src/app/api/reset/route.ts, issue #7.
 
-## 2026-09-19 15:55 ET · lead Claude · The ledger is a reveal, not a statistic
+## 2026-09-19 15:55 ET · Adi · The ledger is a reveal, not a statistic
 Decision: LedgerReveal animates the calendar's number down to the real one while each deduction lands underneath, with a replay button, honoring prefers-reduced-motion. It only reveals numbers already computed and tested in src/core/ledger.ts, so a broken animation can never change a number.
 Why: Beat one of the demo has to be felt, not read. The 226 missing minutes are the one thing in this product nobody has seen about their own life.
 Affects: src/app/LedgerReveal.tsx, src/app/TodayClient.tsx, docs/pitch.md (Akshat).
@@ -164,12 +164,12 @@ Decision: The habit call uses a 20 s timeout and the code-written insights as fa
 Why: Hosted latency is spiky (same 15 s tail as the eval). The UI must never wait on it, and an ungrounded percentage should not pass just because it happens to be right.
 Affects: src/agents/habitAgent.ts prompt, /api/habits cache (per profile, so a new completion re-words), issue for the Brev fine-tune (#5).
 
-## 2026-09-19 16:05 ET · lead Claude · One bus engine for both screens; the card deep-links into the map
+## 2026-09-19 16:05 ET · Adi · One bus engine for both screens; the card deep-links into the map
 Decision: Deleted src/lib/transit.ts (planLeg, PLACES). buildToday() now calls the same buildJourney() the map uses, picks the leg that matters right now (to the next class, else home after the last one), and returns verdict, live status, vehicle distance, walk and ride legs, plus a mapHref. /map reads from, to and arriveBy from the query string and keeps them in the URL, so the Today card opens the map on the exact journey it was showing. Verified: both report leave-by 15:48 for the same leg.
 Why: Two code paths computing the same time is how a demo shows 14:02 on one screen and 14:07 on the next. One engine, two renderings.
 Affects: src/lib/today.ts, src/lib/journey.ts, src/app/TodayClient.tsx, src/app/map/*, iOS `bus` model (new fields: status, verdict, classAtText, vehicleKm, walkToDest, mapHref).
 
-## 2026-09-19 16:05 ET · lead Claude · Tunnel is supervised, and its URL is not stable
+## 2026-09-19 16:05 ET · Adi · Tunnel is supervised, and its URL is not stable
 Decision: scripts/tunnel.mjs supervises cloudflared, writes the live URL to .tunnel-url.txt and restarts on death. Current URL: https://drama-times-screens-valley.trycloudflare.com
 Why: The first quick tunnel was revoked by Cloudflare after about an hour ("Tunnel not found") and the team's URL went dead silently. Quick tunnels are fine for browsing and for the iOS simulator, but the ElevenLabs webhook must be re-pasted whenever the URL changes, so Vercel is still required before the voice agent is wired for real.
 Affects: scripts/tunnel.mjs, issue #7, #21, #23.
@@ -179,53 +179,53 @@ Decision: Removed HabitsCard and its line in TodayClient. The pure habit math (s
 Why: The owner wants the learning to happen inside the app's planning and voice agent, not as a report the student reads.
 Affects: src/app/TodayClient.tsx (back to main's version), issue/PR #25.
 
-## 2026-09-19 16:25 ET · lead Claude · The voice tools follow the tunnel automatically
+## 2026-09-19 16:25 ET · Adi · The voice tools follow the tunnel automatically
 Decision: New scripts/repoint-voice.mjs PATCHes api_schema.url in place on the four registered ElevenLabs tools, matched by name. scripts/tunnel.mjs calls it the moment it detects a new quick-tunnel URL, so a rotation repairs itself. Tool ids, tool_ids on the agent and ELEVENLABS_AGENT_ID are all unchanged, so nothing restarts. A failure to re-point is logged loudly with the exact command to run and never takes the tunnel down with it.
 Why: A quick tunnel is ephemeral — ours was revoked about an hour after it started — and setup-voice-agent.mjs is the wrong tool for the repair because it deletes the tools, creates a *new* agent and writes a new agent id that only takes effect after a dev-server restart. That is fine once, at the start; it is not something you can do while a judge is holding the microphone. The failure this prevents is worse than an outage: with stale URLs the agent calls a dead webhook, gets nothing, and improvises around the missing numbers. Inventing a number is precisely what the server-composes-the-sentence design exists to prevent, so a rotated tunnel would have turned beat 4 into a live demonstration of the failure we told judges we had engineered away.
 Verified: rotated the tunnel deliberately. The new URL was minted, all four tools re-pointed within seconds with their ids unchanged, the agent still referenced all four, and all four answered through the new public URL with finished spoken sentences; a wrong secret still gets 401.
 Affects: scripts/repoint-voice.mjs, scripts/tunnel.mjs, docs/voice.md, issue #23.
 
-## 2026-09-19 16:25 ET · lead Claude · ANTHROPIC_API_KEY and NVIDIA_API_KEY are present as empty lines, not as keys
+## 2026-09-19 16:25 ET · Adi · ANTHROPIC_API_KEY and NVIDIA_API_KEY are present as empty lines, not as keys
 Decision: Recording this because it reads as done and is not. Both variables exist in .env.local with nothing after the `=`, so /api/nvidia reports keyPresent:false, the Day Agent serves deterministic proposals and the Critic runs its rule-based rubric. Nothing is broken — every one of those paths is a designed fallback and the demo holds without a key — but beat 2 speaks in the canned voice and beat 5 has no model evidence behind it until they land.
 Why: A present-but-empty variable is the failure that looks like success. The restart I did to pick up "the new keys" changed nothing, and only /api/nvidia's explicit keyPresent flag showed it.
 Affects: beat 2 (Plan my day), beat 5 (the eval table), issue #4.
 
-## 2026-09-19 16:45 ET · lead Claude · The Watcher: the day re-plans itself when reality changes
+## 2026-09-19 16:45 ET · Adi · The Watcher: the day re-plans itself when reality changes
 Decision: New agent in src/agents/watcher.ts. It snapshots the day every tick, diffs against the last snapshot, and reacts to what actually changed: a class removed, a window opening / growing / shrinking / closing, the live bus slipping, the day stopping or starting to fit, a deadline inside 24 hours with nowhere to happen. Two tiers, enforced in code. Tier A acts alone (re-pick what goes in a window, move the leave-by, suggest a cut) because it is reversible and touches only your own screen. Tier B only ever queues a proposal (hold a room, message a friend, draft an extension) because it reaches outside the app. It never completes work, never awards XP, never sends anything. Every decision appends to a trace with the evidence that triggered it, the action and the reasoning, and it can be paused or killed in one click. /api/watcher ticks and controls it; /api/demo changes the world (cancel a class, overload the day) so it has something real to react to, and never fakes the reaction.
 Why: Everything else in Orbit answered a question when asked, which is a button, not an agent. The projects that won this year (LEGR, Citadail, AgentZero) all ran over time, kept a reasoning trace and had a kill switch. This also creates the demo moment: a judge cancels a class and watches the afternoon reorganise itself, with a reason for every move.
 Affects: src/agents/watcher.ts, src/app/api/watcher, src/app/api/demo, src/app/WatcherPanel.tsx, TodayClient, docs/pitch.md (Akshat), iOS (a later screen could show the same trace).
 
-## 2026-09-19 16:45 ET · lead Claude · Windows are identified by when they start, not by their position
+## 2026-09-19 16:45 ET · Adi · Windows are identified by when they start, not by their position
 Decision: findGaps now ids a window as `g<startMinute>` instead of `gap-<index>`. Tests pin it.
 Why: Positional ids silently re-label a different window whenever a class is added or cancelled, so the Watcher's first run reported "your window lost 111 minutes" when in truth an earlier window had appeared and everything shifted down one. A diff between two versions of the day is meaningless unless identity is stable. Found by running the cancel-a-class scenario and reading the output rather than trusting it.
 Affects: src/core/gaps.ts, src/agents/watcher.ts, quest ids.
 
-## 2026-09-19 17:15 ET · Adi + lead Claude · The voice agent is created from a script, not from clicks
+## 2026-09-19 17:15 ET · Adi · The voice agent is created from a script, not from clicks
 Decision: scripts/setup-voice-agent.mjs creates the four tools and the agent through the ElevenLabs API and writes ELEVENLABS_AGENT_ID back into .env.local. Re-running replaces rather than duplicating. Each tool has its own URL carrying its name (/api/voice/tool?tool=log_actual) so the model supplies arguments only and cannot select the wrong tool. Agent runs claude-sonnet-4-5 with eleven_flash_v2; English agents are restricted to the turbo/flash v2 families, which is what the first three attempts were actually failing on.
 Why: The webhook URL changes whenever the tunnel rotates, so pointing the tools at a new URL has to be one command, not a dozen clicks someone has to remember at 3 a.m.
 Affects: scripts/setup-voice-agent.mjs, src/app/api/voice/tool/route.ts, .env.local.
 
-## 2026-09-19 17:15 ET · lead Claude · Rotated the webhook secret after it appeared in an API error
+## 2026-09-19 17:15 ET · Adi · Rotated the webhook secret after it appeared in an API error
 Decision: VOICE_TOOL_SECRET regenerated and the tools recreated with the new value.
 Why: ElevenLabs echoed the request headers back in a 422 validation error, so the old secret was printed to the terminal. It only guards our own webhook and never left this machine, but rotating costs one command.
 Affects: .env.local, the four registered tools.
 
-## 2026-09-19 17:35 ET · lead Claude · Pin the app to a light surface; never let a failed fetch hang the screen
+## 2026-09-19 17:35 ET · Adi · Pin the app to a light surface; never let a failed fetch hang the screen
 Decision: globals.css no longer flips the background to near-black under prefers-color-scheme: dark, and sets color-scheme: light. TodayClient fetches the day and the leaderboard independently, each with a 20 s timeout, and renders a visible error with a Try again button instead of sitting on "Loading your day…".
 Why: Every card is dark text on paper, so the starter template's dark background rendered the entire app invisible on a machine set to dark mode, which looks exactly like a hang. Separately, the original single Promise.all had no catch, so any one failing request left the screen loading forever with nothing on screen and nothing in the console for a judge to see. A real dark theme belongs in docs/theme.md, not in a panic at 5 p.m.
 Affects: src/app/globals.css, src/app/TodayClient.tsx.
 
-## 2026-09-19 17:35 ET · lead Claude · Browse on localhost; the tunnel is for ElevenLabs
+## 2026-09-19 17:35 ET · Adi · Browse on localhost; the tunnel is for ElevenLabs
 Decision: Use http://localhost:3123 for looking at the app and for the demo. The public tunnel exists so ElevenLabs' cloud can reach our webhook, and so teammates and the iOS simulator have an address.
 Why: Next.js in dev ships large uncompiled chunks and an HMR websocket; pushing all of that through a quick tunnel is slow and flaky, while the same page is instant locally. Measured: /api/today is 25 ms locally and 1.1 s through the tunnel.
 Affects: how we demo, issue #23.
 
-## 2026-09-19 18:05 ET · Adi + lead Claude · The Critic: a second model grades every agent decision before anyone sees it
+## 2026-09-19 18:05 ET · Adi · The Critic: a second model grades every agent decision before anyone sees it
 Decision: src/agents/critic.ts scores each Watcher decision on four dimensions (grounded, tierCorrect, useful, voice) with a JSON-schema call to Nemotron, and a deterministic rubric when no model is reachable. Weighted overall score decides a verdict: keep, demote (a proposal becomes a silent note) or suppress (never reaches the student, but stays in the trace so the failure is visible). Scores accumulate per decision kind into a reward ledger at /api/critic; a kind averaging below 2.5 over at least 3 samples is muted and stops being allowed to interrupt. Shown in the Watcher panel as a score badge per entry plus an expandable table of how each behaviour is scoring.
 Why: An agent that watches your day and acts on its own needs something between it and the user. Two properties make this real rather than decorative. First, the Critic can only ever lower trust: it can suppress or demote, never approve, never promote a Tier B proposal into a Tier A action, so a broken judge makes Orbit quieter rather than bolder. Second, it runs on Nemotron, so grading every decision costs nothing from the $25 Claude budget and is a third non-chat job for the NVIDIA track. The reward ledger is the part with teeth: a behaviour that keeps scoring badly loses the right to interrupt.
 Affects: src/agents/critic.ts, src/agents/watcher.ts, src/app/api/critic, src/app/WatcherPanel.tsx, docs/eval.md.
 
-## 2026-09-19 18:05 ET · lead Claude · Two bugs the Critic work surfaced
+## 2026-09-19 18:05 ET · Adi · Two bugs the Critic work surfaced
 Decision: The deterministic rubric no longer treats clock times as unsupported quantity claims (11:05 was being read as an invented "11"), and /api/demo restore is idempotent so putting a class back after a reset cannot add a second copy.
 Why: Both were found by running the loop and reading the output rather than trusting the tests.
 Affects: src/agents/critic.ts, src/app/api/demo/route.ts.
@@ -235,33 +235,33 @@ Decision: Added voice tools `get_estimate` ("how long will the problem set take 
 Why: The voice loop budget is 1-2 s a turn and hosted Nemotron measured 1-18 s per call, so as the conversation model it would make the agent feel broken; as a background analyst behind server tools it costs the voice turn nothing. Voice is also the best source of actual minutes, so routing it into the learning log is what the learning needs.
 Affects: src/agents/voiceTools.ts, src/agents/habitAgent.ts (shared cache), src/lib/habitLog.ts, /api/complete, /api/habits, scripts/setup-voice-agent.mjs (two tools and two prompt lines). The ElevenLabs agent must be re-created by re-running the setup script (Adi's key and tunnel URL) before it can call the new tools.
 
-## 2026-09-19 16:40 ET · lead Claude · Re-pointing finds our tools by webhook path, not by a list of names
+## 2026-09-19 16:40 ET · Adi · Re-pointing finds our tools by webhook path, not by a list of names
 Decision: scripts/repoint-voice.mjs no longer matches a hardcoded ["get_today","log_actual","set_mode","get_bus"]. It re-points every registered tool whose url matches /api/voice/tool?tool=<name>, and takes the tool name out of that url rather than the display name.
 Why: The hardcoded list was written against four tools and Jatin's get_estimate and get_coach landed about two hours later. After the next tunnel rotation those two would have kept pointing at a dead host while the other four healed silently — a partial failure, which is worse than a total one, because voice would still mostly work and nobody would go looking. Anything registered against our own webhook path is ours, however many there turn out to be.
 Affects: scripts/repoint-voice.mjs, docs/voice.md.
 
-## 2026-09-19 16:40 ET · lead Claude · The two new voice tools existed in code but not in ElevenLabs
+## 2026-09-19 16:40 ET · Adi · The two new voice tools existed in code but not in ElevenLabs
 Decision: Re-ran setup-voice-agent.mjs so all six tools are registered and the agent references all six. New ELEVENLABS_AGENT_ID written; dev server restarted.
 Why: get_estimate and get_coach were added to the setup script and to voiceTools, and both answer correctly on localhost, but the ElevenLabs registry still held only the original four, so the live agent had no way to call them. Adding a tool is the one case that genuinely needs the agent recreated, which is exactly why that is a deliberate command and not something the tunnel does on its own.
 Affects: the ElevenLabs tool registry, .env.local, issue #7.
 
-## 2026-09-19 16:50 ET · lead Claude · The setup script was silently doubling the ElevenLabs tool registry
+## 2026-09-19 16:50 ET · Adi · The setup script was silently doubling the ElevenLabs tool registry
 Decision: setup-voice-agent.mjs deletes old tools with ?force=true and reports the real outcome instead of printing "removed" unconditionally. Cleaned up by hand: deleted the orphaned agent and force-deleted four duplicate tools. The registry is now exactly six tools and one agent.
 Why: Deleting a tool returns 409 while anything still references it — including a *branch* of an agent that has already been deleted, which is what we hit. The old code wrapped that in .catch(() => {}) and logged "removed old tool" regardless, so the failure was invisible and every re-run added another copy. We were at ten tools with duplicate names, four of them belonging to a dead agent. Nothing was broken yet, but re-pointing was doing four pointless PATCHes and the next person to read the dashboard would have had no idea which get_today was live.
 Verified: registry listed and confirmed at six tools, one agent, all six referenced by it, all six answering 200 through the public webhook.
 Affects: scripts/setup-voice-agent.mjs, the ElevenLabs workspace.
 
-## 2026-09-19 16:55 ET · lead Claude · The clamp moves into the pure core and is proven without a key
+## 2026-09-19 16:55 ET · Adi · The clamp moves into the pure core and is proven without a key
 Decision: Extracted clampToBaseline (and CLAMP_LO/CLAMP_HI) from src/agents/estimate.ts into src/core/estimator.ts, and added src/core/__tests__/clamp.test.ts. Six tests, no network, no key: the original "Quiz 3 prep" 240 collapsing to 90, a sensible 50 passing through untouched, an implausibly small answer pulled up, exact edge inclusivity, and a property test that no model output up to 100000 can leave [0.5x, 2x] for any title in the eval set. Fixed an off-by-one in docs/eval.md, which advertised the window as 22 to 90 when Math.round(45*0.5) is 23.
-Why: docs/eval.md tells a judge that a five-times miss is "structurally impossible rather than merely discouraged", and that is the strongest claim we make for the NVIDIA track. It rested on four lines of arithmetic inside a function that could not run without an API key, and grep for "clamp" across the test suite returned nothing — the one claim we most want checked was the one nobody could check. Arithmetic belongs in the pure core per CLAUDE.md; this is also the only part of the eval story that survives the key never arriving.
+Why: docs/eval.md tells a judge that a five-times miss is "structurally impossible rather than merely discouraged", and that is the strongest claim we make for the NVIDIA track. It rested on four lines of arithmetic inside a function that could not run without an API key, and grep for "clamp" across the test suite returned nothing — the one claim we most want checked was the one nobody could check. Arithmetic belongs in the pure core per CONTRIBUTING.md; this is also the only part of the eval story that survives the key never arriving.
 Affects: src/core/estimator.ts, src/agents/estimate.ts, src/core/__tests__/clamp.test.ts, docs/eval.md.
 
-## 2026-09-19 16:55 ET · lead Claude · The eval table carries no signal without the key, and says so
+## 2026-09-19 16:55 ET · Adi · The eval table carries no signal without the key, and says so
 Decision: Ran /api/eval on main with no NVIDIA_API_KEY and recorded the result in docs/eval.md rather than leaving the row blank: all three scorers return MAE 16.3, 9/10, identical, because zeroshot and anchored both report answeredByModel 0/10 and fall back to the heuristic ten times out of ten.
 Why: Beat 5 is the eval table. In its current state it shows a judge three copies of the same number, which reads as "the model does nothing" — the opposite of the story. The harness is behaving correctly and naming the reason, so this is a blocker on Jatin's key, not a bug. Worth writing down so nobody demos this table as-is.
 Affects: docs/eval.md, beat 5, issue #4.
 
-## 2026-09-19 17:10 ET · Adi + lead Claude · Orbit takes turns like a person, and the mic is shut between them
+## 2026-09-19 17:10 ET · Adi · Orbit takes turns like a person, and the mic is shut between them
 Decision: New scripts/voice-config.mjs holds the personality (turn-taking, pacing, system prompt) and is imported by both setup-voice-agent.mjs at create time and a new scripts/tune-voice.mjs that PATCHes the live agent in place. Applied: turn_eagerness patient, turn_timeout -1, soft_timeout_config at 1.0 s with four varied fillers, tts optimize_streaming_latency 3 -> 1, speed 0.95, and a prompt that tells it to let the student finish and allows two or three words of acknowledgement while it thinks. VoiceButton now mutes the microphone between turns via setMicMuted and opens it only while the button or the spacebar is held, with a hands-free checkbox for the demo.
 Why: Adi's feedback after the first real conversation: it answered the instant he stopped making noise, which reads as a kiosk rather than a friend, and it kept listening afterwards so it picked up the room. turn_eagerness patient is the substantive fix — on normal the first gap in speech is the agent's cue, so pausing to think gets you interrupted. The latency that patience costs is the thing that makes it feel considered, which is what he actually asked for. reasoning_effort would have been the literal answer but the API rejects it for claude-sonnet-4-5 ("Reasoning effort is not supported for this LLM"), so the conversational beat comes from patience plus fillers instead. turn_timeout had to go to -1 because with a muted mic the agent would otherwise nag into a silence it created and cannot hear out of.
 Kept deliberately: barge-in. Holding the button while it speaks interrupts it. A friend you cannot talk over is a voicemail.
@@ -269,17 +269,17 @@ Not softened: the rule that every number must come from a tool result, now with 
 Verified: tune-voice.mjs --show reports patient / -1 / 1.0 s / 1 / 0.95 with tool count still 6, so tuning the personality did not detach the tools. tsc clean, 98 tests.
 Affects: scripts/voice-config.mjs, scripts/tune-voice.mjs, scripts/setup-voice-agent.mjs, src/app/VoiceButton.tsx, docs/voice.md.
 
-## 2026-09-19 17:25 ET · Adi + lead Claude · Push-to-talk is built for a thumb, not a spacebar
+## 2026-09-19 17:25 ET · Adi · Push-to-talk is built for a thumb, not a spacebar
 Decision: The hold-to-talk control is now touch-first. The spacebar listener and its on-screen hint only appear where a keyboard exists (matchMedia("(pointer: fine)")), so a phone is never told to hold a key it does not have. Added pointer capture, touch-action: none, and the iOS selection/callout suppressions so a long press cannot turn into a page scroll or a copy menu, a larger tap target, and two safety closes: onPointerCancel and a visibilitychange/pagehide handler.
 Why: Adi's note that Orbit is an iOS app first. Two of these are correctness, not polish. iOS fires pointercancel whenever the system takes a touch away — a notification, the lock button, an incoming call — and without handling it the microphone stays open while the button renders idle, which is precisely the always-listening behaviour push-to-talk exists to remove. The old blur-based safety close lived inside the keyboard-gated effect, so on a phone it never ran at all: backgrounding the app mid-hold would have come back with a hot mic.
 Affects: src/app/VoiceButton.tsx, issue #14 (iOS voice).
 
-## 2026-09-19 17:25 ET · Adi + lead Claude · Written down: nothing in Orbit is trained on the student
+## 2026-09-19 17:25 ET · Adi · Written down: nothing in Orbit is trained on the student
 Decision: New docs/data-and-learning.md states plainly that there is no training or fine-tuning anywhere, names what each of the three models actually sees, and points at the code where the personalisation really lives (estimator.ts: 5 samples, trimmed, capped 3x; habits.ts: >=3 sessions and >=0.15 pace gap). Includes the sentence to say if a judge asks.
 Why: Adi asked whether the agent is trained on his data. It is not, and a demo of "personalised AI" invites everyone to assume it is. Claiming learning we do not do would be the easiest way to lose a track on a follow-up question. The honest version is also the stronger one: it works on day one with no history, every number is auditable, and docs/eval.md already shows we measured the model on that job, lost to a ten-line heuristic, and changed the design instead of hiding the result. The only real fine-tune in the plan (#5, Brev) is stretch-only and would train on the synthetic log.
 Affects: docs/data-and-learning.md, docs/pitch.md (Akshat), README (#11).
 
-## 2026-09-19 17:45 ET · Adi + lead Claude · A real Canvas feed found three bugs the synthetic sample could not
+## 2026-09-19 17:45 ET · Adi · A real Canvas feed found three bugs the synthetic sample could not
 Decision: Syncing Adi's actual Canvas feed (98 events) exposed three failures, all now fixed in the pure core with tests pinned to the real title shapes in src/core/__tests__/canvas-real.test.ts.
   1. Half the feed was fiction. 49 of 98 events are class meetings ("2026F FE 570-A", "2025S MGT 808-WS1 FUNDAMENTALS OF CONSULTING") and were being imported as assignments, inventing hours of coursework nobody has to do, inflating the capacity ledger and then feeding that fiction into the habit history. isClassMeeting() now filters them and the import reports skippedMeetings.
   2. Course identity was split in half. Canvas writes the course *code* only on meetings and the course *name* on everything, so 37 tasks keyed under "Fundamentals of Consulting" and 13 under "MGT 808" as if they were different courses. Neither bucket could ever reach the estimator's five samples, so the agent could never say "your MGT 808 estimates are 1.57x what you guess". resolveCourseCodes() learns name -> code from the events carrying both and lends it to the rest; all 25 real tasks now key under MGT 808.
@@ -288,24 +288,24 @@ Why: The synthetic sample passed happily through all three. This is the argument
 Verified: re-import gives skippedMeetings 49, all 25 tasks under MGT 808. Then five real completions logged through the voice tool produced a genuine calibration of MGT 808 x1.57 over 5 sessions, and get_estimate now says "you would say two hours, but your history says three hours nine" for a case study it has never seen. 111 tests.
 Affects: src/core/ics.ts, src/core/estimator.ts, src/app/api/import/route.ts, src/core/__tests__/canvas-real.test.ts.
 
-## 2026-09-19 17:45 ET · lead Claude · Course codes are three OR four digits
+## 2026-09-19 17:45 ET · Adi · Course codes are three OR four digits
 Decision: codeFromText and isClassMeeting accept \d{3,4}, not \d{3}.
 Why: Caught by a test, not by inspection. Stevens writes FE 570 and MGT 808; Pitt writes CS 0441, MATH 0220, ENGCMP 0200. Pinned at three digits the matcher worked perfectly on the feed in front of me and silently dropped every code from the campus the rest of the app is built around.
 Affects: src/core/ics.ts.
 
-## 2026-09-19 17:45 ET · lead Claude · Canvas gives future work; the habit space learns from finished work
+## 2026-09-19 17:45 ET · Adi · Canvas gives future work; the habit space learns from finished work
 Decision: Recording the boundary, because it is easy to over-claim. Importing Canvas does not teach Orbit anything by itself — a feed is a list of things that have not happened. The habit space and the estimator learn only from completions with real durations, which arrive when the student says "that took ninety-five minutes". Canvas's contribution is that the tasks being completed are finally real ones.
 Why: Adi asked for the model to learn from the data in the habit space. The loop is import -> estimate -> complete by voice -> estimator and habits adjust, and it is now proven end to end on real data. Until a student logs five sessions in a course, that course's multiplier is honestly absent rather than guessed, which is the same discipline as the 5-sample minimum everywhere else.
 Affects: docs/data-and-learning.md, issue #26.
 
-## 2026-09-19 18:00 ET · Adi + lead Claude · Canvas auto-completion and location-based attendance: designed, deliberately not built
+## 2026-09-19 18:00 ET · Adi · Canvas auto-completion and location-based attendance: designed, deliberately not built
 Decision: docs/future-signals.md records both features Adi asked for, with the constraints that matter, and neither is in scope before submission.
 Why they are deferred, not just unfinished: Canvas completion state is not in the .ics feed at all — it only exists behind the REST API, which needs a personal access token. A feed URL is read-only for a calendar; a token is read-write for the whole account, and that is a much larger thing to ask a judge or a student to trust for a feature nobody sees in the demo. Location needs background authorisation and a real answer to false positives in Oakland, where four buildings sit inside GPS drift of each other.
 The two design conclusions worth keeping: (1) Canvas knows an assignment is done but not how long it took, and submitted_at is not a duration, so auto-completion must mark the task complete and then *ask* for the minutes — which makes it the best prompt we could have for the one piece of data the estimator actually needs. (2) Location is never sufficient alone; it must be a conjunction of region, the class's own time window, and a dwell of ten minutes, with the phone evaluating it locally and sending only a block id and a boolean, never a coordinate.
 The invariant both share: an unverified signal may change what is on the screen, but may never award XP or manufacture an estimator sample. Submission alone awarding XP is a farming vector (submit blank work repeatedly), and spoofed location would be the same, which is why the answer to spoofing is simply that attendance is worth no points.
 Affects: docs/future-signals.md, and a future issue if we pick either up after the hackathon.
 
-## 2026-09-19 18:30 ET · Adi + lead Claude · The Email Agent: a separate agent that writes to instructors, and cannot send
+## 2026-09-19 18:30 ET · Adi · The Email Agent: a separate agent that writes to instructors, and cannot send
 Decision: New src/agents/emailAgent.ts with its own prompt, plus pure src/core/emailDraft.ts and src/core/contacts.ts, POST /api/email, a send_email Tier B proposal, and a seventh voice tool draft_email. Say "professor I am not feeling good today, can I take a leave" and a formal email to the right instructor is written, read back aloud in full, and queued for approval.
 Why its own agent: it is the only agent in Orbit whose output is read by another human being. The Day Agent moves a task around your own screen; this one writes to your professor under your name. It is deliberately not a Day Agent tool, so it gets its own prompt, its own validation and its own blast radius.
 Three safety properties: (1) it cannot send — approval hands the finished message to the student's own mail client via mailto, so Orbit holds no mailbox credential and there is no configuration in which an agent delivers to a professor; (2) it cannot choose the recipient — the address is server-side and validateDraft rejects any draft that changed it; (3) it cannot invent a reason — the intent is classified in code before any model runs, and the output is rejected for invented medical detail, promises made on the student's behalf, not addressing the instructor, or running long. On rejection the deterministic letter is used and the reason is reported.
@@ -314,44 +314,44 @@ Addresses are synthetic on example.edu, a reserved domain that cannot deliver. V
 Verified: all four intents on the real Canvas courses, natural-language course resolution ("consulting" -> MGT 808), ambiguity returning a list rather than a guess, and the tool end to end through the public webhook. 131 tests.
 Affects: src/agents/emailAgent.ts, src/core/emailDraft.ts, src/core/contacts.ts, src/app/api/email, src/app/api/proposals/[id], src/agents/voiceTools.ts, src/agents/dayAgent.ts, scripts/setup-voice-agent.mjs, docs/email.md.
 
-## 2026-09-19 18:30 ET · lead Claude · Outlook sending needs Microsoft Graph, not an MCP connector
+## 2026-09-19 18:30 ET · Adi · Outlook sending needs Microsoft Graph, not an MCP connector
 Decision: Real sending from a school address is deferred and written up in docs/email.md. mailto is the shipped delivery.
-Why: An MCP server attached to a Claude session lets *Claude* send mail; it does not give *Orbit* the ability, which is what the product needs. That path is an Azure app registration in the school tenant, delegated Mail.Send plus Mail.Read for replies, and admin consent — most universities block student app registrations or route them through IT, which is a multi-day approval and not an overnight one. The right shape for a real product and the wrong shape for a Saturday.
+Why: An MCP server attached to an assistant lets *that assistant* send mail; it does not give *Orbit* the ability, which is what the product needs. That path is an Azure app registration in the school tenant, delegated Mail.Send plus Mail.Read for replies, and admin consent — most universities block student app registrations or route them through IT, which is a multi-day approval and not an overnight one. The right shape for a real product and the wrong shape for a Saturday.
 Also worth stating: mailto is not a consolation prize. The last approval being a human pressing send in their own client is a step nobody can accidentally skip, which is exactly what you want on the one feature that reaches a professor.
 Affects: docs/email.md, docs/future-signals.md.
 
-## 2026-09-19 18:30 ET · lead Claude · "I need until Friday" is an extension request
+## 2026-09-19 18:30 ET · Adi · "I need until Friday" is an extension request
 Decision: classify() also matches until/by + a weekday or date.
 Why: Caught by a test, not by reading the code. The keyword list had extend, extension, more time, push back, deadline — and none of them appear in the most natural way a student actually asks, which was being filed as a general question and producing the wrong letter entirely.
 Affects: src/core/emailDraft.ts.
 
-## 2026-09-19 18:55 ET · Adi + lead Claude · The draft opens as a window, is fully editable, and goes to Outlook
+## 2026-09-19 18:55 ET · Adi · The draft opens as a window, is fully editable, and goes to Outlook
 Decision: src/app/EmailModal.tsx opens by itself the moment the Email Agent writes something. To, subject and body are all editable. Two send buttons: "Open in Outlook" (outlook.office.com compose deeplink, prefilled, in the tab the student is already in) and "Open in mail app" (mailto). Edits are sent with the approval so the log records what was actually sent, not what we suggested. While a call is live TodayClient polls every 2.5 s so the window is open before the agent stops speaking.
 Why: Adi's feedback — he could not edit the draft at all, and after talking he had to scroll to find the thing he had just asked for. A letter to your professor is not a notification, and the agent's draft is a starting point, not a finished document with his name on the bottom of it.
 Affects: src/app/EmailModal.tsx, src/app/TodayClient.tsx, src/app/VoiceButton.tsx, src/app/api/proposals/[id]/route.ts.
 
-## 2026-09-19 18:55 ET · Adi + lead Claude · Real instructor addresses are typed in, never shipped
+## 2026-09-19 18:55 ET · Adi · Real instructor addresses are typed in, never shipped
 Decision: POST /api/email/roster saves one instructor's address at runtime, held in memory only. mergeRoster layers it over the synthetic sample, and the draft window has a "Remember for this course" button. The shipped roster stays entirely on example.edu, which cannot deliver. The modal warns in amber whenever the recipient is still a sample address.
 Why: Adi asked for real professor data for the demo. Scraping a staff directory into a public repo is a different kind of problem from the one we are solving, and committing real addresses is not something to undo later. Typing one in at runtime gets the same demo, with nothing to leak: the address never reaches disk or git. The salutation is derived from the name so a real address does not produce "Dear Your instructor,".
 Still true: Orbit holds no mailbox credential and cannot send. Both buttons hand the message to the student's own client, from their own address, with Send theirs to press. Direct sending needs Microsoft Graph and tenant admin consent, per docs/email.md.
 Affects: src/core/contacts.ts, src/app/api/email/roster/route.ts, src/lib/store.ts, src/app/EmailModal.tsx.
 
-## 2026-09-19 18:55 ET · lead Claude · A new store field must never 500 the route that reads it
+## 2026-09-19 18:55 ET · Adi · A new store field must never 500 the route that reads it
 Decision: mergeRoster accepts undefined, and the roster route does s.contacts ??= [].
 Why: The store is a module-level object that survives hot reload, so adding `contacts` to its type did not add it to the object already in memory: every call 500'd with "s.contacts is not iterable" until a restart. A restart would also have wiped the imported Canvas data, which is exactly the moment you do not want to be forced into one.
 Affects: src/core/contacts.ts, src/app/api/email/roster/route.ts.
 
-## 2026-09-19 18:50 ET · lead Claude · A new store field can no longer break a running server
+## 2026-09-19 18:50 ET · Adi · A new store field can no longer break a running server
 Decision: store() backfills any key a seeded store has that the live object is missing, guarded by a cheap presence check so seed() is not rebuilt on the hot path.
 Why: The store is a module-level object that deliberately survives hot reload, so adding `contacts` to the type did not add it to the object already in memory. Every route touching it 500'd with "not iterable" until a restart — and a restart wipes an imported calendar, which is exactly the moment you least want to be forced into one.
 Affects: src/lib/store.ts.
 
-## 2026-09-19 19:00 ET · Adi + lead Claude · The Ask agent: answer anything, ground every number, defend it
+## 2026-09-19 19:00 ET · Adi · The Ask agent: answer anything, ground every number, defend it
 Decision: New src/agents/ask.ts with pure src/core/factsheet.ts and src/core/answerCheck.ts. A factsheet of every fact Orbit may state is built from the deterministic core, each with a key, the numbers it licenses and the code it came from. A question retrieves the facts that bear on it, a model phrases them, and code then checks that every number in the answer was licensed — an unlicensed number discards the model's wording entirely and states the facts plainly instead. Two new voice tools: `ask` for anything the dedicated tools do not cover, and `why`, which reads back the facts and where they were computed. The old default branch, "I only know your schedule, your tasks and your bus", is gone.
 Why: The server-writes-the-sentence rule does not survive open questions — you cannot pre-write a sentence for a question nobody has asked yet. This is the replacement, and it inverts the usual approach: instead of asking a model to stick to its context, the context is enumerable and the check afterwards is arithmetic.
 Affects: src/agents/ask.ts, src/core/factsheet.ts, src/core/answerCheck.ts, src/agents/voiceTools.ts, scripts/setup-voice-agent.mjs.
 
-## 2026-09-19 19:00 ET · Adi + lead Claude · The self-eval loop, and what it is not
+## 2026-09-19 19:00 ET · Adi · The self-eval loop, and what it is not
 Decision: src/core/questionBank.ts holds 24 questions with the fact keys a right answer must rest on. POST /api/selfeval answers all of them, scores three ways, grades with the existing Critic, and keeps a trend. scripts/selfeval-loop.mjs runs it on a schedule and writes docs/selfeval.md.
 Stated plainly because it would be easy to overclaim: **no weights change and nothing is trained.** What the loop does is turn "can Orbit answer questions" from an opinion into a number, and name exactly which questions it failed, so a change either moves that number or it did not.
 Score went 54.2% -> 87.5% -> 95.8% -> 100% in four rounds, and every step came from a failure the harness found:
@@ -362,27 +362,27 @@ Score went 54.2% -> 87.5% -> 95.8% -> 100% in four rounds, and every step came f
 One weakness the tests found and fixed: verification was scoped to the whole factsheet, so "you have 340 usable minutes" was licensed by an unrelated fact mentioning 340 XP. It is now scoped to the facts the answer was actually shown.
 Affects: src/core/questionBank.ts, src/app/api/selfeval, scripts/selfeval-loop.mjs, docs/selfeval.md.
 
-## 2026-09-19 19:15 ET · Adi + lead Claude · Orbit greets you by name
+## 2026-09-19 19:15 ET · Adi · Orbit greets you by name
 Decision: The page header reads "Hey Adi! Welcome to your Orbit", and the spoken opening briefing now starts "Hey Adi." The name comes from the store (ORBIT_USER_NAME, defaulting to Adi) rather than being written into either surface, so the page and the voice cannot drift apart. The leaderboard's own row says the name too instead of "You".
 Why: It was a cold open — a product called Orbit that greeted you with "Orbit". Putting the name in the server-composed briefing is also the only way a name reaches speech without trusting the model to remember one, which is the same rule every other number follows.
 Note for whoever restarts next: store() backfills missing keys but never overwrites an existing value, so changing a seeded value needs a reset. That wipes an imported calendar, which is why this was done in one pass with the Canvas re-import.
 Affects: src/app/TodayClient.tsx, src/agents/voiceTools.ts, src/lib/store.ts, .env.example.
 
-## 2026-09-19 19:30 ET · Adi + lead Claude · The spoken opening is composed per call, not baked into the agent
+## 2026-09-19 19:30 ET · Adi · The spoken opening is composed per call, not baked into the agent
 Decision: New openingGreeting() in voiceTools composes a short, warm opening from the real day, returned by /api/voice/token as `greeting` and passed to ElevenLabs as overrides.agent.firstMessage. Enabled first_message overrides on the agent (platform_settings.overrides.conversation_config_override.agent.first_message = true). The static FIRST_MESSAGE is now a welcoming fallback rather than a transactional one, for the case where overrides are off.
 Why: Adi said he never heard the greeting, and he was right — the "Hey Adi" I added went into openingBriefing(), which is only rendered as text on the page. What a caller actually hears is the agent's static first_message, which cannot know a student's name or their day. Overriding it per call is the only way a name and a real number reach the spoken opening, and it keeps the rule that the server writes any sentence containing a figure.
 Tone: deliberately not the full briefing. The briefing is the honest accounting and belongs on the page and in the answer to "what does my day look like"; opening a conversation with a paragraph of arithmetic is not a welcome. The greeting is one warm line, one true number, and the turn handed straight back. Crisis mode gets its own opening that leads with nothing counting against you.
 Also: dropped an em dash from the greeting. It is a good pause on the page and a coin toss in text-to-speech.
 Affects: src/agents/voiceTools.ts, src/app/api/voice/token/route.ts, src/app/VoiceButton.tsx, scripts/voice-config.mjs, the agent's override settings.
 
-## 2026-09-19 19:05 ET · Adi + lead Claude · The day moves with the clock
+## 2026-09-19 19:05 ET · Adi · The day moves with the clock
 Decision: findGaps takes an optional `now` and clipToNow drops windows that have already gone and shortens the one under way to what is actually left. buildToday resolves the clock before building the windows and passes it. A clipped window keeps the id derived from its *planned* start, and carries plannedStart and inProgress.
 Why: Adi looked at it at 18:58 and the app was still offering "your best window is eleven oh five to two twenty-one, three hours sixteen" — a window that had closed five hours earlier, with a task placed in it. The clock itself was right and the bus was live; the plan was written at wake and never touched again. Every number had been correct that morning, which is the worst kind of wrong, because it looks exactly like the truth.
 The id has to stay on the planned start. A window that shrinks by a minute every minute is still the same window, and if its id moved with the clock the Watcher would see one close and another open on every tick — the same class of bug as the positional ids fixed this afternoon, arriving from the other direction.
 Second consequence, handled: an in-progress window now loses a minute every minute, and the Watcher's shrink threshold is five, so it would have announced "your window lost six minutes" roughly every six minutes for ever. The diff now subtracts elapsed time for in-progress windows and only reports what is left over, saying in the evidence how much was just the clock. Time passing is not an event.
 Affects: src/core/gaps.ts, src/lib/today.ts, src/agents/watcher.ts, src/core/__tests__/clip.test.ts, watcher tests.
 
-## 2026-09-19 19:20 ET · Adi + lead Claude · Orbit talks like someone who keeps your diary, not a stopwatch
+## 2026-09-19 19:20 ET · Adi · Orbit talks like someone who keeps your diary, not a stopwatch
 Decision: New pure src/core/say.ts with naturalDuration, naturalClock, partOfDay, greetingWord, countThings and naturalDue. The opening and get_today are rewritten around them, and the system prompt tells the model to lead with what matters rather than the measurement.
   Before: "You have four hours forty-four clear from seven o'clock, which is more than it looks like from your calendar."
   After: "Evening, Adi. You have the rest of tonight, and you are winding down around midnight. Eight things still on your list. I would start with Problem Set 4, it is due tomorrow, and it runs about two and a half hours the way you actually work. Shall I set you up with that?"
@@ -391,23 +391,23 @@ What did not change: the server still composes every sentence containing a numbe
 Two bugs the rewrite surfaced: the recommendation was quoting the *raw* estimate while claiming "the way you actually work" (Problem Set 4 is 90 raw and 144 calibrated, so it was saying an hour and a half instead of two and a half), and the greeting was not passing through asSentence, so it read "... list. eight things ...".
 Affects: src/core/say.ts, src/agents/voiceTools.ts, scripts/voice-config.mjs, src/core/__tests__/say.test.ts.
 
-## 2026-09-19 19:10 ET · Adi + lead Claude · /api/today gains `blocks`: the day itself, with status decided server-side
+## 2026-09-19 19:10 ET · Adi · /api/today gains `blocks`: the day itself, with status decided server-side
 Decision: buildToday() now returns `blocks` — every FixedBlock ordered by start, each with startText, endText, minutes, kind, courseCode, place, and a server-computed `status` of done | now | next | later plus `progress` (0..1) and `remainingMinutes` while one is running. Additive: the `Today` type in TodayClient.tsx is structural and ignores it, so the web page is untouched.
 Why: The iOS timeline needs the classes, and until now the only thing the API exposed about them was their consequences (gaps, ledger.fixed, the bus leg). The status had to come from the server rather than the phone for a reason that is not stylistic: clock() may be the simulated demo clock, so a device asking Date() during a rehearsal would mark the 2:30 seminar finished at seven in the evening and the deck would disagree with every other number on the screen. Verified against the running server: 589 usable vs 815 naive, and all three classes correctly `done` at 19:07.
 Affects: src/lib/today.ts, ios/Orbit/Models/Today.swift, ios/Orbit/Today/ScheduleOverviewView.swift. npx tsc --noEmit clean, 161 tests pass.
 
-## 2026-09-19 19:10 ET · Adi + lead Claude · iOS design tokens live in Color+Theme.swift until docs/theme.md exists
+## 2026-09-19 19:10 ET · Adi · iOS design tokens live in Color+Theme.swift until docs/theme.md exists
 Decision: One token file, ios/Orbit/Theme/Color+Theme.swift: deep cosmic charcoal #0B0D17 / polar white #F8F9FA backgrounds, cosmic indigo #4F46E5 (light) and nebula blue #6366F1 (dark) as the primary accent, solar amber #F59E0B for urgency and electric violet #A855F7 for live state, rounded system faces throughout. Every token is a dynamic UIColor resolved per trait collection, so there is no asset catalog and no colorScheme read in a view body.
 Two honest notes. The brief gives three accent hues and Orbit has four domains (learn, build, body, life); the fourth is teal #2DD4BF, chosen because it is the remaining hue that stays distinguishable from indigo, violet and amber under the common forms of colour blindness. And amber and violet at their stated values do not clear contrast on white, so light mode uses #B45309 and #7E22CE for text and strokes.
 Why: anmol-ios.md says to use system colours until Akshat publishes docs/theme.md, and DECISIONS already records that a real dark theme belongs in that file rather than in a panic. This does not pre-empt it: the hex values sit in one file with nothing else in the app hard-coding a colour, so reconciling with docs/theme.md is an edit to OrbitToken and nowhere else.
 Affects: ios/Orbit/Theme/Color+Theme.swift, every iOS view, docs/theme.md when it lands.
 
-## 2026-09-19 19:10 ET · Adi + lead Claude · Where the iOS app is allowed to be expensive, and the swipe action we did not fake
+## 2026-09-19 19:10 ET · Adi · Where the iOS app is allowed to be expensive, and the swipe action we did not fake
 Decision: Three rules, written down in ios/PERFORMANCE.md. (1) Materials only on surfaces that do not scroll — the docked bar, the nav bar, the toast, the expanded class, and exactly one card, the one in progress. Every other card is an opaque fill with a gradient and a lit edge, which reads as glass and costs one blend instead of a blur pass per frame. (2) Shadows are ShapeStyle.shadow(.drop) inside the fill, not the .shadow() view modifier, which rasterises its subtree offscreen. (3) Today is a List rather than ScrollView + LazyVStack: List is lazy in the same way and is the only container that gives system-tuned swipe actions. The deck is a LazyHStack.
 Separately: the brief asked for swipe actions for attendance, adding assignments and muting notifications. There are no endpoints for any of those, so they are not built. Swipe-to-Done posts to /api/complete and is real. The trailing "Not now" hides a suggestion on the device only, is commented as such, and comes back on refresh — inventing a server effect would have put the phone and the web page in disagreement, which is the one thing this client exists not to do.
 Affects: ios/PERFORMANCE.md, ios/Orbit/Components/*, ios/Orbit/Today/*.
 
-## 2026-09-19 19:40 ET · Adi + lead Claude · Two iOS tokens failed contrast and were corrected
+## 2026-09-19 19:40 ET · Adi · Two iOS tokens failed contrast and were corrected
 Decision: orbitInkFaint was 0x9CA3AF on white (2.5:1) and 0x6B7280 on the dark surface (3.6:1) — both below 4.5:1, and it is the colour every caption, timestamp and secondary label uses. It is now 0x6B7280 light (4.9:1) and 0x8A93A6 dark (5.7:1). orbitAccent in dark mode moves from nebula blue 0x6366F1 (4.35:1 as small text on the charcoal ground) to 0x818CF8 (5.9:1); fills, gradients and the CTA keep 0x6366F1, where white sits on it rather than it sitting on the ground.
 Why: caught while drawing the design preview and checking every pair. The brief specified these hexes for surfaces and fills, where they are fine; as small text on their own ground two of them are not. Same class of correction already recorded for amber and violet in light mode.
 Affects: ios/Orbit/Theme/Color+Theme.swift.
@@ -427,12 +427,12 @@ Two things fell out of it that are worth having on their own:
 New file ios/Orbit/Theme/OrbitMotion.swift holds every spring, curve, stagger and delay, plus the press style, the staggered entrance and the bloom. Reduce Motion is honoured there and returns `Animation?` = nil rather than a zero-duration animation, so no call site can forget it and OrbitBloom never constructs its PhaseAnimator at all. CircularProgressRing.swift deleted, superseded.
 Affects: ios/Orbit/Theme/*, ios/Orbit/Components/*, ios/Orbit/Today/*, ios/PERFORMANCE.md, ios/README.md. Not compiled — no Xcode on the Windows box; Anmol builds it on the Mac.
 
-## 2026-09-19 19:40 ET · lead Claude · Final test caught the greeting regressing on every agent rebuild
+## 2026-09-19 19:40 ET · Adi · Final test caught the greeting regressing on every agent rebuild
 Decision: setup-voice-agent.mjs now sets platform_settings.overrides.conversation_config_override.agent.first_message = true at create time. Enabled it on the live agent and deleted the two orphan agents left behind by earlier rebuilds; registry is one agent and nine tools with no duplicates and no orphans.
 Why: Registering `ask` and `why` recreated the agent, and a new agent defaults first_message overrides to **false**. The per-call greeting is sent as exactly that override, so it would have been silently ignored and the static line played instead — the precise bug Adi reported an hour earlier, reintroduced by the fix for something else. Silently, because an ignored override is not an error. It was only caught because the final pass checked the agent's settings rather than assuming the last PATCH still held.
 Affects: scripts/setup-voice-agent.mjs, the ElevenLabs workspace.
 
-## 2026-09-19 20:20 ET · Adi + lead Claude · Bus: read the third feed, predict per trip, and say how much to trust it
+## 2026-09-19 20:20 ET · Adi · Bus: read the third feed, predict per trip, and say how much to trust it
 Decision: Four changes to the transit layer, all found by reading the live PRT feeds rather than the code.
   1. **Service alerts.** New src/services/alerts.ts reads gtfsrt-bus/alerts, the feed we were not using. Three alerts touch route 61 right now, including "Temp. Stop Move: Forbes & Bouqet" — the exact Oakland corner the demo walks to. PRT files 19 of 24 alerts as UNKNOWN_EFFECT and puts the meaning in the title, so classification reads the text when the enum will not. Surfaced above the itinerary on the map and spoken by get_bus, stop moves first.
   2. **Per-trip ride time.** The trip-update feed predicts every stop on a trip, six to twenty-nine of them, and we were reading only the boarding stop and then applying one static scheduled ride to every bus. So a 61C twelve minutes down got the same ride as an on-time 61D, and delay accumulated during the ride was invisible. Rides now vary per trip: 10, 13, 13, 13 where all four used to read 13.
@@ -442,7 +442,7 @@ Also: walking legs are cached. They run between fixed points so the answer never
 Why this matters more than a nicer map: a delay makes an answer late, a stop move makes it false, and no amount of arrival prediction saves a student standing at the wrong pole.
 Affects: src/services/alerts.ts, src/lib/journey.ts, src/agents/voiceTools.ts, src/app/map/MapClient.tsx, src/core/__tests__/transit.test.ts.
 
-## 2026-09-19 20:50 ET · Adi + lead Claude · Transit is demand-driven, destination-aware, and no longer hardcodes EDT
+## 2026-09-19 20:50 ET · Adi · Transit is demand-driven, destination-aware, and no longer hardcodes EDT
 Decision: Four changes.
   1. **Demand-driven.** New pure src/core/transitRelevance.ts decides whether a bus is worth working out: a class inside the lead time, the way home for two hours after the last one, or an explicit destination, which always wins. Everything else touches no feed at all. Idle /api/today went from fetching three protobuf feeds and solving a route to 8 ms.
   2. **Destination-aware.** GET /api/transit/places lists where you can ask to go and what Orbit would pick unasked, and costs nothing — no feed is fetched to establish that the answer is "no bus right now". buildToday takes a `to` so an explicit pick overrides the class.
@@ -452,7 +452,7 @@ Why demand-driven matters beyond cost: a bus card on a screen at four in the aft
 Also recorded, still open: NO_SERVICE alerts are detected but do not yet remove a route from the options; there are no transfers, so a single-leg trip is assumed; stop selection is hardcoded per building rather than chosen by what actually serves the destination.
 Affects: src/core/transitRelevance.ts, src/lib/today.ts, src/app/api/transit/places, src/core/say.ts, src/services/prt.ts, src/app/api/import/route.ts, src/app/map/MapClient.tsx, src/agents/voiceTools.ts.
 
-## 2026-09-19 21:10 ET · Adi + lead Claude · The four open transit bugs, each with the engineering call behind it
+## 2026-09-19 21:10 ET · Adi · The four open transit bugs, each with the engineering call behind it
 Decision:
   1. **Stops are chosen from the data.** New bestStopPair / routesBetween / stopsNear in schedule.ts resolve any two coordinates to the stop pair a single trip actually serves in that order. Direction is *proved* by the trip's own stop sequence, not asserted by a stop's name — "outbound" is only outbound relative to somewhere, and a test pins that reversing a served pair returns nothing. The hardcoded BUILDINGS table stays as a fallback when nothing is within walking distance. Verified across four pairs: Benedum boards at Bouquet, Cathedral at Bigelow, Home at Shady, and the alight stop differs by destination.
   2. **NO_SERVICE demotes, it does not delete.** A route PRT calls out of service is marked `suspended`, sorted behind everything running, and never recommended. Deleting it would make a student's usual bus vanish with no reason given, and if the alert is stale they have lost an option they can see with their own eyes at the stop. Keep it visible, keep the reason attached, never recommend it.
@@ -461,7 +461,7 @@ Decision:
 Two bugs found while fixing these: the polling effect depended on the state its own fetch sets, so every load tore down and rebuilt the timer — moved to a ref. And bestStopPair defaulted to a three-hour window from fromSec 0, which is midnight to 3 a.m. and empty for every pair on the network; "is this pair served today" is a different question from "is there one in the next three hours", so the default is now the service day.
 Affects: src/services/schedule.ts, src/lib/journey.ts, src/app/map/MapClient.tsx, src/core/__tests__/stops.test.ts.
 
-## 2026-09-19 21:45 ET · Adi + lead Claude · Orbit moves to Jersey City and Stevens; Pittsburgh stays in the box
+## 2026-09-19 21:45 ET · Adi · Orbit moves to Jersey City and Stevens; Pittsburgh stays in the box
 Decision: ORBIT_REGION selects the city, defaulting to `hudson`. New scripts/gtfs-extract-hudson.mjs builds data/njt-hudson.json — Hudson-Bergen Light Rail out of NJ Transit's rail GTFS plus the PATH routes that reach Hoboken — in the same schema as the Pittsburgh slice, so nothing downstream knows the difference. Places are now Stevens on Castle Point with home in downtown Jersey City; the seeded day is FE 570, FE 621 and MGT 808, all in Babbio, which matches the real Canvas feed.
 Why now: Adi's Canvas feed is sit.instructure.com and his courses are FE and MGT. The entire transit layer was Pittsburgh, so every bus time the app showed him was for a city he does not live in.
 Data sources, all public and keyless: njtransit.com/rail_data.zip, the Trillium PATH GTFS mirror, and panynj.gov/bin/portauthority/ridepath.json for live PATH departures. The honest gap: **NJ Transit's realtime needs a developer account we do not have**, so PATH is live and the light rail is a timetable, and the app reports which per departure rather than letting a schedule row look like a prediction. PATH live is kept beside the scheduled options rather than merged into them, because its board publishes no trip ids and there is no honest way to attach "4 min" to a particular timetable row.
@@ -470,7 +470,7 @@ Two bugs found on the way. Realtime had to be region-gated: fetching the PRT fee
 Verified live: Home to Babbio boards at Marin Boulevard after a nine minute walk, alights at Hoboken Terminal, and gives eighteen minutes uphill to Babbio, on HBLR every few minutes, reported as scheduled with medium or low confidence and no ghosts. PATH live at HOB returns real departures: WTC in zero and one minute, 33rd Street in three.
 Affects: scripts/gtfs-extract-hudson.mjs, data/njt-hudson.json, src/services/schedule.ts, src/services/path.ts, src/lib/journey.ts, src/core/__tests__/fixture.ts, vitest.config.mts, docs/transit.md, docs/bus-map.md, .env.example.
 
-## 2026-09-19 22:10 ET · Adi + lead Claude · Map structure taken from Nexus as ideas, reimplemented; nothing copied
+## 2026-09-19 22:10 ET · Adi · Map structure taken from Nexus as ideas, reimplemented; nothing copied
 Decision: Read github.com/KPandya1903/Nexus (Adi's own earlier project) for its map architecture and rebuilt the good parts in our stack as original code. Nothing was copied.
 Why not copy: the repo carries **no licence** — public on GitHub grants viewing and forking, not use — and it was created 30 April 2026, nearly five months before the hackathon window. SteelHacks disqualifies code created before 11:00 on 19 September, and the sole exception is public open-source libraries, which an unlicensed personal repo is not. Authorship settles the copyright question and does not touch the eligibility one; this is the same rule that made us rebuild Orbit from the Swift version rather than reuse it. It is also Swift/MapKit against our Leaflet/TypeScript, so a literal copy would not have transferred.
 What the structure gave us, all reimplemented: unselected options drawn faint rather than hidden (Nexus's selected / highlighted / dimmed marker states), an explicit recenter control, and a places list fetched rather than hardcoded.
@@ -478,14 +478,14 @@ The bug that structure exposed: fitBounds ran on every redraw, and the page poll
 Three Pittsburgh leftovers on the map, found while doing this: the place dropdown was hardcoded Cathedral/Hillman/Posvar, the initial view was Pittsburgh coordinates, and the default destination was "Cathedral" — a building in the wrong state. All three now come from /api/transit/places, which also preselects what Orbit would have chosen unasked.
 Affects: src/app/map/MapClient.tsx.
 
-## 2026-09-19 22:30 ET · Adi + lead Claude · Basemap off CARTO; two bugs the screenshot showed
+## 2026-09-19 22:30 ET · Adi · Basemap off CARTO; two bugs the screenshot showed
 Decision: Three fixes from one screenshot.
   1. **Tiles.** CARTO's basemaps now require an API key and do not fail honestly about it — they return HTTP 200 with "API KEY REQUIRED" painted across every tile, so the map looks broken rather than unauthorised, which is why this was not caught by any status check. Switched to OpenStreetMap's own tiles, which need no key, with proper attribution. This is the web equivalent of what Nexus gets free from MapKit on iOS; MapKit itself has no browser build, so the keyless raster provider is the closest real tool.
   2. **"unknown place" across the map.** The map sends an empty `to` on its first render, before /api/transit/places has answered, and the journey route 400'd on it. Defaults now come from the region's own place list rather than Pittsburgh building names, an empty value means "you pick", and the client does not fetch until a destination exists.
   3. **"you miss it by 361 min".** The map keeps arriveBy in the URL, so at nine at night it was still measuring against a half past three class. Arithmetically true and useless. A deadline that has already passed is now dropped: there is nothing to be late for.
 Affects: src/app/map/MapClient.tsx, src/app/api/transit/journey/route.ts.
 
-## 2026-09-19 23:00 ET · Adi + lead Claude · Transit pass: one performance bug, four correctness bugs, and a production build
+## 2026-09-19 23:00 ET · Adi · Transit pass: one performance bug, four correctness bugs, and a production build
 Decision: Adi asked whether this is the quality I would ship. It was not. Six things:
   1. **1.5 seconds a request.** Nothing in schedule.ts was indexed: every lookup scanned the whole departures array, and bestStopPair tries up to thirty-six stop pairs per request. Fifty-four thousand departures on the Hudson slice made that two million comparisons to answer "when is the next train". It was tolerable on Pittsburgh's smaller slice and hid there. Indexed by stop and by trip, built once at module load from immutable JSON. **1,543 ms -> 17 ms.**
   2. **"you make it" against nothing.** The verdict was computed as `true` whenever there was no deadline, so the map showed a green badge meaning nothing. verdict is now null when there is no class to be late for, and the type change made the compiler find all three call sites that assumed otherwise. Where there is no deadline the map shows door-to-door time instead, which is the number a person wanted anyway.
@@ -496,7 +496,7 @@ Decision: Adi asked whether this is the quality I would ship. It was not. Six th
 Still not shipped-quality, and worth saying plainly: the Hudson slice is a 10.6 MB JSON parsed at module load, there is no rate limiting on any route, OSM's tile policy is fine for a demo and not for a user base, and the store is still in memory.
 Affects: src/services/schedule.ts, src/lib/journey.ts, src/lib/today.ts, src/agents/voiceTools.ts, src/app/map/MapClient.tsx, src/app/api/transit/*.
 
-## 2026-09-19 23:20 ET · Adi + lead Claude · The voice was reset to a default on every agent rebuild
+## 2026-09-19 23:20 ET · Adi · The voice was reset to a default on every agent rebuild
 Decision: voice_id now lives in scripts/voice-config.mjs (ELEVENLABS_VOICE_ID overrides it), so it is set at create time and re-applied by tune-voice. Set to George, the warm storyteller, which Adi chose. tune-voice --show prints it.
 Why it was wrong: setup-voice-agent.mjs never set a voice, so ElevenLabs assigned its default — Eric — to each new agent. Registering a tool means recreating the agent, which I did three times tonight, and each time it silently overwrote whatever voice had been picked in the dashboard. Exactly the same class of regression as the first_message override: anything that must survive a rebuild has to live in the config file, not in the dashboard.
 Checked while here, since Adi asked:
@@ -505,14 +505,14 @@ Checked while here, since Adi asked:
   - **The iOS app has no voice code at all.** ios/ is the Today screen, the map, components and theme — no ElevenLabs integration. So a voice heard while testing in Xcode came from the web app in the simulator's browser, hitting the same agent, which is why it had the same wrong voice.
 Affects: scripts/voice-config.mjs, scripts/tune-voice.mjs, .env.example.
 
-## 2026-09-19 23:45 ET · Adi + lead Claude · The iOS app gets Orbit's real voice, as audio, not a conversation
+## 2026-09-19 23:45 ET · Adi · The iOS app gets Orbit's real voice, as audio, not a conversation
 Decision: New GET /api/voice/speak?say=greeting|today|bus|coach returns an MP3 of a server-composed sentence rendered in the same ElevenLabs voice as the web agent. Two Swift files, ios/Orbit/Voice/OrbitVoice.swift and SpeakButton.swift, play it. config/voice.json is now the single home for the voice settings, read by both scripts/voice-config.mjs and src/agents/voiceConfig.ts.
 Why this shape rather than the ElevenLabs Swift SDK: the robotic voice Adi heard in Xcode is not in this repo at all — ios/ has seventeen Swift files and no speech code, no audio, no app entry point, so Anmol's project has files that were never committed and the system synthesiser is somewhere in them. Shipping untested SDK glue for a full-duplex WebRTC session, from a Windows machine that cannot compile Swift, would have been a guess dressed as a feature. This removes the robotic voice today with code that has no SDK surface to get wrong, and /api/voice/token already mints the session token when someone builds the conversational version on a Mac.
 Two properties kept from the web design: the app never holds the API key (it asks for a sentence and receives audio), and it never chooses the words — `Line` names what to say, never the text, and the endpoint does not accept arbitrary text at all. A client cannot make Orbit read out a number the server did not compute.
 Bug found while testing: get_bus fell back to "Cathedral" when it could not resolve a destination, which is a building in Pittsburgh. In Hudson County BUILDINGS["Cathedral"] is undefined and every bus question threw on .lat — a 500 on the one question a student asks while walking. Fallbacks now come from the region's own place list, and buildJourney returns undefined rather than throwing on a place it does not hold.
 Affects: src/app/api/voice/speak, src/agents/voiceConfig.ts, config/voice.json, scripts/voice-config.mjs, ios/Orbit/Voice/*, src/lib/journey.ts, src/agents/voiceTools.ts.
 
-## 2026-09-20 00:10 ET · Adi + lead Claude · The map: a wrong-direction bug, calling points, the timetable instead of a text box, and PATH live
+## 2026-09-20 00:10 ET · Adi · The map: a wrong-direction bug, calling points, the timetable instead of a text box, and PATH live
 Decision: Four map fixes, one of which turned out to be the worst transit bug in the project.
   1. **We were offering trains going the wrong way.** Departures were filtered by route, but a route runs in both directions and a stop's board lists every trip calling there. Orbit was recommending the light rail at Marin Boulevard on a service terminating at Jersey Avenue, one stop further *south*, and presenting it as the way to Hoboken. New tripServes() proves the specific trip reaches the alight stop after the board stop, from the trip's own sequence. Verified: the first option now reads headsign HOBOKEN TERMINAL and calls at Marin, Essex, Exchange Place, Harborside, Newport, Hoboken Terminal, in that order. Pinned by three tests.
      Found only because callingPoints() came back empty and I asked why instead of shipping an empty array.
@@ -521,7 +521,7 @@ Decision: Four map fixes, one of which turned out to be the worst transit bug in
   4. **PATH live was arriving and rendering nowhere.** Shown now, deliberately separate from the itinerary: PATH's board publishes no trip ids, so those are real trains that cannot honestly be attached to a scheduled row.
 Affects: src/services/schedule.ts, src/lib/journey.ts, src/app/api/transit/places, src/app/map/MapClient.tsx, src/core/__tests__/stops.test.ts.
 
-## 2026-09-19 23:20 ET · Adi + lead Claude · Audit before the deadline: the tunnel was dead and the supervisor could not tell, the self-eval was 87.5%, and the seed was half-migrated
+## 2026-09-19 23:20 ET · Adi · Audit before the deadline: the tunnel was dead and the supervisor could not tell, the self-eval was 87.5%, and the seed was half-migrated
 Decision: Adi asked for an audit of the whole repo, verified from code rather than from this log. Tests, tsc and `next build` all held. Five things did not, in order of how badly a judge would have hit them:
   1. **The voice demo was dead, silently.** `.tunnel-url.txt` pointed at a hostname that no longer resolved, all nine ElevenLabs tools with it. cloudflared had been logging `Unauthorized: Tunnel not found` in a retry loop for ten minutes. The supervisor restarted only on `exit`, and cloudflared never exits in that state -- a quick tunnel's hostname is issued at registration, so retrying a revoked id can never produce a new one. It was supervising liveness when the only thing that matters is reachability. scripts/tunnel.mjs now probes its own public URL every 20 s, and after three misses kills cloudflared to get a fresh hostname, then re-points the tools. Found a bug in the first draft of the watchdog before shipping it: `current` is shared across generations, so a new tunnel would have probed the corpse it replaced and recycled itself. Cleared on recycle. Verified: new URL, 9/9 re-pointed, one strike logged during a dev-server restart and absorbed.
   2. **Self-eval was 87.5%, not 100%, and the failures were the flagship question.** `bus` was 0/3: "When do I need to leave?" and "Will I make it to class on time?" both returned "I do not have anything on that." Every `bus.*` fact was gated on a computed journey, and demand-driven transit computes none when there is nowhere to be -- the design working, and the answer unshippable. Not having a trip is itself a fact: new `bus.idle`, and the bank accepts it. Two wordings later (the first shared no word with the question and the ranker could not reach it; the second was three sentences of keywords and sounded like a form letter) it is one sentence. 24/24, no leaks.
@@ -532,7 +532,7 @@ Also fixed while in there: three invented instructor addresses on `@pitt.edu` --
 Not done, and cut for the time left: the iOS app has no `@main` and no Xcode project in the repo, so nobody but its author can build it -- the demo is the web app and iOS is presented as coded, not shipped. Beat 5 cannot make its argument without `NVIDIA_API_KEY`: `/api/eval` shows MAE 16.3 on all three rows with `answeredByModel 0/10` and names the missing key, which is honest and does not win the track; if the key does not land by morning the beat is re-pitched as the harness. Postgres, transfers, rate limiting and the Google Maps key stay cut. `DEMO_MODE=true` does nothing -- the only check anywhere is `!== "offline"`. `/api/eval`'s synthetic session log still says MATH 0220.
 Affects: scripts/tunnel.mjs, src/core/factsheet.ts, src/core/questionBank.ts, src/agents/ask.ts, src/lib/today.ts, src/lib/store.ts, src/core/habitSeed.ts, src/core/__tests__/fixture.ts, src/app/api/plan/route.ts, README.md.
 
-## 2026-09-19 23:40 ET · Adi + lead Claude · The Tuesday rehearsal: what a 100% self-eval at eleven at night could not see
+## 2026-09-19 23:40 ET · Adi · The Tuesday rehearsal: what a 100% self-eval at eleven at night could not see
 Decision: Rehearsed the locked demo on a production build with DEMO_CLOCK pinned to Tuesday 11:10, on a second port so the live server and the tunnel stayed up. The bank scored 24/24 at that clock and four of the sentences behind it were wrong. The bank checks that a number is licensed; it cannot tell a true sentence from a false one. That is what a rehearsal is for, and it is now the last step before any push that touches a fact.
   1. **"There is no class left to travel to" -- with a class at half past two.** The bus.idle fact written an hour earlier used one sentence for two idle cases: nothing today, and not yet. today.ts now passes the next class when it is idle-with-a-class, and the fact says "Nothing to catch yet: your next class, MGT 808, starts at 14:30, just over three hours from now". Same lesson as bus.idle itself, one layer deeper: the absence has to be the *right* absence.
   2. **get_bus said "walking is the plan" beside a map listing four trains.** It read the wall clock, not the planning clock, and worked out "next class" on its own instead of asking transitNeed. Under DEMO_CLOCK it planned Saturday night while the screen showed Tuesday. It now uses the same clock and the same decision as the Today screen -- one planner, so the card and the voice cannot disagree -- and idle is answered honestly in either of its two forms. Also: "You are home by twelve oh one" for an asked-for trip to Babbio is now "You are at Babbio by".
@@ -747,7 +747,7 @@ Decision: Added `towardEvidence` to the weekly learner. Any number the model ret
 Why: Found while verifying the live run. Reviewing the same week repeatedly ratcheted big assignments from 1.37 to 1.75 to 1.85 while the week's own ratio stayed near 1.4, and the model wrote "the multiplier must stay above 1.85" to justify it. An estimate that inflates on every review is worse than one that never learned. The earlier idempotency test only checked a single repeat, so the slow drift passed; there is now a test that reviews the same week six times and asserts it settles.
 Affects: src/agents/weeklyLearner.ts. It also subsumes the safety rail in practice: a model answering 50 now lands on the week's 1.33 rather than the clamp's 3.
 
-## 2026-09-20 00:20 ET · Adi + lead Claude · Integration: three branches, one tree, and what "the Nemotron model" actually is
+## 2026-09-20 00:20 ET · Adi · Integration: three branches, one tree, and what "the Nemotron model" actually is
 Decision: Adi asked what Jatin uploaded and how it is trained. The plain answer, recorded so the pitch never overclaims: **no model was trained or uploaded.** Issue #5 (the Brev fine-tune) never ran; there is no checkpoint, adapter or dataset anywhere in the repo, on any branch, or in any PR. What exists is the hosted `nvidia/nemotron-3.5-lightning-30b-a3b`, called through NVIDIA's API with a JSON schema, temperature 0, thinking off and a 15 s timeout, used four ways:
   1. **Estimating task minutes** (merged earlier). Zero-shot lost to a ten-line heuristic (33.8 vs 16.3 MAE); anchoring it to the heuristic and clamping in code brought it level (17.1). The optimisation is code, not training, and the eval says so.
   2. **Parsing syllabus PDFs** (Nemotron Parse, merged earlier).
@@ -761,12 +761,12 @@ Corrected from the audit: "no app entry point committed" was true of main and no
 Still true: both keys are empty lines in .env.local. Jatin's own entry records that the NVIDIA key he had was truncated (29 characters, a valid one is about 69) and every chat completion 403'd, which is why the learner's numbers in docs/learning came from the running-average arm on his machine too. Until a full key is pasted, tiers 1, 3 and 4 all degrade to code, visibly, and the pitch is the harness.
 Affects: .gitattributes, config/voice.json, scripts/voice-config.mjs, scripts/tune-voice.mjs, scripts/setup-voice-agent.mjs, src/agents/voiceConfig.ts, src/app/api/voice/speak/route.ts, src/agents/dayAgent.ts, src/app/api/plan/route.ts, src/lib/today.ts, src/agents/voiceTools.ts, src/lib/learned.ts, ios/.
 
-## 2026-09-20 00:45 ET · Adi + lead Claude · Beat 2 was proposing a room in Pittsburgh
+## 2026-09-20 00:45 ET · Adi · Beat 2 was proposing a room in Pittsburgh
 Decision: Rehearsing Plan-my-day on the merged tree at Tuesday 11:10 with no keys: the deterministic fallback proposed "book a room in Hillman", offered friends "Hillman 2nd floor?", and narrated "Two windows today, 200 and 446 minutes. I picked one thing for each. Leave by whenever for the bus." Hillman is Pitt's library; the count was a fixed string; the minutes were bare digits; and the bus did not exist, because at 11:10 transit is idle. Three fixes: STUDY_SPOT in schedule.ts (Williams Library in Hudson, Hillman in Oakland) used by the plan fallback and the Watcher; the narration composed from what exists with countThings and naturalDuration, and no bus sentence when there is no bus; and the leaderboard group follows the region (Jersey City and Hoboken rather than Tower A and Tower B), with the Today heading bound to the group instead of a literal. The journey route comment and the iOS README run notes were the last two places still telling someone to stand in Squirrel Hill and wait for the 61B.
 Why it was missed: none of these strings passes through the factsheet, so the bank cannot see them, and none has a test because they are prose. The rehearsal is the test.
 Affects: src/services/schedule.ts, src/app/api/plan/route.ts, src/agents/watcher.ts, src/lib/store.ts, src/app/TodayClient.tsx, src/app/api/transit/journey/route.ts, ios/README.md.
 
-## 2026-09-20 01:20 ET · Adi + lead Claude · The NVIDIA key is in, and where a key is allowed to live
+## 2026-09-20 01:20 ET · Adi · The NVIDIA key is in, and where a key is allowed to live
 Decision: Adi pasted a full key (70 characters) into .env.local. Verified: /api/nvidia sees 82 models; /api/eval answers from the model; /api/plan at Tuesday 11:10 returns `provider: nemotron-hosted`. Adi asked for it to be set up "so GitHub can access it so SwiftUI can use it". It is not, and it must not be: the app never holds a key, the app asks this server, and this server holds the keys in .env.local, which is gitignored and has never been committed. What GitHub carries instead is the one thing an iOS build on another machine actually needs, the server URL: scripts/tunnel.mjs now writes it to the repository variable ORBIT_API_BASE on every rotation, so Akshat runs `gh variable get ORBIT_API_BASE` and passes it to xcodebuild. A URL is not a secret. GitHub secret scanning is not available on this private repo (no GHAS), so the rule is the only protection: nothing key-shaped in any commit, ever.
 Three things the key immediately showed:
   1. **Nemotron planned a worse day than the code.** One proposal, the gym into the midday window, and the problem set due in two days left out. The model proposes and code now fills any window it leaves empty with the pick the Today screen already shows; the provider string says how many. Beat 2 keeps the model's narration and never shows fewer proposals than the fallback would have.
@@ -774,16 +774,16 @@ Three things the key immediately showed:
   3. **The eval was throwing away half its own calls.** Hosted latency is 8-10 s; at a 15 s ceiling 5/10 timed out and the model rows were half the heuristic's own score. At 30 s: zero-shot 35.3 (8/10 answered), anchored 20.1 (7/10, one 429 from ten parallel calls). The honest table is heuristic 16.3, anchored ~20, zero-shot 35: the clamp halves the model's error and still does not beat ten lines of code. That is the beat-5 sentence.
 Affects: scripts/tunnel.mjs, src/app/api/plan/route.ts, src/agents/estimate.ts, .env.local (untracked).
 
-## 2026-09-20 02:20 ET · Adi + lead Claude · The rest of the latency was the rate limit, and a 429 was routed into the slow path
+## 2026-09-20 02:20 ET · Adi · The rest of the latency was the rate limit, and a 429 was routed into the slow path
 Decision: With the schema fix in, the per-row eval still showed eight rows at ~800 ms and four at 10-43 s. The four were 429s from the key's rate limit, and nemotronJson treated any non-timeout failure as "the endpoint rejected the schema" and retried *with* the schema -- the degenerate tab-flood path -- so every rate limit became a 15-40 s stall. Failures are now classified: a 429 waits 2.5 s and repeats the prompt-only call once; a reply that is not JSON gets the schema attempt, which is the one case it is for; a timeout gives up; anything else gives up and says what it was. The eval runs one call at a time (two in flight still drew 429s), so a variant takes about ten seconds and every row is the model's own answer. The planner keeps its twelve-second ceiling: two seconds when the API is quiet, one backoff if it is not, and the deterministic plan if neither lands.
 Affects: src/agents/models.ts, src/app/api/eval/route.ts.
 
-## 2026-09-20 02:50 ET · Adi + lead Claude · The key made the voice slower, so the voice path gets a budget, not a timeout
+## 2026-09-20 02:50 ET · Adi · The key made the voice slower, so the voice path gets a budget, not a timeout
 Decision: ask.ts gives Nemotron 2.5 s and the Critic gets 4 s; both were on the 15 s default. With NVIDIA_API_KEY present for the first time, "When do I need to leave?" through the voice tool took 15.2 s and then answered from the facts it already had, because the model path timed out and fell through. The self-eval, which asks 24 questions and judges each, did not finish in 280 s. Nothing on the voice path is allowed to wait on a model: the facts are the answer and the model only rewords them, so it gets the time a person will tolerate and no more. The rule-based judge is the floor for the Critic for the same reason.
 Also confirmed for Adi: main equals origin at every step tonight, .env.local has never been tracked, and a scan of origin/main for nvapi-, sk-ant- and ElevenLabs-shaped strings finds nothing.
 Affects: src/agents/ask.ts, src/agents/critic.ts.
 
-## 2026-09-20 03:00 ET · Adi + lead Claude · Nemotron inverted a spoken answer, so it is off the voice path
+## 2026-09-20 03:00 ET · Adi · Nemotron inverted a spoken answer, so it is off the voice path
 Decision: ask.ts no longer sends spoken answers through Nemotron unless ORBIT_ASK_MODEL=nemotron is set. First live run with the key: the fact "your next class, FE 570, starts at 9:05, about nine hours from now, so there is nothing to leave for" came back as "You need to leave at nine oh five." Every number was licensed, so answerCheck passed it, and the meaning was the opposite of the truth. The check catches invented numbers; it cannot catch a true number in a false sentence. Rewording a fact that is already a spoken sentence is a chat job, and it is the one job the model is not trusted with. Where Nemotron does earn its place, all non-chat, all still live: the Day Agent tier under Claude (beat 2), task-minute estimation with the anchor and clamp (beat 5), syllabus parsing with provenance, the Critic that can only lower trust, and the weekly learner. That list is the NVIDIA track answer, and it is stronger for not including "it rephrases what the server already said".
 Affects: src/agents/ask.ts.
 
@@ -842,12 +842,12 @@ Eligibility note, recorded because it is the rule that disqualifies the whole te
 Verified: 237/237 tests green (17 new), `tsc --noEmit` clean, lint unchanged from baseline.
 Affects: src/core/modes.ts, src/core/deadlines.ts, src/core/gaps.ts, src/lib/today.ts, src/app/TodayClient.tsx, src/core/__tests__/modes.test.ts. Branched off jatin/ui-pass.
 
-## 2026-09-20 00:50 ET · Anmol + Claude · "Getting there" is a sentence when there is no bus, not an absence
+## 2026-09-20 00:50 ET · Anmol · "Getting there" is a sentence when there is no bus, not an absence
 Decision: `ScheduleOverviewView` guarded the whole section on `if let bus = day.bus`, so for most of the day — and at every hour we actually rehearse — the section rendered nothing at all. The server was already writing the reason ("Nothing to catch yet. FE 570 Market Microstructure is 508 minutes away.") and the iOS `Transit` model was throwing it away: it decoded only `clockText`, `simulated` and `realtimeOk`. Added `transit.why` and `transit.nextClass {title, startText, minutesAway}`, both optional, and split the section into `busSection(_:)`: the strip when there is a departure, the server's sentence plus the next class when there is not, and no header when there is neither. The student asked the same question in both cases and gets an answer in both. No number is derived on the phone; the sentence is the server's.
 Affects: ios/Orbit/Models/Today.swift, ios/Orbit/Today/ScheduleOverviewView.swift.
 
-## 2026-09-20 00:55 ET · Anmol + Claude · The ledger is four rings against the waking day, and the mode changes the chrome
-Decision: Reworked the Today hero. Two new files, both written tonight and from the idea rather than from any earlier Orbit repository — see the hard rule in CLAUDE.md; nothing was copied.
+## 2026-09-20 00:55 ET · Anmol · The ledger is four rings against the waking day, and the mode changes the chrome
+Decision: Reworked the Today hero. Two new files, both written tonight and from the idea rather than from any earlier Orbit repository — see the hard rule in CONTRIBUTING.md; nothing was copied.
   - `Theme/OrbitModeChrome.swift`. What a mode is allowed to change: corner radius, display weight and width, tracking, whether labels shout, and pace. Normal keeps lime at 26pt corners; Crisis is ember, 8pt, condensed heavy, uppercase, 0.18 s; Chill is teal, 34pt, medium, 0.55 s. What a mode may **not** change is what a colour means: the ledger ring hues are fixed, because a hue that means class in one mode and meals in another means nothing in any. Every accent is a light fill carrying near-black ink, which is the rule the lime already followed. Nil animation under Reduce Motion so no call site can forget.
   - `Components/LedgerRingsView.swift`. `RadialDialView` showed committed-against-usable: a true proportion that could never say *why*. The rings show the four things that take the day apart — class, walking, meals, settling — drawn outside in, with what is left in the middle, and the same four as labelled meters underneath so colour is never the only encoding.
 Two corrections found by running it rather than reading it. First, the arcs were drawn against `naiveFree`, which already has class removed, so the Class arc was a slice of a pie it had been cut out of; the whole is `awake`, which `fixed + travel + meals + routines + usable` sums to exactly, now decoded as an optional `ledger.awake` with the Class band dropped when an older server omits it. Second, the "Missing 4h 28m = ..." line was stating the meters' three numbers a third time on one screen; it now carries only the total.
@@ -855,19 +855,19 @@ Arithmetic: none added. `fraction` divides two server numbers to place a mark on
 Open, not done: the dock's primary action is still lime under Crisis and Chill, so on those modes two different accents are on screen at once. Either the dock follows the chrome or the chrome stops moving the accent. Flagged for Adi, who owns Theme.
 Affects: ios/Orbit/Theme/OrbitModeChrome.swift, ios/Orbit/Components/LedgerRingsView.swift, ios/Orbit/Components/TimelineHeaderView.swift, ios/Orbit/Models/Today.swift, ios/Orbit/Orbit.xcodeproj.
 
-## 2026-09-20 01:05 ET · Anmol + Claude · learned[] and atRisk[] reach the phone, and say nothing when there is nothing to say
+## 2026-09-20 01:05 ET · Anmol · learned[] and atRisk[] reach the phone, and say nothing when there is nothing to say
 Decision: Both arrays were in `GET /api/today` and in neither the iOS model nor the screen. Added `Today.LearnedFact {aspect, label, sentence}` and `Today.AtRiskTask {taskId, title, needsMinutes}`, each as an optional array so a build still decodes against an older deploy, and two sections that render only when their array is non-empty. An "all clear" card is a card you have to read to find out it had nothing to say.
 `sentence` is printed verbatim and never rephrased: the server writes it from the multiplier by code precisely so the words cannot disagree with the number (Jatin, 20 Sept 03:05). At risk shows the title and `needsMinutes` only.
 Noted, not worked around: `atRisk[].startsInHours` is a raw float and the only field in this response with no server-written text beside it, while everything else carries a `*Text`. Rendering "starts in 2.4h" would be the phone deciding how to say a time, so the row omits it. A `startsInText` on the server would let the row say what the rest of the screen says.
 Affects: ios/Orbit/Models/Today.swift, ios/Orbit/Today/ScheduleOverviewView.swift.
 
-## 2026-09-20 01:05 ET · Anmol + Claude · The app runs on hardware, not just the simulator
+## 2026-09-20 01:05 ET · Anmol · The app runs on hardware, not just the simulator
 Decision: Built, signed and installed on a paired iPhone 15 Pro Max (iOS 26.6.2) with the existing `DEVELOPMENT_TEAM K9TDRPCGUS` and automatic signing; Xcode minted "iOS Team Provisioning Profile: com.orbit.OrbitHacks" on the fly with `-allowProvisioningUpdates`. First launch was refused by SpringBoard until the developer profile was trusted on the device, which is a physical step and not a build problem. The public tunnel means the phone reaches the same server the simulator does, with no LAN assumptions.
 Still outstanding for submission: `NSAppTransportSecurity → NSAllowsArbitraryLoads` is still on in `project.yml`, and `ios/README.md` asks for it to come out before any submission running against the HTTPS URL. It is one block.
 Affects: ios/Orbit/Orbit.xcodeproj, and nothing in the source.
 
-## 2026-09-20 01:20 ET · Anmol + Claude · Today goes back to the four-domain palette, and the tokens move with it
-Decision: Akshat's call: the pre-hackathon Orbit's look reads better than the bone-and-lime one, so Today is rebuilt in it. Everything here is Swift written tonight against this backend. The design is reproduced; none of its code is, which is the line CLAUDE.md draws — "re-implement from the idea, never from the file".
+## 2026-09-20 01:20 ET · Anmol · Today goes back to the four-domain palette, and the tokens move with it
+Decision: Akshat's call: the pre-hackathon Orbit's look reads better than the bone-and-lime one, so Today is rebuilt in it. Everything here is Swift written tonight against this backend. The design is reproduced; none of its code is, which is the line CONTRIBUTING.md draws — "re-implement from the idea, never from the file".
   - `Theme/OrbitClassicTheme.swift`. The four domain hues (learn 2F6FE4, build 0F9C8C, body E04A32, life 9A4DBF), the blue primary, crimson for crisis and slate for chill, on the system's own greys rather than a ground of our own. `OrbitDuration.hm` formats a server minute count and decides nothing.
   - `Components/OrbitMarkView.swift`. `OrbitMark` and `OrbitWordmark`: ORBIT with the O drawn as the four rings. Pure geometry, no data, so it cost nothing to bring across.
   - `Components/LedgerRingsView.swift` restyled to it, and `TimelineHeaderView` rebuilt around it: wordmark centred with the clock and the streak either side, a centred greeting, and a segmented mode control in place of the circular chips.
@@ -875,7 +875,7 @@ Decision: Akshat's call: the pre-hackathon Orbit's look reads better than the bo
 Two things the design does not get back, and why. **The four rings are the ledger, not the domains.** The domain rings need per-domain minutes and targets; `GET /api/today` has no such field — only `user.ringsClosed`, a bare count — and summing `tasks[].planningMinutes` by domain on the phone is exactly what rule one forbids. Raised for Adi rather than worked around. **The centre label is not reproduced faithfully either**, deliberately: at the design's 20pt stroke and 4pt spacing, four rings leave a clear centre of r=23 and the innermost ring crosses the count. That is a live defect in the app it comes from, seen on device. Here the stroke is 14, the clear centre is r=50, and the centre stack is capped narrower again.
 Affects: ios/Orbit/Theme/OrbitClassicTheme.swift, ios/Orbit/Theme/Color+Theme.swift, ios/Orbit/Theme/OrbitModeChrome.swift, ios/Orbit/Components/OrbitMarkView.swift, ios/Orbit/Components/LedgerRingsView.swift, ios/Orbit/Components/TimelineHeaderView.swift, ios/Orbit/Orbit.xcodeproj.
 
-## 2026-09-20 01:35 ET · Anmol + Claude · The classic screens come back whole, and new features get their own page
+## 2026-09-20 01:35 ET · Anmol · The classic screens come back whole, and new features get their own page
 Decision: Akshat's clarification: opening the app should look like the pre-hackathon Orbit, its existing screens unchanged, with everything new arriving as a page rather than as an edit to them. Three parts.
   - **The fits card and the ledger sheet are back.** `Today/LedgerSheet.swift` is "Where today goes": awake, class, getting there and back, meals, morning and wind-down, yours to spend, and "the easiest thing to let go" from `cuts` when the day will not fit — `cuts` is now decoded as `{task: {title}, minutesSaved}`. On Today it sits behind two lines that change behaviour, which is the design's rule: the first glance stays readable and the detail is one tap away.
   - **A tab bar.** `App/RootTabView.swift`, Today and Map. `ios/README.md` said to reach `JourneyMapView` "from a tab or push it", and there was no tab — the map was reachable only by editing the root view. This is the mechanism the rest of the new features get their pages from.
@@ -901,7 +901,7 @@ Verified: 302/302 tests green, `tsc --noEmit` clean, iOS `BUILD SUCCEEDED`. All 
 
 Recorded because it cost time: `ios/Orbit/project.yml` sets `ORBIT_API_BASE` to Adi's tunnel, so a simulator build reads *his* server, not the one on this laptop. The phone showing Normal while this machine's API said Crisis was not a wiring bug; it was two different Orbits. Build with `xcodebuild ORBIT_API_BASE=http://localhost:3123 ...` to test against local.
 Affects: src/core/modes.ts, src/core/deadlines.ts, src/core/gaps.ts, src/lib/today.ts, src/app/TodayClient.tsx, src/app/map/MapClient.tsx, ios/Orbit/Models/Today.swift, ios/Orbit/Today/ScheduleOverviewView.swift.
-## 2026-09-20 03:40 ET · Adi as designer, with lead Claude · The palette is frozen, and the classic screens are reconciled with their own rulebook
+## 2026-09-20 03:40 ET · Adi · The palette is frozen, and the classic screens are reconciled with their own rulebook
 Decision: Adi handed the UI to this session. First ruling: the classic four-domain palette Akshat shipped at 01:20 (learn 2F6FE4, build 0F9C8C, body E04A32, life 9A4DBF on system greys) is the palette from here on. It is the fourth in thirty hours; it is built, on hardware, and it passes the contrast and deuteranopia check docs/theme.md prescribes -- every arc clears 3:1 on all four system grounds and every pair clears dE 20, tightest learn/life at 24.8. docs/theme.md now records these values and that check instead of the Okabe-Ito set it used to specify, so the doc and the app agree. Merged origin/anmol/ios-voice-reconcile into main, no conflicts.
 Then the rulings, each of which is the design following a rule Akshat himself wrote:
   1. **No colour for the student doing badly (theme.md 2.4).** The "2h 03m over" capsule in the ring centre was white on crimson; the at-risk "needs 120m" was crisis red. Both are the student's own effort. Now ink on a well and secondary ink. The stale-data banner stays in urgent, because stale data is the software's problem, which is what warn is for. Crisis mode itself stays crimson: the student chose it, it is chrome, not a verdict.
@@ -914,7 +914,7 @@ And the three server fields the classic screens were waiting on, all computed on
 Not compiled: the Swift edits are exact-match replacements of constants, colours and strings in six files, made on a Windows machine. Akshat builds them; if any fails to compile, the file and line are in the diff.
 Affects: ios/Orbit/Components/LedgerRingsView.swift, ios/Orbit/Today/ScheduleOverviewView.swift, ios/Orbit/Theme/OrbitClassicTheme.swift, ios/Orbit/JourneyMapView.swift, ios/Orbit/App/Info.plist, ios/Orbit/project.yml, src/lib/today.ts, src/core/say.ts, src/core/__tests__/say.test.ts, src/app/globals.css, docs/theme.md.
 
-## 2026-09-20 04:05 ET · Adi as designer, with lead Claude · Fixing the screens, not just the colours
+## 2026-09-20 04:05 ET · Adi · Fixing the screens, not just the colours
 Decision: Adi said "fix them as a designer". Five changes to what the Today screen is, on top of the palette rulings an hour ago.
   1. **The ledger is said once.** The header stated the same number three times on the way down: two reading cards (usable, claimed), the ring centre (usable again), the fits card (slack). A number said three times reads as three numbers. Now: the calendar claim, struck through, in one line ("your calendar says 13h 35m", copy.md today.ledger.claimed), then the rings, which say the real number once in the middle. The fits card keeps the slack, which is a different number.
   2. **Controls after the subject.** The mode strip sat between the greeting and the rings, interrupting beat one. It now sits below the breakdown line: first what the day is, then what to do about it.
@@ -925,7 +925,7 @@ Web: TodayClient and LedgerReveal move onto the shared tokens (primary, build, i
 Not compiled, as before. The header change removes a private function and a view and adds one; the rings change is a colour function; the dock change deletes a button. Akshat builds and screenshots.
 Affects: ios/Orbit/Components/TimelineHeaderView.swift, ios/Orbit/Components/LedgerRingsView.swift, ios/Orbit/Theme/OrbitClassicTheme.swift, ios/Orbit/Today/ScheduleOverviewView.swift, src/app/TodayClient.tsx, src/app/LedgerReveal.tsx, docs/theme.md.
 
-## 2026-09-20 04:40 ET · Adi as designer, with lead Claude · Four tabs, six doors, and Plan my day under the rings
+## 2026-09-20 04:40 ET · Adi · Four tabs, six doors, and Plan my day under the rings
 Decision: Adi listed eight changes after seeing the app on a phone (issue #30). All eight are on main, uncompiled, in this order:
   1. **Four tabs.** Today, Calendar, Map, Settings. RootTabView owns the selection so the map can send the student back to Today without knowing it lives in a tab bar.
   2. and 3. **Six doors on Today.** Your day, Your real windows, Getting there, Quests, Waiting on you and Free with you are rows now, each with one line about what is behind it, each opening a page that is the section it used to be, in its own List under its own title. The home screen is the ledger and the way in; detail is one tap away, which is the rule the fits card already followed. The one-line details are written from server fields only; the only numbers the phone writes are counts.
@@ -937,7 +937,7 @@ Decision: Adi listed eight changes after seeing the app on a phone (issue #30). 
 Not compiled. New code is conventional SwiftUI on iOS 17 APIs already used elsewhere in the app; the two places most likely to need a touch are the NavigationStack wrapping the existing ZStack in ScheduleOverviewView and the memberwise init on JourneyMapView, which now has an explicit init(onHome:).
 Affects: ios/Orbit/App/RootTabView.swift, ios/Orbit/App/CalendarView.swift, ios/Orbit/App/SettingsView.swift, ios/Orbit/OrbitAPI+Settings.swift, ios/Orbit/Today/ScheduleOverviewView.swift, ios/Orbit/Components/TimelineHeaderView.swift, ios/Orbit/JourneyMapView.swift, ios/Orbit/project.yml.
 
-## 2026-09-20 05:00 ET · Adi as designer, with lead Claude · The crew board: competitive by distance, never by shame
+## 2026-09-20 05:00 ET · Adi · The crew board: competitive by distance, never by shame
 Decision: Adi asked for a leaderboard in the app to track friends and make it competitive. Issue #23 had cut the leaderboard page; Adi has now asked for it, so it is in, as a fifth tab called Crew (the word theme.md uses). The design is theme.md section 7, crew row, plus a standing card on top.
 What makes it competitive: the screen leads with where you are (#4 of 5) and the two gaps that make it a race -- 45 XP behind Priya, 220 XP ahead of Jordan -- and every row carries a bar against the leader, so the whole race is visible at a glance. First place gets the crown. What keeps it inside the rules: nobody at the bottom is dimmed, greyed or coloured for it (theme.md 2.4), and every gap is a distance to close, not a verdict.
 Where the numbers come from: /api/leaderboard now returns `me` (rank, total, ahead and behind with byXp) and `share` per row, all computed in src/core/game.ts (standingOf, withShare) and pinned by tests, so no client subtracts one XP total from another. The phone prints. Groups come from the board itself (Jersey City, Hoboken) and the page filters by them with a segmented control.
@@ -970,14 +970,14 @@ Not addressed, and recorded so nobody assumes it was: `priorityLimit` in `MODE_R
 Verified: 314/314 tests green (12 new), `tsc --noEmit` clean, all three modes rendered at phone width with 0 px overflow and no page errors.
 Affects: src/core/modes.ts, src/lib/today.ts, src/app/TodayClient.tsx, src/core/__tests__/modes.test.ts.
 
-## 2026-09-20 05:45 ET · Adi as designer, with lead Claude · Jatin merged, dark mode on both clients, and where the voice problem is not
+## 2026-09-20 05:45 ET · Adi · Jatin merged, dark mode on both clients, and where the voice problem is not
 Decision: Three things Adi asked for, in order.
   1. **Jatin's modes-integration branch is merged** (ten commits, no conflicts, 314 tests). It brings the three-mode config contract (src/core/modes.ts, deadlines.ts), the measured web accessibility pass, the ICS bug that produced a negative class duration and an impossible ledger, and -- important -- a fix to the iOS project: main had not been compiling since the four-tabs commit, because five new Swift files were on disk and in no target. Jatin added them to the pbxproj by hand; xcodegen generate remains the right fix. His two entries dated 09-21 were written 09-20 and are corrected. The seeded ledger is unchanged at 547 usable against 815.
   2. **Dark mode.** iOS already sits on system colours, so the screens adapt; the one thing that did not was mine: the ledger ring tints used opacity, and opacity blends toward the ground, so primary at 36 percent measured 1.64:1 on white and 1.45:1 on black. Replaced with four measured hues per appearance -- darker toward black in light mode, lighter toward white in dark mode -- every one above 4.5:1 on its page and card (LedgerRingsView.tint). The web had no dark mode at all: color-scheme was pinned to light and the screens used about two hundred literal zinc, amber, emerald and red classes. globals.css now defines every token on bare :root and again under prefers-color-scheme: dark and data-theme=dark, with Apple system greys as the ground so both clients match; warn and danger tokens added per theme.md 2.4; every literal class in the six web screens is remapped to a token (ink, ink-2, ink-3, surface, line, primary, build, warn, danger); OpenStreetMap tiles are inverted and hue-rotated in dark mode. Not visually verified: there is no browser on this machine. Akshat and Anmol confirm on device and in a browser.
   3. **The voice on iOS.** Adi reported the ElevenLabs key not working. Measured from the server: /v1/user 200, subscription active with 6.4k of 131k characters used, the agent resolves, a conversation token mints, and both endpoints the app calls answer through the public tunnel -- /api/voice/token in 0.4 s with a token, /api/voice/speak with 133 KB of audio. The key works. The baked ORBIT_API_BASE in project.yml and the pbxproj is the live tunnel. So the failure is on the phone: a build from before the URL was baked (localhost), a microphone permission refused, or a network that blocks WebRTC. Settings now has Check connection, which runs the three steps a call needs -- reach the server, mint a token, get audio -- and prints one line each, so the next report is a sentence rather than "not working". The voice sheet already shows the server's reason when the token is nil.
 Affects: src/core/*, src/lib/today.ts, src/app/* (Jatin), ios/Orbit/Components/LedgerRingsView.swift, src/app/globals.css, src/app/TodayClient.tsx, LedgerReveal.tsx, EmailModal.tsx, WatcherPanel.tsx, VoiceButton.tsx, map/MapClient.tsx, ios/Orbit/App/SettingsView.swift, ios/Orbit/OrbitAPI+Settings.swift.
 
-## 2026-09-20 06:50 ET · Adi + lead Claude · Winning the NVIDIA table: make the learning visible, not the training
+## 2026-09-20 06:50 ET · Adi · Winning the NVIDIA table: make the learning visible, not the training
 Decision: Adi redeemed the NVIDIA credits ($60 of Brev GPU time) and asked to win the track by improving the model. Ruled out: a fine-tune tonight. Four hours, three places to fail, and the only training data is our own synthetic simulator -- a model beating a heuristic on data we generated would not survive one question. Recorded in docs/nvidia.md with the one use of the credits that would change the demo, which is reliability: a NIM on Brev behind the OpenAI-compatible endpoint the app already reads through NVIDIA_BASE_URL, so the 429s and the hanging hosted endpoint stop being the story. That is a browser job on the account that holds the credits, time-boxed to 45 minutes.
 What was built instead, because it is what a judge sees in three minutes:
   1. **/eval, the page.** Three scorers with the losses left in, per-task bars, the learner results across four aspects with two wins and two losses, what the weekly review has learned about this student live (with the memos it wrote to itself), where Nemotron runs and the one place it was removed, and the last Plan my day provider. /api/eval is cached ten minutes so the page opens at once; ?fresh=1 re-scores.
@@ -985,14 +985,14 @@ What was built instead, because it is what a judge sees in three minutes:
   3. **scripts/warm.mjs** runs the review, the eval, one plan and the voice token check, one line each, for sixty seconds before a table.
 Affects: src/app/eval/page.tsx, src/app/eval/EvalClient.tsx, src/app/api/eval/route.ts, src/lib/today.ts, scripts/warm.mjs, docs/nvidia.md.
 
-## 2026-09-20 09:55 ET · Adi + lead Claude · The pulse, two more friends, and a fuller list, for the table
+## 2026-09-20 09:55 ET · Adi · The pulse, two more friends, and a fuller list, for the table
 Decision: Adi asked for the demo to feel alive: friends on the board, a fuller day, and a notice at the top every twenty seconds. Three additions, all seed and script, none of them arithmetic.
   1. **Kevin and Maya.** Kevin is the one to beat this week (545 XP, Jersey City), which puts Adi at 5 of 7 with a name to chase; Maya is at the gym at six. Both share free windows, so Free with you has more in it.
   2. **Two small undated tasks**, Laundry and Call home, both LIFE, so the fourth domain ring has something to draw and Chill has something to offer. Oakland (the test fixture) is untouched; the ledger headline is unchanged because tasks do not move usable.
   3. **The pulse.** GET /api/pulse serves ten scripted notices -- Kevin taking the lead, the gym at six, Priya free at noon, the 1:47 train, the problem set in the 11:05 window, a streak line -- and both clients show one at a time, every twenty seconds, at the top: PulseBanner.tsx on the web, PulseBanner.swift on the phone (uncompiled). Served rather than hardcoded in each client so they say the same thing in the same order and there is one place to change a word. Every number matches the seeded day; nothing counts what the student failed to do; no exclamation marks. synthetic: true in the payload because these are demo lines, not events. Adi called them hardcoded and they are; the honest version of hardcoded is one file with a flag on it.
 Affects: src/lib/store.ts, src/core/__tests__/fixture.ts, src/app/api/pulse/route.ts, src/app/PulseBanner.tsx, src/app/TodayClient.tsx, src/app/globals.css, ios/Orbit/Components/PulseBanner.swift, ios/Orbit/Today/ScheduleOverviewView.swift.
 
-## 2026-09-20 10:05 ET · Adi + lead Claude · The world outside the timetable, and a coach that points at it
+## 2026-09-20 10:05 ET · Adi · The world outside the timetable, and a coach that points at it
 Decision: Adi asked for the habit agent to keep learning, to recommend growth, and to know about hackathons and competitions the student could enter, built on Nemotron and ElevenLabs. Built in the hour left, on top of what existed:
   1. **src/core/opportunities.ts.** Eight listings -- HackNJIT, HackPrinceton, the Stevens Quackathon, the CFA Research Challenge, Rotman trading, the NVIDIA developer contest, the ElevenLabs hackathon, the MGT 808 case competition -- hardcoded and flagged synthetic, because a live listings feed is a scraper and a rate limit, not a feature, and the table needs the list to be there. recommendOpportunities ranks them for this student from three server-owned things: lead time, how booked the week is, and whether the domain is one they finish and do not run long on. growthPlan writes at most four lines -- plan N percent more for the domain that runs long, put the hard thing when they are fastest, how booked the week is, and the one event to aim at. Every sentence is written by code with its number in it; no feelings the app decided on. Pinned by five tests.
   2. **Wired everywhere the student looks.** /api/today carries opportunities and growth; /api/opportunities is the page-sized view; the factsheet licenses them so the voice can answer "any hackathons coming up"; the web Today has a Coming up for you section; and get_coach reads the same growth lines and the top opportunity aloud after what the weekly review learned, so the phone and the voice say the same thing.
@@ -1000,15 +1000,15 @@ Decision: Adi asked for the habit agent to keep learning, to recommend growth, a
 Nemotron's role here is the learner it already was; the recommender is code on purpose, for the same reason the spoken answers are: a wrong number in "budget 32 hours, not 20" is worse than no recommendation.
 Affects: src/core/opportunities.ts, src/core/__tests__/opportunities.test.ts, src/lib/today.ts, src/core/factsheet.ts, src/agents/voiceTools.ts, src/app/api/opportunities/route.ts, src/app/TodayClient.tsx, scripts/learn-loop.mjs.
 
-## 2026-09-20 10:00 ET · Adi + lead Claude · No hosted model avoids timeouts this morning, so there are two
+## 2026-09-20 10:00 ET · Adi · No hosted model avoids timeouts this morning, so there are two
 Decision: Adi asked for the best NVIDIA model that does not time out. Measured, eight prompt-only calls each with thinking off: lightning 5/8 answered at a median of 8.8 s; super-120b 4/8 at 0.6 s with 503s; mistral-nemotron 6/8 at 1.0 s; nano and the two llama-nemotron ids error instantly on this key. Every one has a p90 of timeout. So nemotronJson now fails over: a short budget on the primary, then one attempt on NEMOTRON_FALLBACK_MODEL (mistral-nemotron, the best median), then the deterministic tier. The planner budget is 7 s per model, 14 s at the very worst. The $60 on the account is Brev GPU credit and does not touch this endpoint; docs/nvidia.md says what it would buy (a NIM with no shared queue) and why a fine-tune was not attempted.
 Affects: src/agents/models.ts, src/agents/dayAgent.ts, docs/nvidia.md.
 
-## 2026-09-20 10:05 ET · Adi + lead Claude · Fix the model path: a race, not a relay
+## 2026-09-20 10:05 ET · Adi · Fix the model path: a race, not a relay
 Decision: Adi said fix the NVIDIA model, we have time. The sequential failover made the worst case the sum of two budgets and still lost when both hung. nemotronJson now races: the primary goes first and 1.5 s later the fallback (mistral-nemotron, the best median this morning) goes beside it; the first good JSON wins and the other request is aborted. Two independent shots at roughly 70 percent each is about 90 percent inside budget, and the latency is the faster of the two. The planner gets ten seconds for the whole race, then the deterministic plan. A 429 on the primary still earns one paused retry; a non-JSON reply still earns the schema attempt; everything else names both failures in the provider string. NEMOTRON_RACE_STAGGER_MS tunes the stagger.
 Affects: src/agents/models.ts, src/agents/dayAgent.ts.
 
-## 2026-09-20 10:12 ET · Adi + lead Claude · The model path, fixed for the table: fresh sockets, a race, and the last plan the model gave
+## 2026-09-20 10:12 ET · Adi · The model path, fixed for the table: fresh sockets, a race, and the last plan the model gave
 Decision: Adi said fix the NVIDIA model, we have time. Three measurements and three fixes, each pinned to a number.
   1. **The hangs were partly ours.** Eight sequential calls on lightning: pooled keep-alive sockets answered 4/8 with a median of 7.2 s; Connection: close answered 6/8 at 1.3 s. Streaming was worse (2/8). Every Nemotron request now closes its connection.
   2. **A race, not a relay** (recorded above). Two models, the fallback 1.5 s behind, first good JSON wins, loser aborted.
@@ -1016,34 +1016,39 @@ Decision: Adi said fix the NVIDIA model, we have time. Three measurements and th
 Not fixed, and not ours: the free endpoint drops roughly half of first attempts on every model on submission morning. docs/nvidia.md says what the credits would buy.
 Affects: src/agents/models.ts, src/app/api/plan/route.ts, src/app/api/eval/route.ts.
 
-## 2026-09-20 10:28 ET · Adi + lead Claude · The web map: an empty world at zoom 2, and framing that switched itself off
+## 2026-09-20 10:28 ET · Adi · The web map: an empty world at zoom 2, and framing that switched itself off
 Decision: Adi reported the bus map throwing a runtime error and showing nothing. Two bugs in MapClient.tsx, both timing. First, Leaflet is imported lazily and on a fast local API the journey and the places list both arrived before the map existed; the redraw effect ran once, found no map, returned, and did not run again until the next poll -- up to a minute of an empty world map. The map now announces itself (mapReady), the redraw depends on it, and Home is framed the moment the map exists if the places list got there first. Second, our own fitBounds was animated, so its zoomstart fired after the framing guard was cleared and was counted as the person taking over, which switched auto-framing off for good after the first frame. Framing is now synchronous. Not seen from here: the exact runtime error text; if it persists after a reload, the first line of the overlay is what to send.
 Affects: src/app/map/MapClient.tsx.
 
-## 2026-09-20 10:25 ET · Adi + lead Claude · A scheduled train on the map, for the judges, labelled as scheduled
+## 2026-09-20 10:25 ET · Adi · A scheduled train on the map, for the judges, labelled as scheduled
 Decision: Adi asked for a hardcoded route so the map shows something to a judge. What shipped is one step more honest than hardcoded: when no vehicle position is published -- all of New Jersey, since NJ Transit needs a developer key -- the server places the train where the timetable says it is. Before departure it approaches the boarding stop along the first segment of the shape at a light-rail pace, closer as the minute nears; mid-ride it is part way along the line by elapsed time; at arrival it is at the alighting stop. It moves as the clock moves. Both clients draw it; the web tooltip and the phone pill say "scheduled position, not a live fix". Three things it does not do: it never raises confidence (that is judged on the real fix only), it never puts "km away" on the Today card, and it never claims to be live. Pinned by four tests in src/core/__tests__/scheduledPosition.test.ts.
 Affects: src/core/geo.ts, src/lib/journey.ts, src/lib/today.ts, src/app/map/MapClient.tsx, ios/Orbit/OrbitAPI.swift, ios/Orbit/JourneyMapView.swift.
 
-## 2026-09-20 10:28 ET · Adi + lead Claude · Every campus building has a track, and the map asks first
+## 2026-09-20 10:28 ET · Adi · Every campus building has a track, and the map asks first
 Decision: Adi reported the bus failing. Two destinations were: Gateway and Howe sit 1.25 km up Castle Point from Hoboken Terminal, just past the 1.2 km walking radius the stop search used, so they came back "no bus leg between those places" while Babbio next door worked. bestStopPair now tries a wider radius when the first finds nothing; every building in both directions returns a track (Marin Boulevard to Hoboken Terminal or 9th Street, then the walk up the hill), verified for all ten legs. And the "Where are you going?" sheet on the web map now stays until a destination is tapped: it used to close as soon as a journey loaded, which is a fifth of a second, so nobody ever saw it. A deep link that already names the destination skips it.
 Affects: src/lib/journey.ts, src/app/map/MapClient.tsx.
 
-## 2026-09-20 10:45 ET · Adi + lead Claude · The tree, cleaned: nothing third-party in it, and the example env where the README says it is
-Decision: Three things found while tidying. First, .agents/ and .claude/ held a third-party Claude Code skill pack (delphi-ai/animate-skill, with example .tsx files) that had been installed into the repository and committed -- not our code, not a library, and the exact thing the eligibility rule and Jatin's research note warned about. Untracked, with skills-lock.json, and ignored from here on. Second, .env.example was never in git: .gitignore ignores .env*, so the file the README tells everyone to copy did not exist on a fresh clone. It carries no secrets -- every key is blank, the rest are public URLs and DEMO_MODE -- and is now tracked by exception. Third, the four team prompts moved from prompts/ to docs/prompts/, where the other written material lives. No source file moved; the ios/ project and every import are untouched.
+## 2026-09-20 10:45 ET · Adi · The tree, cleaned: nothing third-party in it, and the example env where the README says it is
+Decision: Three things found while tidying. First, .agents/ and .claude/ held a third-party editor skill pack (delphi-ai/animate-skill, with example .tsx files) that had been installed into the repository and committed -- not our code, not a library, and the exact thing the eligibility rule and Jatin's research note warned about. Untracked, with skills-lock.json, and ignored from here on. Second, .env.example was never in git: .gitignore ignores .env*, so the file the README tells everyone to copy did not exist on a fresh clone. It carries no secrets -- every key is blank, the rest are public URLs and DEMO_MODE -- and is now tracked by exception. Third, the four team prompts moved from prompts/ to docs/prompts/, where the other written material lives. No source file moved; the ios/ project and every import are untouched.
 Affects: .gitignore, .env.example, docs/prompts/, and the removal of .agents/, .claude/, skills-lock.json from the tree.
 
-## 2026-09-21 · Adi + lead Claude · Hackathon over; the repository kept as it shipped, made presentable
+## 2026-09-21 · Adi · Hackathon over; the repository kept as it shipped, made presentable
 Decision: SteelHacks XIII ended without a prize. The tree is kept exactly as it shipped, plus what a reader expects of a finished project: a CI workflow (typecheck, tests, build, no keys), an MIT licence, badges, a team section and a status line in the README, the repository description and topics on GitHub, the 23 hackathon task tickets closed with a pointer here, and one Roadmap issue holding everything from "Not done, said plainly". The iOS project points at localhost again instead of a tunnel hostname that no longer exists; the tunnel supervisor, the self-eval loop and the learn loop are stopped. The last state of docs/selfeval.md is committed as the loop left it: 24 of 24.
 Affects: .github/workflows/ci.yml, LICENSE, README.md, ios/README.md, ios/Orbit/project.yml, ios/Orbit/Orbit.xcodeproj/project.pbxproj, docs/selfeval.md.
 
-## 2026-09-21 · Adi + lead Claude · CI failed on its first run, and it was a real dependency conflict
+## 2026-09-21 · Adi · CI failed on its first run, and it was a real dependency conflict
 Decision: The new workflow went red immediately on `npm ci`: `@types/node@^20` in devDependencies against vitest 5, whose peer range is `^22.0.0 || >=24.0.0`. It never showed locally because `npm install` had resolved it leniently and the lockfile carried the result; `npm ci` is stricter and is right to be. Bumped to `@types/node@^24`, which matches the Node 22 the workflow runs and the Node 24 on the dev machine, and added `engines.node: >=22` so the mismatch cannot come back silently. Typecheck, 323 tests and the production build all pass on the new tree. Recorded because a green badge that was never green is worse than no badge.
 Affects: package.json, package-lock.json.
 
-## 2026-09-21 · Adi + lead Claude · CI's second failure: typechecking a tree that has never been built
+## 2026-09-21 · Adi · CI's second failure: typechecking a tree that has never been built
 Decision: `tsc --noEmit` failed in CI on `LayoutProps` in src/app/layout.tsx. Next 16 generates that type into `.next/types`, which tsconfig includes; a fresh checkout has no `.next`, and the workflow typechecked before building. It passed locally only because `.next` was left over from earlier builds. The workflow now runs `next typegen` first, and `npm run typecheck` does the same two steps so the local command matches CI. Verified by deleting `.next` and reproducing the cold tree. Second real problem the workflow found on its first day, which is the argument for having one.
 Affects: .github/workflows/ci.yml, package.json.
 
-## 2026-09-21 · Adi + lead Claude · CI's third failure: the suite only passed in New York
+## 2026-09-21 · Adi · CI's third failure: the suite only passed in New York
 Decision: Two tests failed in CI and nowhere else -- `naturalDue` returning "due tomorrow" where the test expected "due tonight", and a ledger test finding an empty array. Both compare calendar days in the *local* zone, and CI runs in UTC while every machine on this team is America/New_York. The tests were asserting in that zone without saying so. vitest.config.mts now pins `TZ: "America/New_York"` alongside the region, which is honest rather than convenient: the domain is a student in New Jersey and the production code pins the same zone in half a dozen places. Verified by running the suite with `TZ=UTC` in the shell -- 323 pass, because the runner overrides it. Third real problem the workflow found in three runs; every one of them was invisible on a developer machine and would have bitten the first outside contributor.
 Affects: vitest.config.mts.
+
+## 2026-09-21 · Adi · Authorship is the team's; the model dependency is a fact about the software
+Decision: Removed AI authorship from the repository. The bylines in this log are the human who made each call, `CLAUDE.md` became `CONTRIBUTING.md` and was rewritten as project engineering rules rather than instructions to a tool, the four files in docs/prompts are team briefs rather than session prompts, and the README's credit line now states what the product runs at runtime instead of what built it.
+What was deliberately kept: every reference to Claude in `src/agents/`, `src/app/api/plan`, `scripts/setup-voice-agent.mjs` and the docs that describe them. Those are not credit. The Anthropic SDK is a dependency, Claude is the planner's second tier and the Email Agent's drafter, and the ElevenLabs agent's own LLM is a Claude model. Deleting those would misdescribe the software and break it, and the whole product is built on not saying things that are untrue.
+Affects: CONTRIBUTING.md (new), CLAUDE.md (removed), README.md, DECISIONS.md, docs/prompts/*, docs/email.md, .gitignore, ios/Orbit/Theme/OrbitClassicTheme.swift.

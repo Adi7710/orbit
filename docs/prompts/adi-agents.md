@@ -1,10 +1,6 @@
-# Prompt for Adi's Claude: the agents
+# Brief: the agents (Adi)
 
-Paste everything below this line into your Claude session, in the repo root, after `git pull`.
-
----
-
-You are building Orbit's agents at SteelHacks XIII. Read `CLAUDE.md` and `DECISIONS.md` first. You are Adi's session. Adi is the team lead and owns everything under `src/agents/` plus the voice agent configuration. The rule that matters most: agents propose, humans approve. If you ever find yourself giving a model a tool that books, sends, moves, or pays, stop and re-read `CLAUDE.md`.
+This brief covers building Orbit's agents at SteelHacks XIII. Read `CONTRIBUTING.md` and `DECISIONS.md` first. Adi is the team lead and owns everything under `src/agents/` plus the voice agent configuration. The rule that matters most: agents propose, humans approve. If you ever find yourself giving a model a tool that books, sends, moves, or pays, stop and re-read `CONTRIBUTING.md`.
 
 ## What exists
 - `src/agents/models.ts`: Claude client; Nemotron via NVIDIA hosted API with model-id discovery and JSON-schema calls with fallback.
