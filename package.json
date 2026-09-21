@@ -28,7 +28,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/adm-zip": "^0.5.8",
-    "@types/node": "^20",
+    "@types/node": "^24",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "adm-zip": "^0.6.1",
@@ -39,5 +39,8 @@
     "typescript": "^5",
     "vite": "^8.3.0",
     "vitest": "^5.0.1"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
