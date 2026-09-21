@@ -21,6 +21,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # LayoutProps and friends are generated into .next/types, which tsconfig
+      # includes. A fresh checkout has no .next, so tsc must not run first.
+      - run: npx next typegen
       - run: npx tsc --noEmit
       - run: npx vitest run
       - run: npx next build
