@@ -26,8 +26,8 @@ settings:
     SWIFT_VERSION: "5.0"
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
     # The one place the server URL is set. Override per build without touching
-    # the plist: `xcodebuild ORBIT_API_BASE=https://dress-cycles-editing-zum.trycloudflare.com ...`
-    ORBIT_API_BASE: https://dress-cycles-editing-zum.trycloudflare.com
+    # the plist: `xcodebuild ORBIT_API_BASE=http://localhost:3123 ...`
+    ORBIT_API_BASE: http://localhost:3123
 
 packages:
   # Voice. The only third-party package in the app; networking is still

@@ -1,5 +1,10 @@
 # Orbit
 
+[![ci](https://github.com/Adi7710/orbit/actions/workflows/ci.yml/badge.svg)](https://github.com/Adi7710/orbit/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![tests](https://img.shields.io/badge/tests-323%20passing-brightgreen)
+![built at](https://img.shields.io/badge/built%20at-SteelHacks%20XIII%2C%2024h-8A2BE2)
+
 **Your calendar says you have 13h 35m free today. You have 9h 07m.**
 
 Orbit counts the commute, the meals and the settling-in, finds the real windows between classes, puts one thing in each, tells you when to stand up for the train, takes *"that took ninety-five minutes"* by voice, learns each week what you are actually like, points you at the next hackathon, and ranks you against your crew — without ever telling you that you did badly.
@@ -114,9 +119,24 @@ node scripts/warm.mjs             # before a demo: review, eval cache, plan cach
 
 - `ORBIT_REGION=hudson` (default) is Jersey City → Stevens; `oakland` is Pittsburgh, kept because the transit regression tests are pinned to it.
 - `DEMO_CLOCK=2026-09-22T13:20` pins the planning clock to a weekday afternoon for weekend judging.
-- **iOS:** `git pull`, `cd ios/Orbit && xcodegen generate`, open `Orbit.xcodeproj`, Run. The server URL is baked in as `ORBIT_API_BASE`; the app holds no keys. If it cannot reach the server, the tunnel rotated: pull again.
+- **iOS:** `cd ios/Orbit && xcodegen generate`, open `Orbit.xcodeproj`, Run. `ORBIT_API_BASE` defaults to `http://localhost:3123` (a dev server on the same Mac); point it at a deployment with `xcodebuild ORBIT_API_BASE=https://…`. The app holds no keys.
 
 ---
+
+## Team
+
+| | |
+|---|---|
+| **Aditya Bhatia** ([@Adi7710](https://github.com/Adi7710)) | lead, backend, voice, transit, design |
+| **Jatin Srivastava** ([@jatinsrivastava11](https://github.com/jatinsrivastava11)) | Nemotron, the weekly learner, the mode system, Canvas import, the web accessibility pass |
+| **Anmol Hazari** ([@anmolhazari](https://github.com/anmolhazari)) | the iOS app, the Xcode project, the map |
+| **Akshat** ([@ak8hat](https://github.com/ak8hat)) | theme, copy, the classic screens, the on-device builds |
+
+Built with Claude Code as the engineering partner throughout; the credit line at the top says exactly what the AI did.
+
+## Status
+
+Hackathon complete (20 September 2026). The repository is kept as it shipped, plus a CI workflow, a licence, and this README. Ongoing work is in the [Roadmap](https://github.com/Adi7710/orbit/issues/32) issue.
 
 ## Not done, said plainly
 

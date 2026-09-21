@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  server:
+    name: typecheck, test, build
+    runs-on: ubuntu-latest
+    env:
+      # No keys in CI. Every model call degrades to its deterministic tier,
+      # and the tests never touch the network.
+      ORBIT_REGION: hudson
+      ORBIT_NO_REVIEW: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx vitest run
+      - run: npx next build
